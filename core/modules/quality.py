@@ -64,8 +64,8 @@ def process_quality(point_id, value, meta, config):
             return None
 
     if event:
-        meta["state"] = new_state
-        meta["last_change_ts"] = now
+        # meta["state"] = new_state
+        # meta["last_change_ts"] = now
 
         return {
             "event": event,
@@ -75,7 +75,8 @@ def process_quality(point_id, value, meta, config):
             "point_id": point_id,
             "value": value,
             "old_state": old_state,
-            "new_state": new_state
+            "new_state": new_state,
+            "ts": now
         }
 
     return None

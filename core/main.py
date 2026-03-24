@@ -85,16 +85,17 @@ def main():
     mqtt_cfg = config["bootstrap"]["mqtt"]
     data_source = config["bootstrap"]["data_source"]
 
-    if data_source == "sim":
-        host = mqtt_cfg["host_sim"]
-    else:
-        host = mqtt_cfg["host_real"]
+    # if data_source == "sim":
+    #    host = mqtt_cfg["host_sim"]
+    # else:
+    #    host = mqtt_cfg["host_real"]
 
-    port = mqtt_cfg["port"]
+    # port = mqtt_cfg["port"]
 
+    # start_mqtt(config, mqtt_callback(buffer, buffer_lock))
     start_mqtt(config, mqtt_callback(buffer, buffer_lock))
 
-    print(f"[MQTT] Connected to {host}:{port}")
+    # print(f"[MQTT] Connected to {host}:{port}")
 
     # --- SYSTEM TICK ---
     tick = config["system"]["system_tick_ms"] / 1000
@@ -135,6 +136,10 @@ def main():
                 meta=meta,
                 config=config
             )
+
+            if result:
+                meta["state"] = result["new_state"]
+                meta["last_change_ts"] = result["ts"]
 
             # --- REDIS WRITE ---
             key = f"point:{point_id}"
