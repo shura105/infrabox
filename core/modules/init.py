@@ -1,0 +1,36 @@
+import json
+
+POINTS_PATH = "/app/config/points.json"
+
+
+def load_points():
+    with open(POINTS_PATH) as f:
+        points = json.load(f)
+
+    meta_cache = {}
+
+    for p in points:
+        pid = p["id"]
+
+        meta_cache[pid] = {
+            "object": p["object"],
+            "drop": p["drop"],
+            "system": p["system"],
+            "pointname": p["pointname"],   # 🔥 ДОДАНО
+            "id": p["id"],
+            "unit": p.get("unit", ""),     # 🔥 ДОДАНО
+
+            "limits": {
+                "min": p["min"],
+                "max": p["max"],
+                "warn_min": p["warn_min"],
+                "warn_max": p["warn_max"],
+                "alarm_min": p["alarm_min"],
+                "alarm_max": p["alarm_max"],
+            },
+
+            "state": "INIT",
+            "last_change_ts": 0
+        }
+
+    return meta_cache

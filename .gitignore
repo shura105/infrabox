@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+log/*.log
+# Mosquitto runtime data
+mosquitto/mosquitto-real/data/
+mosquitto/mosquitto-sim/data/
+mosquitto/mosquitto-real/log/
+mosquitto/mosquitto-sim/log/

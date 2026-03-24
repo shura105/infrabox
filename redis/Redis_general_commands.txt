@@ -1,0 +1,78 @@
+шпаргалка по основних операціях в Redis
+
+
+1. Підключення
+redis-cli                  # запуск CLI
+redis-cli -h <host> -p <port> -a <password>   # підключення до віддаленого сервера
+
+2. Ключі
+SET key value               # створити/змінити ключ
+GET key                     # отримати значення
+DEL key                     # видалити ключ
+EXISTS key                  # перевірити наявність ключа
+EXPIRE key seconds          # встановити час життя ключа
+TTL key                     # перевірити залишок часу життя
+KEYS pattern                # список ключів (не для продакшну!)
+SCAN cursor [MATCH pattern] [COUNT n]   # ефективний варіант для великих наборів
+
+3. Строкові значення (Strings)
+INCR key                    # збільшити число на 1
+DECR key                    # зменшити число на 1
+APPEND key value            # додати рядок до існуючого
+GETSET key value            # отримати старе значення та записати нове
+
+4. Списки (Lists)
+LPUSH key value             # додати в початок
+RPUSH key value             # додати в кінець
+LPOP key                    # взяти з початку
+RPOP key                    # взяти з кінця
+LRANGE key start stop       # отримати підсписок
+LLEN key                    # довжина списку
+
+5. Множини (Sets)
+SADD key value              # додати елемент
+SREM key value              # видалити елемент
+SMEMBERS key                # всі елементи
+SISMEMBER key value         # перевірити наявність
+SCARD key                   # кількість елементів
+SINTER key1 key2            # перетин множин
+SUNION key1 key2            # об’єднання множин
+
+
+6. Відсортовані множини (Sorted Sets)
+ZADD key score value        # додати зі значенням (score)
+ZRANGE key start stop [WITHSCORES]  # діапазон елементів
+ZREM key value              # видалити
+ZSCORE key value            # отримати score
+ZCARD key                   # кількість елементів
+ZRANK key value             # позиція елемента
+
+7. Хеші (Hashes)
+HSET key field value        # встановити поле
+HGET key field              # отримати поле
+HGETALL key                 # всі поля та значення
+HDEL key field              # видалити поле
+HEXISTS key field           # перевірка наявності поля
+HINCRBY key field increment # збільшення числового поля
+
+8. Pub/Sub
+PUBLISH channel message      # надіслати повідомлення
+SUBSCRIBE channel1 channel2  # підписка на канали
+UNSUBSCRIBE channel1         # відписка
+PSUBSCRIBE pattern*          # підписка на патерни
+PUBSUB CHANNELS              # активні канали
+PUBSUB NUMSUB channel        # кількість підписників
+
+9. Інші корисні
+FLUSHALL                   # видалити все
+FLUSHDB                    # видалити все в поточній БД
+DBSIZE                     # кількість ключів у БД
+PING                       # перевірка з’єднання
+INFO                       # інформація про сервер
+
+
+
+
+
+
+
