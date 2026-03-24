@@ -26,31 +26,37 @@ def process_quality(point_id, value, meta, config):
 
     event = None
 
-    # INIT → first state
+    # INIT → перший стан
     if old_state == "INIT":
         event = f"FIRST_VALID_{new_state}"
 
+    # будь-який → UNCERT
     elif new_state == "UNCERT":
         if old_state != "UNCERT":
             event = "UNCERT"
 
-    elif old_state == "UNCERT" and new_state == "GOOD":
-        event = "CLEAR_UNCERT"
+    # UNCERT → будь-який валідний
+    elif old_state == "UNCERT":
+        event = f"CLEAR_UNCERT_TO_{new_state}"
 
+    # будь-який → ALARM
     elif new_state == "ALARM":
         if old_state != "ALARM":
             event = "ALARM"
 
+    # ALARM → GOOD з recovery
     elif old_state == "ALARM" and new_state == "GOOD":
         if now - meta["last_change_ts"] >= recovery_time:
             event = "CLEAR_ALARM"
         else:
             return None
 
+    # будь-який → WARN (окрім WARN→WARN)
     elif new_state == "WARN":
-        if old_state == "GOOD":
+        if old_state != "WARN":
             event = "WARN"
 
+    # WARN → GOOD з recovery
     elif old_state == "WARN" and new_state == "GOOD":
         if now - meta["last_change_ts"] >= recovery_time:
             event = "CLEAR_WARN"
