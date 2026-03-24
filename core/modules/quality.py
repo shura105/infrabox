@@ -64,9 +64,6 @@ def process_quality(point_id, value, meta, config):
             return None
 
     if event:
-        # meta["state"] = new_state
-        # meta["last_change_ts"] = now
-
         return {
             "event": event,
             "object": meta["object"],

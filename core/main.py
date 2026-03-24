@@ -1,5 +1,6 @@
 import json
 import time
+import logging
 from threading import Lock
 
 import redis
@@ -7,6 +8,12 @@ import redis
 from modules.mqtt import start_mqtt
 from modules.quality import process_quality
 from modules.init import load_points
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+log = logging.getLogger("core")
 
 CONFIG_PATH = "/app/config/system.json"
 
@@ -50,7 +57,7 @@ def mqtt_callback(buffer, lock):
         try:
             payload = json.loads(payload_raw)
         except:
-            print(f"[ERROR] Bad JSON: {payload_raw}")
+            log.warning(f"Bad JSON: {payload_raw}")
             return
 
         point_id = payload.get("id")
@@ -73,34 +80,24 @@ def mqtt_callback(buffer, lock):
 
 # --- MAIN ---
 def main():
-    print("CORE STARTED")
+    log.info("Core started")
 
     config = load_config()
     meta_cache = load_points()
     r = get_redis(config)
 
-    print(f"INIT: loaded {len(meta_cache)} points")
+    log.info(f"Loaded {len(meta_cache)} points")
 
     # --- MQTT ---
     mqtt_cfg = config["bootstrap"]["mqtt"]
     data_source = config["bootstrap"]["data_source"]
 
-    # if data_source == "sim":
-    #    host = mqtt_cfg["host_sim"]
-    # else:
-    #    host = mqtt_cfg["host_real"]
-
-    # port = mqtt_cfg["port"]
-
-    # start_mqtt(config, mqtt_callback(buffer, buffer_lock))
     start_mqtt(config, mqtt_callback(buffer, buffer_lock))
-
-    # print(f"[MQTT] Connected to {host}:{port}")
 
     # --- SYSTEM TICK ---
     tick = config["system"]["system_tick_ms"] / 1000
 
-    print(f"SYSTEM TICK: {tick}s")
+    log.info(f"System tick: {tick}s")
 
     # --- MAIN LOOP ---
     while True:
@@ -159,9 +156,8 @@ def main():
 
             # --- EVENTS ---
             if result:
-                print("[EVENT]", result)
+                log.info(f"[EVENT] {result}")
 
-                # r.hset(key, "alarm_state", result["new_state"])
                 r.publish("bus:event", json.dumps(result))
 
         # --- STATS ---

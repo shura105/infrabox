@@ -1,4 +1,6 @@
 import paho.mqtt.client as mqtt
+import logging
+log = logging.getLogger("core.mqtt")
 
 
 def start_mqtt(config, on_message_cb):
@@ -15,7 +17,7 @@ def start_mqtt(config, on_message_cb):
     client = mqtt.Client()
 
     def on_connect(client, userdata, flags, rc):
-        print(f"[MQTT] Connected to {host}:{port} rc={rc}")
+        log.info(f"MQTT connected to {host}:{port} rc={rc}")
         client.subscribe("#")
 
     def on_message(client, userdata, msg):
