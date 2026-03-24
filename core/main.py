@@ -156,7 +156,7 @@ def main():
             if result:
                 print("[EVENT]", result)
 
-                r.hset(key, "alarm_state", result["new_state"])
+                # r.hset(key, "alarm_state", result["new_state"])
                 r.publish("bus:event", json.dumps(result))
 
         # --- STATS ---
