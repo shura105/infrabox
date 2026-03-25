@@ -8,6 +8,7 @@ import redis
 from modules.mqtt import start_mqtt
 from modules.quality import process_quality
 from modules.init import load_points
+from modules.watchdog import RedisWatchdog
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,12 +32,39 @@ def load_config():
 def get_redis(cfg):
     r_cfg = cfg["bootstrap"]["redis"]
 
-    return redis.Redis(
+    r = redis.Redis(
         host=r_cfg["host"],
         port=r_cfg["port"],
         db=r_cfg.get("db", 0),
         decode_responses=True
     )
+
+    retries = 10
+    for attempt in range(retries):
+        try:
+            r.ping()
+            log.info("Redis connection established")
+            return r
+        except (redis.ConnectionError, redis.TimeoutError):
+            log.warning(f"Redis unavailable, retry {attempt + 1}/{retries}...")
+            time.sleep(2)
+
+    log.error("Redis unavailable after all retries — exiting")
+    raise SystemExit(1)
+
+
+# --- REDIS ONE SHOT ---
+def try_reconnect_redis(cfg):
+    """одна спроба підключення без ретраїв"""
+    r_cfg = cfg["bootstrap"]["redis"]
+    r = redis.Redis(
+        host=r_cfg["host"],
+        port=r_cfg["port"],
+        db=r_cfg.get("db", 0),
+        decode_responses=True
+    )
+    r.ping()
+    return r
 
 
 # --- BUILD MQTT TOPIC ---
@@ -51,7 +79,7 @@ def tick_clock(r):
     r.publish("bus:clock", ts)
 
 
-# --- MQTT CALLBACK (тільки ingestion!) ---
+# --- MQTT CALLBACK ---
 def mqtt_callback(buffer, lock):
     def on_message(topic, payload_raw):
         try:
@@ -88,6 +116,23 @@ def mqtt_callback(buffer, lock):
     return on_message
 
 
+# --- RESET TO INIT ---
+def reset_meta(meta_cache):
+    for meta in meta_cache.values():
+        meta["state"] = "INIT"
+        meta["last_update_ts"] = 0
+        meta["last_value"] = None
+    log.info("All points reset to INIT")
+
+
+# --- CLEAR REDIS STRUCTURE ---
+def clear_redis(r, meta_cache):
+    keys = [f"point:{pid}" for pid in meta_cache]
+    keys += ["system:clock", "system:buffer_size", "system:passed_deadband"]
+    r.delete(*keys)
+    log.info("Redis structure cleared")
+
+
 # --- MAIN ---
 def main():
     log.info("Core started")
@@ -98,11 +143,11 @@ def main():
 
     log.info(f"Loaded {len(meta_cache)} points")
 
-    # --- MQTT ---
-    mqtt_cfg = config["bootstrap"]["mqtt"]
-    data_source = config["bootstrap"]["data_source"]
-
     start_mqtt(config, mqtt_callback(buffer, buffer_lock))
+
+    # --- WATCHDOG ---
+    watchdog = RedisWatchdog(r, timeout_sec=5)
+    watchdog.start()
 
     # --- SYSTEM TICK ---
     tick = config["system"]["system_tick_ms"] / 1000
@@ -111,121 +156,151 @@ def main():
 
     # --- MAIN LOOP ---
     while True:
-        # --- CLOCK ---
-        tick_clock(r)
 
-        # --- READ BUFFER ---
-        with buffer_lock:
-            updates = list(buffer.items())
-            buffer.clear()
+        # --- WATCHDOG CHECK ---
+        if not watchdog.check():
+            reset_meta(meta_cache)
 
-        # --- PROCESS BATCH ---
-        passed = 0
+            log.error("Redis unhealthy — attempting reconnect...")
+            try:
+                r_new = try_reconnect_redis(config)
+                clear_redis(r_new, meta_cache)
 
-        for point_id, data in updates:
+                r = r_new
+                watchdog.r = r_new
+                watchdog.last_heartbeat = time.time()
 
-            if point_id not in meta_cache:
-                continue
+                log.info("Redis reconnected — ready")
 
-            meta = meta_cache[point_id]
+            except Exception as e:
+                log.error(f"Reconnect failed: {e}")
+                time.sleep(5)
 
-            # --- topic validation ---
-            expected_topic = build_topic(meta)
+            continue
 
-            if data["topic"] != expected_topic:
-                continue
+        try:
+            # --- CLOCK ---
+            tick_clock(r)
 
-            value = data["value"]
-            ts = data["ts"]
-            meta["last_update_ts"] = int(time.time() * 1000)
+            # --- READ BUFFER ---
+            with buffer_lock:
+                updates = list(buffer.items())
+                buffer.clear()
 
-            # --- DEADBAND ---
-            deadband = meta.get("deadband", 0)
-            last_value = meta.get("last_value")
+            # --- PROCESS BATCH ---
+            passed = 0
 
-            if last_value is not None and deadband > 0:
-                if abs(value - last_value) < deadband:
-                    continue  # зміна незначна — пропускаємо
+            for point_id, data in updates:
 
-            meta["last_value"] = value
-            passed += 1
-
-            # --- QUALITY ---
-            result = process_quality(
-                point_id=point_id,
-                value=value,
-                meta=meta,
-                config=config
-            )
-
-            if result:
-                meta["state"] = result["new_state"]
-                meta["last_change_ts"] = result["ts"]
-
-            # --- REDIS WRITE ---
-            key = f"point:{point_id}"
-
-            r.hset(key, mapping={
-                "value": value,
-                "ts": ts,
-                "quality": meta["state"],
-                "object": meta["object"],
-                "system": meta["system"],
-                "pointname": meta["pointname"],
-                "unit": meta.get("unit", "")
-            })
-
-            # --- PUB DATA ---
-            r.publish("bus:data", point_id)
-
-            # --- EVENTS ---
-            if result:
-                log.info(f"[EVENT] {result}")
-
-                r.publish("bus:event", json.dumps(result))
-
-        # --- DESYNC GUARD ---
-        if config["system"]["desync_guard"]:
-            now_ms = int(time.time() * 1000)
-            timeout = config["system"]["desync_timeout_ms"]
-
-            for point_id, meta in meta_cache.items():
-
-                # точка ще ніколи не отримувала даних
-                if meta["last_update_ts"] == 0:
+                if point_id not in meta_cache:
                     continue
 
-                # точка вже в NODATA — не дублюємо подію
-                if meta["state"] == "NODATA":
+                meta = meta_cache[point_id]
+
+                # --- topic validation ---
+                expected_topic = build_topic(meta)
+
+                if data["topic"] != expected_topic:
                     continue
 
-                if now_ms - meta["last_update_ts"] > timeout:
-                    old_state = meta["state"]
-                    meta["state"] = "NODATA"
-                    meta["last_change_ts"] = now_ms
+                value = data["value"]
+                ts = data["ts"]
 
-                    key = f"point:{point_id}"
-                    r.hset(key, "quality", "NODATA")
+                meta["last_update_ts"] = int(time.time() * 1000)
 
-                    event = {
-                        "event": "DESYNC",
-                        "object": meta["object"],
-                        "drop": meta["drop"],
-                        "system": meta["system"],
-                        "point_id": point_id,
-                        "value": None,
-                        "old_state": old_state,
-                        "new_state": "NODATA",
-                        "ts": now_ms
-                    }
+                # --- DEADBAND ---
+                deadband = meta.get("deadband", 0)
+                last_value = meta.get("last_value")
 
-                    log.warning(f"[DESYNC] point {point_id} → NODATA")
-                    r.publish("bus:event", json.dumps(event))
-                    r.publish("bus:data", point_id)
+                if last_value is not None and deadband > 0:
+                    if abs(value - last_value) < deadband:
+                        continue
 
-        # --- STATS ---
-        r.set("system:buffer_size", len(updates))
-        r.set("system:passed_deadband", passed)
+                meta["last_value"] = value
+                passed += 1
+
+                # --- QUALITY ---
+                result = process_quality(
+                    point_id=point_id,
+                    value=value,
+                    meta=meta,
+                    config=config
+                )
+
+                if result:
+                    meta["state"] = result["new_state"]
+                    meta["last_change_ts"] = result["ts"]
+
+                # --- REDIS WRITE + PUB DATA ---
+                key = f"point:{point_id}"
+
+                pipe = r.pipeline()
+                pipe.hset(key, mapping={
+                    "value": value,
+                    "ts": ts,
+                    "quality": meta["state"],
+                    "object": meta["object"],
+                    "system": meta["system"],
+                    "pointname": meta["pointname"],
+                    "unit": meta.get("unit", "")
+                })
+                pipe.publish("bus:data", point_id)
+
+                if result:
+                    pipe.publish("bus:event", json.dumps(result))
+
+                pipe.execute()
+
+                if result:
+                    log.info(f"[EVENT] {result}")
+
+            # --- DESYNC GUARD ---
+            if config["system"]["desync_guard"]:
+                now_ms = int(time.time() * 1000)
+                timeout = config["system"]["desync_timeout_ms"]
+
+                for point_id, meta in meta_cache.items():
+
+                    if meta["last_update_ts"] == 0:
+                        continue
+
+                    if meta["state"] == "NODATA":
+                        continue
+
+                    if now_ms - meta["last_update_ts"] > timeout:
+                        old_state = meta["state"]
+                        meta["state"] = "NODATA"
+                        meta["last_change_ts"] = now_ms
+
+                        key = f"point:{point_id}"
+
+                        event = {
+                            "event": "DESYNC",
+                            "object": meta["object"],
+                            "drop": meta["drop"],
+                            "system": meta["system"],
+                            "point_id": point_id,
+                            "value": None,
+                            "old_state": old_state,
+                            "new_state": "NODATA",
+                            "ts": now_ms
+                        }
+
+                        pipe = r.pipeline()
+                        pipe.hset(key, "quality", "NODATA")
+                        pipe.publish("bus:event", json.dumps(event))
+                        pipe.publish("bus:data", point_id)
+                        pipe.execute()
+
+                        log.warning(f"[DESYNC] point {point_id} → NODATA")
+
+            # --- STATS ---
+            r.set("system:buffer_size", len(updates))
+            r.set("system:passed_deadband", passed)
+
+        except Exception as e:
+            log.error(f"Unexpected error in main loop: {e}")
+            time.sleep(1)
 
         # --- SLEEP ---
         time.sleep(tick)
