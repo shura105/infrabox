@@ -110,6 +110,8 @@ def main():
             buffer.clear()
 
         # --- PROCESS BATCH ---
+        passed = 0
+
         for point_id, data in updates:
 
             if point_id not in meta_cache:
@@ -136,6 +138,7 @@ def main():
                     continue  # зміна незначна — пропускаємо
 
             meta["last_value"] = value
+            passed += 1
 
             # --- QUALITY ---
             result = process_quality(
@@ -212,6 +215,7 @@ def main():
 
         # --- STATS ---
         r.set("system:buffer_size", len(updates))
+        r.set("system:passed_deadband", passed)
 
         # --- SLEEP ---
         time.sleep(tick)
