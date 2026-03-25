@@ -1,30 +1,24 @@
 {
   "schema_version": 1,
-
   "bootstrap": {
     "redis": {
       "host": "infrabox-redis",
       "port": 6379,
       "db": 0
     },
-
     "mqtt": {
       "host_real": "infrabox-mosquitto-real",
       "host_sim": "infrabox-mosquitto-sim",
       "port": 1883
     },
-
-    "data_source": "sim",
-
-    "init_mode": "safe"
+    "data_source": "sim"
   },
-
   "system": {
     "system_tick_ms": 1000,
     "archive_interval_sec": 60,
     "desync_guard": true,
+    "desync_timeout_ms": 5000,
     "log_level": "INFO",
-
     "quality": {
       "recovery_time_ms": 3000
     }
