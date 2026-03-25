@@ -5,7 +5,8 @@ import curses
 import threading
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-POINTS_PATH = os.path.abspath(os.path.join(BASE_DIR, "../../core/config/points.json"))
+POINTS_PATH = os.path.abspath(os.path.join(
+    BASE_DIR, "../../core/config/points.json"))
 
 
 def load_points():
@@ -28,6 +29,8 @@ def get_color(state):
         return 2
     elif state == "ALARM":
         return 3
+    elif state == "NODATA":
+        return 5    # ← сірий
     else:
         return 4
 
@@ -64,6 +67,8 @@ def main(stdscr):
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # WARN
     curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)     # ALARM
     curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLACK)   # NONE
+    curses.init_pair(5, curses.COLOR_WHITE,
+                     curses.COLOR_BLACK)  # NODATA — сірий
 
     points = load_points()
 
@@ -73,7 +78,8 @@ def main(stdscr):
     lock = threading.Lock()
 
     # --- старт listener ---
-    t = threading.Thread(target=redis_listener, args=(r, cache, lock), daemon=True)
+    t = threading.Thread(target=redis_listener,
+                         args=(r, cache, lock), daemon=True)
     t.start()
 
     # --- preload (щоб одразу щось було) ---
@@ -111,7 +117,7 @@ def main(stdscr):
 
                 color = curses.color_pair(get_color(state))
 
-                #name = f"{p['object']}/{p['system']}/{p['pointname']}"
+                # name = f"{p['object']}/{p['system']}/{p['pointname']}"
                 name = f"{p['object']}/{p['system']}/{p['pointname']} ({p['id']})"
 
                 text = f"{name:40} | {value:>7} | {unit:<5} | {state}"

@@ -30,6 +30,10 @@ def process_quality(point_id, value, meta, config):
     if old_state == "INIT":
         event = f"FIRST_VALID_{new_state}"
 
+    # датчик повернувся після мовчання
+    elif old_state == "NODATA":
+        event = f"CLEAR_NODATA_TO_{new_state}"
+
     # будь-який → UNCERT
     elif new_state == "UNCERT":
         if old_state != "UNCERT":

@@ -125,6 +125,7 @@ def main():
 
             value = data["value"]
             ts = data["ts"]
+            meta["last_update_ts"] = int(time.time() * 1000)
 
             # --- QUALITY ---
             result = process_quality(
@@ -159,6 +160,45 @@ def main():
                 log.info(f"[EVENT] {result}")
 
                 r.publish("bus:event", json.dumps(result))
+
+        # --- DESYNC GUARD ---
+        if config["system"]["desync_guard"]:
+            now_ms = int(time.time() * 1000)
+            timeout = config["system"]["desync_timeout_ms"]
+
+            for point_id, meta in meta_cache.items():
+
+                # точка ще ніколи не отримувала даних
+                if meta["last_update_ts"] == 0:
+                    continue
+
+                # точка вже в NODATA — не дублюємо подію
+                if meta["state"] == "NODATA":
+                    continue
+
+                if now_ms - meta["last_update_ts"] > timeout:
+                    old_state = meta["state"]
+                    meta["state"] = "NODATA"
+                    meta["last_change_ts"] = now_ms
+
+                    key = f"point:{point_id}"
+                    r.hset(key, "quality", "NODATA")
+
+                    event = {
+                        "event": "DESYNC",
+                        "object": meta["object"],
+                        "drop": meta["drop"],
+                        "system": meta["system"],
+                        "point_id": point_id,
+                        "value": None,
+                        "old_state": old_state,
+                        "new_state": "NODATA",
+                        "ts": now_ms
+                    }
+
+                    log.warning(f"[DESYNC] point {point_id} → NODATA")
+                    r.publish("bus:event", json.dumps(event))
+                    r.publish("bus:data", point_id)
 
         # --- STATS ---
         r.set("system:buffer_size", len(updates))
