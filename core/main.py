@@ -56,8 +56,8 @@ def mqtt_callback(buffer, lock):
     def on_message(topic, payload_raw):
         try:
             payload = json.loads(payload_raw)
-        except:
-            log.warning(f"Bad JSON: {payload_raw}")
+        except json.JSONDecodeError as e:
+            log.warning(f"Bad JSON on topic {topic}: {e}")
             return
 
         point_id = payload.get("id")
@@ -65,9 +65,19 @@ def mqtt_callback(buffer, lock):
         ts = payload.get("ts", int(time.time()))
 
         if point_id is None:
+            log.warning(f"Missing point_id on topic {topic}")
             return
 
-        # 👉 тільки кладемо в buffer
+        if value is None:
+            log.warning(f"Missing value for point {point_id} on topic {topic}")
+            return
+
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            log.warning(f"Invalid value '{value}' for point {point_id}")
+            return
+
         with lock:
             buffer[point_id] = {
                 "value": value,
