@@ -16,9 +16,9 @@ def load_points():
             "object": p["object"],
             "drop": p["drop"],
             "system": p["system"],
-            "pointname": p["pointname"],   # 🔥 ДОДАНО
+            "pointname": p["pointname"],
             "id": p["id"],
-            "unit": p.get("unit", ""),     # 🔥 ДОДАНО
+            "unit": p.get("unit", ""),
 
             "limits": {
                 "min": p["min"],
@@ -29,8 +29,11 @@ def load_points():
                 "alarm_max": p["alarm_max"],
             },
 
+            "deadband": p.get("deadband", 0),
+            "last_value": None,
             "state": "INIT",
-            "last_change_ts": 0
+            "last_change_ts": 0,
+            "last_update_ts": 0
         }
 
     return meta_cache

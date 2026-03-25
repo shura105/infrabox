@@ -127,6 +127,16 @@ def main():
             ts = data["ts"]
             meta["last_update_ts"] = int(time.time() * 1000)
 
+            # --- DEADBAND ---
+            deadband = meta.get("deadband", 0)
+            last_value = meta.get("last_value")
+
+            if last_value is not None and deadband > 0:
+                if abs(value - last_value) < deadband:
+                    continue  # зміна незначна — пропускаємо
+
+            meta["last_value"] = value
+
             # --- QUALITY ---
             result = process_quality(
                 point_id=point_id,
