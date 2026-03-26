@@ -12,7 +12,7 @@ class RedisWatchdog:
         self.timeout_sec = timeout_sec
         self.last_heartbeat = time.time()
         self.healthy = True
-        self.reconnected = False
+        # self.reconnected = False
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def start(self):
@@ -25,7 +25,7 @@ class RedisWatchdog:
                 pubsub = self.r.pubsub()
                 pubsub.subscribe("bus:clock")
                 log.info("Watchdog subscribed to bus:clock")
-                self.reconnected = True
+                # self.reconnected = True
 
                 for msg in pubsub.listen():
                     if msg["type"] == "message":
