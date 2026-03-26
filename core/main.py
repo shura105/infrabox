@@ -1,6 +1,5 @@
 import json
 import time
-import logging
 from threading import Lock
 
 import redis
@@ -9,17 +8,15 @@ from modules.mqtt import start_mqtt
 from modules.quality import process_quality
 from modules.init import load_points
 from modules.watchdog import RedisWatchdog
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-log = logging.getLogger("core")
+from modules.logger import setup_logger
 
 CONFIG_PATH = "/app/config/system.json"
 
 buffer = {}
 buffer_lock = Lock()
+
+# глобальний логер — ініціалізується в main()
+log = None
 
 
 # --- CONFIG ---
@@ -55,7 +52,6 @@ def get_redis(cfg):
 
 # --- REDIS ONE SHOT ---
 def try_reconnect_redis(cfg):
-    """одна спроба підключення без ретраїв"""
     r_cfg = cfg["bootstrap"]["redis"]
     r = redis.Redis(
         host=r_cfg["host"],
@@ -135,15 +131,19 @@ def clear_redis(r, meta_cache):
 
 # --- MAIN ---
 def main():
-    log.info("Core started")
+    global log
 
     config = load_config()
+    log = setup_logger("core", config)
+    log.info("Core started")
+
     meta_cache = load_points()
+
     r = get_redis(config)
 
     log.info(f"Loaded {len(meta_cache)} points")
 
-    start_mqtt(config, mqtt_callback(buffer, buffer_lock))
+    start_mqtt(config, mqtt_callback(buffer, buffer_lock), log)
 
     # --- WATCHDOG ---
     watchdog = RedisWatchdog(r, timeout_sec=5)
@@ -251,8 +251,8 @@ def main():
 
                 pipe.execute()
 
-                if result:
-                    log.info(f"[EVENT] {result}")
+                # if result:
+                #    log.info(f"[EVENT] {result}")
 
             # --- DESYNC GUARD ---
             if config["system"]["desync_guard"]:
@@ -292,7 +292,7 @@ def main():
                         pipe.publish("bus:data", point_id)
                         pipe.execute()
 
-                        log.warning(f"[DESYNC] point {point_id} → NODATA")
+                        # log.warning(f"[DESYNC] point {point_id} → NODATA")
 
             # --- STATS ---
             r.set("system:buffer_size", len(updates))

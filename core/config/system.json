@@ -19,6 +19,10 @@
     "desync_guard": true,
     "desync_timeout_ms": 5000,
     "log_level": "INFO",
+    "log": {
+      "max_bytes": 1048576,
+      "backup_count": 3
+    },
     "quality": {
       "recovery_time_ms": 3000
     }
