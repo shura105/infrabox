@@ -1,6 +1,7 @@
 import json
 import redis
 import os
+import time
 import curses
 import threading
 
@@ -67,12 +68,27 @@ def main(stdscr):
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # WARN
     curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)     # ALARM
     curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLACK)   # NONE
-    curses.init_pair(5, curses.COLOR_WHITE,
-                     curses.COLOR_BLACK)  # NODATA — сірий
+    curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)    # NODATA
 
     points = load_points()
 
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    # --- REDIS З РЕТРАЯМИ ---
+    r = None
+    while r is None:
+        key = stdscr.getch()      # ← додати
+        if key == 27:             # ← додати
+            return                # ← додати
+
+        try:
+            r_test = redis.Redis(
+                host="localhost", port=6379, decode_responses=True)
+            r_test.ping()
+            r = r_test
+        except redis.ConnectionError:
+            stdscr.erase()
+            stdscr.addstr(0, 0, "Waiting for Redis... (ESC to exit)")
+            stdscr.refresh()
+            time.sleep(2)
 
     cache = {}
     lock = threading.Lock()
