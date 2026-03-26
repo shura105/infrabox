@@ -4,17 +4,14 @@ services:
     image: redis:7
     container_name: infrabox-redis
     command: >
-      redis-server
-      --save ""
-      --appendonly no
-      --logfile ""
+      redis-server --save "" --appendonly no --logfile ""
     restart: unless-stopped
     networks:
       - infrabox-net
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -85,32 +82,48 @@ services:
     volumes:
       - ./core/config/points.json:/app/config/points.json
 
-  backend:
-    build: ./backend
-    container_name: infrabox-backend
-    restart: unless-stopped
-    depends_on:
-      - core
-    networks:
-      - infrabox-net
-    expose:
-      - "8000"
-    volumes:
-      - ./backend:/app
-      - ./core/config:/app/config
+  #  backend:
+  #    build: ./backend
+  #    container_name: infrabox-backend
+  #    restart: unless-stopped
+  #    depends_on:
+  #      - core
+  #    networks:
+  #      - infrabox-net
+  #    expose:
+  #      - "8000"
+  #    volumes:
+  #      - ./backend:/app
+  #      - ./core/config:/app/config
 
-  web:
-    image: nginx:stable-alpine
-    container_name: infrabox-web
+  #  web:
+  #    image: nginx:stable-alpine
+  #    container_name: infrabox-web
+  #    restart: unless-stopped
+  #    depends_on:
+  #      - backend
+  #    networks:
+  #      - infrabox-net
+  #    ports:
+  #      - "8080:80"
+  #    volumes:
+  #      - ./web:/etc/nginx
+
+  selfdiagnostic:
+    build: ./tools/selfDiagnostic
+    container_name: infrabox-selfdiagnostic
     restart: unless-stopped
     depends_on:
-      - backend
+      - mosquitto-sim
+      - mosquitto-real
+    environment:
+      MQTT_HOST: infrabox-mosquitto-sim
+      MQTT_PORT: 1883
+      OBJECT: home
+      DROP: homeServ-1
     networks:
       - infrabox-net
-    ports:
-      - "8080:80"
-    volumes:
-      - ./web:/etc/nginx
+    privileged: true
 
 networks:
   infrabox-net:
