@@ -12,7 +12,8 @@
     "warn_max": 70,
     "alarm_min": 0,
     "alarm_max": 90,
-    "deadband": 1.0
+    "deadband": 1.0,
+    "interval": 1
   },
   {
     "object": "home",
@@ -27,13 +28,14 @@
     "warn_max": 75,
     "alarm_min": 0,
     "alarm_max": 90,
-    "deadband": 1.0
+    "deadband": 1.0,
+    "interval": 1
   },
   {
     "object": "home",
     "drop": "homeServ-1",
     "system": "selfDiag",
-    "pointname": "disk_used",
+    "pointname": "disk_space",
     "id": 3,
     "unit": "%",
     "min": 0,
@@ -42,7 +44,8 @@
     "warn_max": 80,
     "alarm_min": 0,
     "alarm_max": 95,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "interval": 1
   },
   {
     "object": "home",
@@ -57,7 +60,8 @@
     "warn_max": 50,
     "alarm_min": 0,
     "alarm_max": 90,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "interval": 1
   },
   {
     "object": "home",
@@ -72,7 +76,8 @@
     "warn_max": 50,
     "alarm_min": 0,
     "alarm_max": 90,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "interval": 1
   },
   {
     "object": "home",

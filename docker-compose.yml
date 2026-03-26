@@ -81,7 +81,6 @@ services:
       - infrabox-net
     volumes:
       - ./core/config/points.json:/app/config/points.json
-
   #  backend:
   #    build: ./backend
   #    container_name: infrabox-backend
@@ -124,6 +123,11 @@ services:
     networks:
       - infrabox-net
     privileged: true
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - ./core/config/points.json:/app/config/points.json:ro
 
 networks:
   infrabox-net:
