@@ -6,3 +6,5 @@ mosquitto/mosquitto-real/data/
 mosquitto/mosquitto-sim/data/
 mosquitto/mosquitto-real/log/
 mosquitto/mosquitto-sim/log/
+core/log/
+core/log/
