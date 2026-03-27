@@ -2,6 +2,7 @@ import json
 import os
 import gzip
 import shutil
+import logging
 from datetime import datetime
 
 
@@ -16,6 +17,7 @@ class Volume:
         self.current_dir = None
         self.opened_at = None
         self.record_count = 0
+        self.log = logging.getLogger("arch.volume")
 
         self._open()
 
@@ -36,7 +38,7 @@ class Volume:
         # --- мета тому ---
         self._write_meta("open")
 
-        print(f"[VOLUME] Opened: {name}")
+        self.log.info(f"Volume opened: {name}")
 
     def _close(self):
         self._write_meta("close")
@@ -44,7 +46,7 @@ class Volume:
         if self.compression:
             self._compress()
 
-        print(f"[VOLUME] Closed: {self.current_dir}")
+        self.log.info(f"Volume closed: {os.path.basename(self.current_dir)}")
 
     def _write_meta(self, status):
         meta = {
@@ -71,7 +73,7 @@ class Volume:
                     with gzip.open(gz_path, "wb") as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 os.remove(fpath)
-                print(f"[VOLUME] Compressed: {fname}")
+                self.log.info(f"Compressed: {fname}")
 
     def _write_file(self, filename, data, append=True):
         path = os.path.join(self.current_dir, filename)

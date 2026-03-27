@@ -63,7 +63,7 @@ def main():
     port = config["api"]["port"]
     log.info(f"API starting on port {port}")
 
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
 if __name__ == "__main__":
