@@ -1,6 +1,9 @@
 import json
 import time
 import os
+import logging
+from logging.handlers import RotatingFileHandler
+
 import psutil
 import paho.mqtt.client as mqtt
 
@@ -11,6 +14,30 @@ MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
 OBJECT = os.environ.get("OBJECT", "home")
 SYSTEM = "selfDiag"
 POINTS_PATH = os.environ.get("POINTS_PATH", "/app/config/points.json")
+
+
+def setup_logger():
+    logger = logging.getLogger("selfdiag")
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s"
+    )
+
+    console = logging.StreamHandler()
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+
+    os.makedirs("/app/log", exist_ok=True)
+    file_handler = RotatingFileHandler(
+        "/app/log/selfdiag.log",
+        maxBytes=1048576,
+        backupCount=3
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return logger
 
 
 def load_points():
@@ -49,7 +76,7 @@ def get_metrics(prev_net, prev_time):
     }, net, now
 
 
-def publish(client, p, value, ts):
+def publish(client, log, p, value, ts):
     topic = build_topic(p)
     payload = json.dumps({
         "id": p["id"],
@@ -57,14 +84,15 @@ def publish(client, p, value, ts):
         "ts": int(ts)
     })
     client.publish(topic, payload)
-    print(f"[DIAG] {topic} → {value}")
+    log.debug(f"{topic} → {value}")
 
 
 def main():
-    print(f"SELFDIAGNOSTIC STARTED → {MQTT_HOST}:{MQTT_PORT}")
+    log = setup_logger()
+    log.info(f"SelfDiagnostic started → {MQTT_HOST}:{MQTT_PORT}")
 
     points = load_points()
-    print(f"Loaded {len(points)} selfDiag points")
+    log.info(f"Loaded {len(points)} selfDiag points")
 
     client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, 60)
@@ -74,7 +102,6 @@ def main():
     prev_time = time.time()
     psutil.cpu_percent(interval=None)
 
-    # last publish time для кожної точки
     last_pub = {p["id"]: 0 for p in points}
 
     while True:
@@ -89,7 +116,7 @@ def main():
             if now - last_pub[p["id"]] >= interval:
                 value = metrics.get(p["pointname"])
                 if value is not None:
-                    publish(client, p, value, ts)
+                    publish(client, log, p, value, ts)
                     last_pub[p["id"]] = now
 
 

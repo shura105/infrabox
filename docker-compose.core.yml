@@ -106,6 +106,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
       - ./core/config/points.json:/app/config/points.json:ro
+      - ./log:/app/log
 
 networks:
   infrabox-net:
