@@ -3,6 +3,7 @@ import os
 import gzip
 import shutil
 import logging
+import threading
 from datetime import datetime
 
 
@@ -20,6 +21,7 @@ class Volume:
         self.log = logging.getLogger("arch.volume")
 
         self._open()
+        self._lock = threading.Lock()
 
     def _volume_name(self):
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -42,15 +44,13 @@ class Volume:
 
         self.log.info(f"Volume opened: {name}")
 
-    def _close(self):
+    def _close(self, reason="manual"):
         self._write_meta("close")
-
-        self._write_session("close")
-
+        self._write_session("close", reason=reason)
         if self.compression:
             self._compress()
-
-        self.log.info(f"Volume closed: {os.path.basename(self.current_dir)}")
+        self.log.info(
+            f"Volume closed: {os.path.basename(self.current_dir)} reason={reason}")
 
     def _write_meta(self, status):
         meta = {
@@ -68,13 +68,15 @@ class Volume:
                 points = json.load(f)
             self._write_file("config_snap.json", points, append=False)
 
-    def _write_session(self, event):
+    def _write_session(self, event, reason=None):
         record = {
             "event": event,
             "volume": os.path.basename(self.current_dir),
             "ts": datetime.now().isoformat(),
             "records": self.record_count
         }
+        if reason:
+            record["reason"] = reason
         sessions_path = os.path.join(self.data_dir, "sessions.json")
         with open(sessions_path, "a") as f:
             f.write(json.dumps(record) + "\n")
@@ -108,15 +110,25 @@ class Volume:
         )
 
     def rotate(self):
-        self._close()
+        elapsed_hours = (datetime.now() -
+                         self.opened_at).total_seconds() / 3600
+
+        if self.record_count >= self.max_records:
+            reason = "max_records"
+        elif elapsed_hours >= self.max_duration_hours:
+            reason = "max_duration"
+        else:
+            reason = "manual"
+
+        self._close(reason=reason)
         self._open()
 
     def write(self, stream, record):
-        if self.should_rotate():
-            self.rotate()
-
-        self._write_file(f"{stream}.json", record)
-        self.record_count += 1
+        with self._lock:
+            if self.should_rotate():
+                self.rotate()
+            self._write_file(f"{stream}.json", record)
+            self.record_count += 1
 
     def get_current_meta(self):
         return {
