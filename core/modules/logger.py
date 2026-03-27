@@ -1,5 +1,4 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
 
 
@@ -26,13 +25,8 @@ def setup_logger(name, config):
         max_bytes = log_cfg.get("max_bytes", 1048576)
         backup_count = log_cfg.get("backup_count", 3)
 
-        log_dir = "/app/log"
-        os.makedirs(log_dir, exist_ok=True)
-
-        log_file = os.path.join(log_dir, f"{name}.log")
-
         file_handler = RotatingFileHandler(
-            log_file,
+            f"/app/log/{name}.log",
             maxBytes=max_bytes,
             backupCount=backup_count
         )
