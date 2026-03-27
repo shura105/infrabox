@@ -1,0 +1,15 @@
+services:
+
+  archivator:
+    build: ./arch
+    container_name: infrabox-arch
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Europe/Kyiv
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./arch/config:/app/config
+      - ./arch/data:/app/data
+      - ./log:/app/log
+      - ./core/config/points.json:/app/config/points.json:ro

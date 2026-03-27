@@ -1,0 +1,26 @@
+{
+    "redis": {
+        "host": "localhost",
+        "port": 6379,
+        "db": 0
+    },
+    "volume": {
+        "max_records": 100000,
+        "max_duration_hours": 24
+    },
+    "api": {
+        "port": 8100
+    },
+    "compression": {
+        "enabled": true,
+        "on_close": true
+    },
+    "sources": {
+        "events": true,
+        "values": true,
+        "selfdiag": true,
+        "commands": true,
+        "config_snap": true,
+        "system_log": true
+    }
+}
