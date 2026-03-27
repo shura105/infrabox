@@ -18,6 +18,8 @@
     "archive_interval_sec": 60,
     "desync_guard": true,
     "desync_timeout_ms": 5000,
+    "mqtt_watchdog": true,
+    "mqtt_timeout_ms": 10000,
     "log_level": "INFO",
     "log": {
       "max_bytes": 1048576,

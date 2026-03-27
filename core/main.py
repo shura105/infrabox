@@ -143,7 +143,8 @@ def main():
 
     log.info(f"Loaded {len(meta_cache)} points")
 
-    start_mqtt(config, mqtt_callback(buffer, buffer_lock), log)
+    # start_mqtt(config, mqtt_callback(buffer, buffer_lock), log)
+    mqtt_client = start_mqtt(config, mqtt_callback(buffer, buffer_lock))
 
     # --- WATCHDOG ---
     watchdog = RedisWatchdog(r, timeout_sec=5)
@@ -301,6 +302,13 @@ def main():
         except Exception as e:
             log.error(f"Unexpected error in main loop: {e}")
             time.sleep(1)
+
+        # --- MQTT WATCHDOG ---
+        if config["system"].get("mqtt_watchdog"):
+            timeout = config["system"]["mqtt_timeout_ms"]
+            if not mqtt_client.check(timeout):
+                log.error("MQTT heartbeat lost — reconnecting...")
+                mqtt_client.reconnect()
 
         # --- SLEEP ---
         time.sleep(tick)
