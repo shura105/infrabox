@@ -119,3 +119,13 @@ def get_commands(volume_dir: str):
 @app.get("/volumes/{volume_dir}/config")
 def get_config(volume_dir: str):
     return _read_json(volume_dir, "config_snap.json")
+
+
+@app.get("/sessions")
+def get_sessions():
+    path = os.path.join(DATA_DIR, "sessions.json")
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
+        lines = f.readlines()
+    return [json.loads(line) for line in lines if line.strip()]

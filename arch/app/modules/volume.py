@@ -38,10 +38,14 @@ class Volume:
         # --- мета тому ---
         self._write_meta("open")
 
+        self._write_session("open")
+
         self.log.info(f"Volume opened: {name}")
 
     def _close(self):
         self._write_meta("close")
+
+        self._write_session("close")
 
         if self.compression:
             self._compress()
@@ -63,6 +67,17 @@ class Volume:
             with open(config_path) as f:
                 points = json.load(f)
             self._write_file("config_snap.json", points, append=False)
+
+    def _write_session(self, event):
+        record = {
+            "event": event,
+            "volume": os.path.basename(self.current_dir),
+            "ts": datetime.now().isoformat(),
+            "records": self.record_count
+        }
+        sessions_path = os.path.join(self.data_dir, "sessions.json")
+        with open(sessions_path, "a") as f:
+            f.write(json.dumps(record) + "\n")
 
     def _compress(self):
         for fname in os.listdir(self.current_dir):
