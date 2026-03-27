@@ -61,10 +61,11 @@ services:
       MQTT_SIM_HOST: infrabox-mosquitto-sim
       MQTT_PORT: 1883
       DROP_ID: homeServ-1
+      TZ: Europe/Kyiv
     networks:
       - infrabox-net
     volumes:
-      - ./log:/app/logs
+      - ./log:/app/log
       - ./core:/app
 
   simulator:
@@ -77,10 +78,12 @@ services:
       MQTT_HOST: infrabox-mosquitto-sim
       MQTT_PORT: 1883
       POINTS_PATH: /app/config/points.json
+      TZ: Europe/Kyiv
     networks:
       - infrabox-net
     volumes:
       - ./core/config/points.json:/app/config/points.json
+      - ./log:/app/log
 
   selfdiagnostic:
     build: ./tools/selfDiagnostic
@@ -94,6 +97,7 @@ services:
       MQTT_PORT: 1883
       OBJECT: home
       DROP: homeServ-1
+      TZ: Europe/Kyiv
     networks:
       - infrabox-net
     privileged: true
