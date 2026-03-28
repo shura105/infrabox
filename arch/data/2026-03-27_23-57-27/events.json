@@ -1,0 +1,11 @@
+{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 101, "value": 9.23, "old_state": "GOOD", "new_state": "WARN", "ts": 1774648647482}
+{"event": "CLEAR_WARN", "object": "garage", "drop": "garageServ-1", "system": "water", "point_id": 106, "value": 10.5, "old_state": "WARN", "new_state": "GOOD", "ts": 1774648648536}
+{"event": "WARN", "object": "solar", "drop": "solarServ-1", "system": "power", "point_id": 109, "value": 77.98, "old_state": "GOOD", "new_state": "WARN", "ts": 1774648648541}
+{"event": "CLEAR_ALARM", "object": "boiler", "drop": "boilerServ-1", "system": "gas", "point_id": 107, "value": 0.61, "old_state": "ALARM", "new_state": "GOOD", "ts": 1774648650592}
+{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 101, "value": 10.5, "old_state": "WARN", "new_state": "GOOD", "ts": 1774648652632}
+{"event": "ALARM", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 103, "value": 0.49, "old_state": "GOOD", "new_state": "ALARM", "ts": 1774648652643}
+{"event": "ALARM", "object": "garage", "drop": "garageServ-1", "system": "water", "point_id": 104, "value": 0.29, "old_state": "GOOD", "new_state": "ALARM", "ts": 1774648652651}
+{"event": "WARN", "object": "boiler", "drop": "boilerServ-1", "system": "gas", "point_id": 108, "value": 1.61, "old_state": "GOOD", "new_state": "WARN", "ts": 1774648652658}
+{"event": "ALARM", "object": "solar", "drop": "solarServ-1", "system": "power", "point_id": 110, "value": 3.37, "old_state": "GOOD", "new_state": "ALARM", "ts": 1774648652663}
+{"event": "ALARM", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 102, "value": 8.78, "old_state": "GOOD", "new_state": "ALARM", "ts": 1774648653690}
+{"event": "CLEAR_WARN", "object": "solar", "drop": "solarServ-1", "system": "power", "point_id": 109, "value": 105.0, "old_state": "WARN", "new_state": "GOOD", "ts": 1774648653697}

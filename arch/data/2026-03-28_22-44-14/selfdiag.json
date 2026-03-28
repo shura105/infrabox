@@ -1,0 +1,2 @@
+{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 73.6, "old_state": "GOOD", "new_state": "WARN", "ts": 1774730847343}
+{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 16.8, "old_state": "WARN", "new_state": "GOOD", "ts": 1774730850457}
