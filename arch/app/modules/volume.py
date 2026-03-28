@@ -6,6 +6,8 @@ import logging
 import threading
 from datetime import datetime
 
+STATE_PATH = "/app/config/state.json"
+
 
 class Volume:
     def __init__(self, config, data_dir="/app/data"):
@@ -22,6 +24,7 @@ class Volume:
 
         self._open()
         self._lock = threading.Lock()
+        self.recording = self._load_state()
 
     def _volume_name(self):
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -124,6 +127,8 @@ class Volume:
         self._open()
 
     def write(self, stream, record):
+        if not self.recording:
+            return
         with self._lock:
             if self.should_rotate():
                 self.rotate()
@@ -138,3 +143,13 @@ class Volume:
             "max_records": self.max_records,
             "max_duration_hours": self.max_duration_hours
         }
+
+    def _load_state(self):
+        if os.path.exists(STATE_PATH):
+            with open(STATE_PATH) as f:
+                return json.load(f).get("recording", True)
+        return True
+
+    def _save_state(self, recording):
+        with open(STATE_PATH, "w") as f:
+            json.dump({"recording": recording}, f)

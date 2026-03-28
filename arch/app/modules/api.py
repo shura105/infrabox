@@ -56,6 +56,7 @@ def get_status():
         return {"status": "not initialized"}
     return {
         "status": "running",
+        "recording": _volume.recording,
         "current_volume": _volume.get_current_meta()
     }
 
@@ -129,3 +130,33 @@ def get_sessions():
     with open(path) as f:
         lines = f.readlines()
     return [json.loads(line) for line in lines if line.strip()]
+
+
+@app.post("/control/stop")
+def stop_archivator():
+    if _volume is None:
+        raise HTTPException(status_code=503, detail="Not initialized")
+    _volume._close(reason="manual_stop")
+    _volume._save_state(False)
+    _volume.recording = False
+    return {"status": "stopped"}
+
+
+@app.post("/control/start")
+def start_archivator():
+    if _volume is None:
+        raise HTTPException(status_code=503, detail="Not initialized")
+    _volume._open()
+    _volume._save_state(True)
+    _volume.recording = True
+    return {"status": "started", "volume": os.path.basename(_volume.current_dir)}
+
+
+@app.post("/control/rotate")
+def rotate_volume():
+    if _volume is None:
+        raise HTTPException(status_code=503, detail="Not initialized")
+    if not _volume.recording:
+        raise HTTPException(status_code=400, detail="Archivator is stopped")
+    _volume.rotate()
+    return {"status": "rotated", "volume": os.path.basename(_volume.current_dir)}
