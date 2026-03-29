@@ -13,7 +13,10 @@
     "alarm_min": 0,
     "alarm_max": 90,
     "deadband": 1.0,
-    "interval": 1
+    "interval": 1,
+    "onArchive": 1,
+    "archive_interval": 60,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -29,7 +32,10 @@
     "alarm_min": 0,
     "alarm_max": 90,
     "deadband": 1.0,
-    "interval": 1
+    "interval": 1,
+    "onArchive": 1,
+    "archive_interval": 60,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -45,7 +51,10 @@
     "alarm_min": 0,
     "alarm_max": 95,
     "deadband": 0.5,
-    "interval": 1
+    "interval": 1,
+    "onArchive": 1,
+    "archive_interval": 300,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -61,7 +70,10 @@
     "alarm_min": 0,
     "alarm_max": 90,
     "deadband": 0.5,
-    "interval": 1
+    "interval": 1,
+    "onArchive": 1,
+    "archive_interval": 60,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -77,7 +89,10 @@
     "alarm_min": 0,
     "alarm_max": 90,
     "deadband": 0.5,
-    "interval": 1
+    "interval": 1,
+    "onArchive": 1,
+    "archive_interval": 60,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -92,7 +107,10 @@
     "warn_max": 90,
     "alarm_min": 5,
     "alarm_max": 100,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -107,7 +125,10 @@
     "warn_max": 80,
     "alarm_min": 10,
     "alarm_max": 90,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "home",
@@ -122,7 +143,10 @@
     "warn_max": 8,
     "alarm_min": 0.5,
     "alarm_max": 9,
-    "deadband": 0.05
+    "deadband": 0.05,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "garage",
@@ -137,7 +161,10 @@
     "warn_max": 8,
     "alarm_min": 1,
     "alarm_max": 9,
-    "deadband": 0.05
+    "deadband": 0.05,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "garage",
@@ -152,7 +179,10 @@
     "warn_max": 40,
     "alarm_min": 2,
     "alarm_max": 45,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "garage",
@@ -167,7 +197,10 @@
     "warn_max": 60,
     "alarm_min": 5,
     "alarm_max": 70,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "boiler",
@@ -182,7 +215,10 @@
     "warn_max": 4,
     "alarm_min": 0.2,
     "alarm_max": 4.5,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "boiler",
@@ -197,7 +233,10 @@
     "warn_max": 15,
     "alarm_min": 1,
     "alarm_max": 18,
-    "deadband": 0.1
+    "deadband": 0.1,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "solar",
@@ -212,7 +251,10 @@
     "warn_max": 350,
     "alarm_min": 50,
     "alarm_max": 380,
-    "deadband": 1.0
+    "deadband": 1.0,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   },
   {
     "object": "solar",
@@ -227,6 +269,9 @@
     "warn_max": 80,
     "alarm_min": 5,
     "alarm_max": 90,
-    "deadband": 0.5
+    "deadband": 0.5,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   }
 ]

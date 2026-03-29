@@ -15,18 +15,64 @@ class Writer:
 
         self.r = self._connect()
 
+        # завантажуємо метадані точок
+        self.points_meta = self._load_points_meta()
+
+        # last archive time для interval логіки
+        self.last_archive_ts = {}
+
     def _connect(self):
         r_cfg = self.config["redis"]
-        r = redis.Redis(
+        return redis.Redis(
             host=r_cfg["host"],
             port=r_cfg["port"],
             db=r_cfg.get("db", 0),
             decode_responses=True
         )
-        return r
+
+    def _load_points_meta(self):
+        try:
+            with open("/app/config/points.json") as f:
+                points = json.load(f)
+            return {p["id"]: p for p in points}
+        except Exception as e:
+            self.log.error(f"Failed to load points.json: {e}")
+            return {}
+
+    def _should_archive(self, point_id, value, prev_value):
+        meta = self.points_meta.get(point_id, {})
+
+        # onArchive: 0 — не архівується
+        if meta.get("onArchive", 1) == 0:
+            return False
+
+        archive_on_change = meta.get("archive_on_change", 1)
+        archive_interval = meta.get("archive_interval", 0)
+        deadband = meta.get("deadband", 0)
+
+        now = time.time()
+        last_ts = self.last_archive_ts.get(point_id, 0)
+
+        # archive_on_change: 0 — писати кожне значення
+        if archive_on_change == 0:
+            return True
+
+        # archive_on_change: 1 — перевіряємо deadband
+        changed = False
+        if prev_value is None:
+            changed = True
+        elif deadband > 0:
+            changed = abs(value - prev_value) >= deadband
+        else:
+            changed = value != prev_value
+
+        # archive_interval: N — писати по таймеру
+        interval_fired = archive_interval > 0 and (
+            now - last_ts) >= archive_interval
+
+        return changed or interval_fired
 
     def _listen_clock(self):
-        """bus:clock → heartbeat"""
         while self.running:
             try:
                 pubsub = self.r.pubsub()
@@ -41,7 +87,6 @@ class Writer:
             time.sleep(2)
 
     def _listen_events(self):
-        """bus:event → events.json та selfdiag.json"""
         while self.running:
             try:
                 pubsub = self.r.pubsub()
@@ -52,6 +97,13 @@ class Writer:
                     if msg["type"] != "message":
                         continue
                     event = json.loads(msg["data"])
+
+                    # перевіряємо onArchive
+                    point_id = event.get("point_id")
+                    meta = self.points_meta.get(point_id, {})
+                    if meta.get("onArchive", 1) == 0:
+                        continue
+
                     stream = "selfdiag" if event.get(
                         "system") == "selfDiag" else "events"
                     self.volume.write(stream, event)
@@ -60,7 +112,6 @@ class Writer:
             time.sleep(2)
 
     def _listen_values(self):
-        """bus:data → values.json"""
         prev_values = {}
         while self.running:
             try:
@@ -71,31 +122,31 @@ class Writer:
                         break
                     if msg["type"] != "message":
                         continue
+
                     point_id = int(msg["data"])
                     data = self.r.hgetall(f"point:{point_id}")
                     if not data:
                         continue
+
                     value = float(data.get("value", 0))
                     ts = int(data.get("ts", time.time()))
 
                     prev = prev_values.get(point_id)
-                    if prev is not None:
-                        deadband = float(data.get("deadband", 0))
-                        if deadband > 0 and abs(value - prev) < deadband:
-                            continue
 
-                    prev_values[point_id] = value
-                    self.volume.write("values", {
-                        "ts": ts,
-                        "point_id": point_id,
-                        "value": value
-                    })
+                    if self._should_archive(point_id, value, prev):
+                        prev_values[point_id] = value
+                        self.last_archive_ts[point_id] = time.time()
+                        self.volume.write("values", {
+                            "ts": ts,
+                            "point_id": point_id,
+                            "value": value
+                        })
+
             except Exception as e:
                 self.log.error(f"Writer values error: {e}")
             time.sleep(2)
 
     def _watchdog(self):
-        """перевірка heartbeat"""
         while self.running:
             elapsed = time.time() - self.last_heartbeat
             if elapsed > self.timeout_sec:
@@ -119,4 +170,4 @@ class Writer:
         threading.Thread(target=self._watchdog,      daemon=True).start()
 
         self.log.info(
-            "Writer started — listening bus:event, bus:data, bus:clock")
+            f"Writer started — {len(self.points_meta)} points loaded")
