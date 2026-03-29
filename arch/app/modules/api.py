@@ -66,8 +66,11 @@ def get_status():
 def list_volumes():
     if not os.path.exists(DATA_DIR):
         return []
-    volumes = sorted(os.listdir(DATA_DIR), reverse=True)
-    return volumes
+    volumes = [
+        v for v in os.listdir(DATA_DIR)
+        if os.path.isdir(os.path.join(DATA_DIR, v))
+    ]
+    return sorted(volumes, reverse=True)
 
 
 # --- VOLUME META ---
