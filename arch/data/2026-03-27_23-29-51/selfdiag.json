@@ -1,8 +1,0 @@
-{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 78.4, "old_state": "GOOD", "new_state": "WARN", "ts": 1774647146979}
-{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 3.0, "old_state": "WARN", "new_state": "GOOD", "ts": 1774647150079}
-{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 80.6, "old_state": "GOOD", "new_state": "WARN", "ts": 1774647447716}
-{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 9.7, "old_state": "WARN", "new_state": "GOOD", "ts": 1774647450805}
-{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 74.5, "old_state": "GOOD", "new_state": "WARN", "ts": 1774647746523}
-{"event": "ALARM", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 93.1, "old_state": "WARN", "new_state": "ALARM", "ts": 1774647748636}
-{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 88.9, "old_state": "ALARM", "new_state": "WARN", "ts": 1774647749683}
-{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "selfDiag", "point_id": 1, "value": 21.2, "old_state": "WARN", "new_state": "GOOD", "ts": 1774647752747}

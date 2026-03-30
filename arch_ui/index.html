@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox Archive</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body x-data="app()" x-init="init()">
+
+    <header>
+        <h1>Infrabox Archive</h1>
+        <div class="status" x-text="status"></div>
+    </header>
+
+    <div class="filters">
+        <select x-model="filterObject" @change="onObjectChange()">
+            <option value="">All objects</option>
+            <template x-for="obj in objects">
+                <option :value="obj" x-text="obj"></option>
+            </template>
+        </select>
+
+        <select x-model="filterSystem" @change="applyFilters()">
+            <option value="">All systems</option>
+            <template x-for="sys in filteredSystems">
+                <option :value="sys" x-text="sys"></option>
+            </template>
+        </select>
+
+        <input type="text" x-model="searchId" @input="applyFilters()" placeholder="Search by ID...">
+
+        <button @click="clearFilters()">Clear filters</button>
+
+        <button x-show="selected.length > 0" @click="viewSelected()">
+            View selected (<span x-text="selected.length"></span>)
+        </button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th></th>
+                <th>Object</th>
+                <th>System</th>
+                <th>Pointname</th>
+                <th>ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            <template x-for="p in filtered" :key="p.id">
+                <tr :class="{selected: selected.includes(p.id)}">
+                    <td>
+                        <input type="checkbox" :checked="selected.includes(p.id)" @change="toggleSelect(p.id, $event)">
+                    </td>
+                    <td x-text="p.object"></td>
+                    <td x-text="p.system"></td>
+                    <td x-text="p.pointname"></td>
+                    <td x-text="p.id"></td>
+                </tr>
+            </template>
+        </tbody>
+    </table>
+
+    <script src="js/api.js"></script>
+    <script>
+        function app() {
+            return {
+                points: [],
+                filtered: [],
+                objects: [],
+                allSystems: [],
+                filteredSystems: [],
+                filterObject: "",
+                filterSystem: "",
+                searchId: "",
+                selected: [],
+                status: "Loading...",
+
+                async init() {
+                    const data = await fetchStatus();
+                    this.status = `Volume: ${data.current_volume.volume} | Records: ${data.current_volume.record_count}`;
+
+                    this.points = await fetchPoints();
+                    this.objects = [...new Set(this.points.map(p => p.object))];
+                    this.allSystems = [...new Set(this.points.map(p => p.system))];
+                    this.filteredSystems = this.allSystems;
+                    this.filtered = this.points;
+                },
+
+                onObjectChange() {
+                    // фільтруємо системи під обраний об'єкт
+                    if (this.filterObject) {
+                        this.filteredSystems = [...new Set(
+                            this.points
+                                .filter(p => p.object === this.filterObject)
+                                .map(p => p.system)
+                        )];
+                        // скидаємо систему якщо вона не в списку
+                        if (!this.filteredSystems.includes(this.filterSystem)) {
+                            this.filterSystem = "";
+                        }
+                    } else {
+                        this.filteredSystems = this.allSystems;
+                    }
+                    this.applyFilters();
+                },
+
+                applyFilters() {
+                    this.filtered = this.points.filter(p => {
+                        const matchObj = !this.filterObject || p.object === this.filterObject;
+                        const matchSys = !this.filterSystem || p.system === this.filterSystem;
+                        const matchId = !this.searchId || String(p.id).includes(this.searchId);
+                        return matchObj && matchSys && matchId;
+                    });
+                },
+
+                toggleSelect(id, event) {
+                    if (this.selected.includes(id)) {
+                        this.selected = this.selected.filter(i => i !== id);
+                    } else {
+                        if (this.selected.length >= 4) {
+                            event.target.checked = false;  // ← повертаємо чекбокс назад
+                            alert("Maximum 4 points");
+                            return;
+                        }
+                        this.selected.push(id);
+                    }
+                },
+
+                clearFilters() {
+                    this.filterObject = "";
+                    this.filterSystem = "";
+                    this.searchId = "";
+                    this.filteredSystems = this.allSystems;
+                    this.selected = [];
+                    this.filtered = this.points;
+                },
+
+                viewSelected() {
+                    if (this.selected.length === 0) return;
+                    const ids = this.selected.join(",");
+                    window.location.href = `point.html?ids=${ids}`;
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

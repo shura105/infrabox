@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Point</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/point.css">
+</head>
+
+<body x-data="pointApp()">
+
+    <header>
+        <a href="index.html" class="back">← Back</a>
+        <h1 x-text="title"></h1>
+        <div class="status" x-text="status"></div>
+    </header>
+
+    <!-- POINT INFO -->
+    <div class="point-info" x-show="points.length > 0">
+        <template x-for="p in points" :key="p.id">
+            <span x-text="`${p.pointname} (${p.id}) | ${p.object} / ${p.system} | ${p.unit}`"></span>
+        </template>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+        <div class="period">
+            <label>From:</label>
+            <input type="datetime-local" x-model="fromDt">
+            <label>To:</label>
+            <input type="datetime-local" x-model="toDt">
+            <button @click="loadArchive()">Load archive</button>
+            <button @click="loadCurrent()">Current</button>
+        </div>
+
+        <div class="view-toggle">
+            <button :class="{active: view === 'chart'}" @click="view = 'chart'">Chart</button>
+            <button :class="{active: view === 'table'}" @click="view = 'table'">Table</button>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button @click="zoomIn()">+</button>
+        <button @click="zoomOut()">−</button>
+        <button @click="zoomReset()">Reset</button>
+    </div>
+
+    <!-- POINT BUTTONS -->
+    <div class="point-buttons" x-show="points.length > 1">
+        <template x-for="p in points" :key="p.id">
+            <button :class="{active: activePointId === p.id}" @click="setActive(p.id)" x-text="p.pointname">
+            </button>
+        </template>
+    </div>
+
+    <!-- CHART -->
+    <div x-show="view === 'chart'" class="chart-container">
+        <canvas id="pointChart"></canvas>
+    </div>
+
+    <!-- TABLE -->
+    <div x-show="view === 'table'" class="table-container">
+        <div class="table-actions">
+            <button @click="exportCSV()">Export CSV</button>
+            <button @click="printTable()">Print</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="r in (records[activePointId] || [])" :key="r.ts">
+                    <tr>
+                        <td x-text="formatTs(r.ts)"></td>
+                        <td x-text="`${r.value} ${points.find(p=>p.id===activePointId)?.unit || ''}`"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- в кінці body, перед </body> -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.x.x/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2/dist/chartjs-plugin-zoom.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/point.js"></script>
+</body>
+
+</html>

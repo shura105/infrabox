@@ -1,6 +1,0 @@
-{"event": "WARN", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 103, "value": 8.89, "old_state": "GOOD", "new_state": "WARN", "ts": 1774649304006}
-{"event": "CLEAR_WARN", "object": "boiler", "drop": "boilerServ-1", "system": "gas", "point_id": 108, "value": 14.25, "old_state": "WARN", "new_state": "GOOD", "ts": 1774649305035}
-{"event": "CLEAR_WARN", "object": "garage", "drop": "garageServ-1", "system": "water", "point_id": 104, "value": 2.1, "old_state": "WARN", "new_state": "GOOD", "ts": 1774649308098}
-{"event": "WARN", "object": "solar", "drop": "solarServ-1", "system": "power", "point_id": 109, "value": 353.94, "old_state": "GOOD", "new_state": "WARN", "ts": 1774649308105}
-{"event": "ALARM", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 102, "value": 92.61, "old_state": "GOOD", "new_state": "ALARM", "ts": 1774649309124}
-{"event": "CLEAR_WARN", "object": "home", "drop": "homeServ-1", "system": "heating", "point_id": 103, "value": 7.6, "old_state": "WARN", "new_state": "GOOD", "ts": 1774649309128}

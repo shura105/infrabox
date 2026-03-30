@@ -8,3 +8,8 @@ mosquitto/mosquitto-real/log/
 mosquitto/mosquitto-sim/log/
 core/log/
 core/log/
+# Archive data
+arch/data/
+# Mac OS
+.DS_Store
+**/.DS_Store
