@@ -14,6 +14,8 @@ class Writer:
         self.timeout_sec = 10
 
         self.r = self._connect()
+        self.last_archive_ts = {}
+        self._ts_lock = threading.Lock()
 
         # завантажуємо метадані точок
         self.points_meta = self._load_points_meta()
@@ -42,7 +44,6 @@ class Writer:
     def _should_archive(self, point_id, value, prev_value):
         meta = self.points_meta.get(point_id, {})
 
-        # onArchive: 0 — не архівується
         if meta.get("onArchive", 1) == 0:
             return False
 
@@ -53,11 +54,9 @@ class Writer:
         now = time.time()
         last_ts = self.last_archive_ts.get(point_id, 0)
 
-        # archive_on_change: 0 — писати кожне значення
         if archive_on_change == 0:
             return True
 
-        # archive_on_change: 1 — перевіряємо deadband
         changed = False
         if prev_value is None:
             changed = True
@@ -66,9 +65,13 @@ class Writer:
         else:
             changed = value != prev_value
 
-        # archive_interval: N — писати по таймеру
         interval_fired = archive_interval > 0 and (
             now - last_ts) >= archive_interval
+
+        # DEBUG
+        if point_id == 3:
+            self.log.debug(
+                f"point 3: changed={changed}, interval_fired={interval_fired}, last_ts={last_ts}, now={now}, diff={now-last_ts:.1f}s")
 
         return changed or interval_fired
 
@@ -135,7 +138,8 @@ class Writer:
 
                     if self._should_archive(point_id, value, prev):
                         prev_values[point_id] = value
-                        self.last_archive_ts[point_id] = time.time()
+                        with self._ts_lock:
+                            self.last_archive_ts[point_id] = time.time()
                         self.volume.write("values", {
                             "ts": ts,
                             "point_id": point_id,
@@ -163,7 +167,7 @@ class Writer:
 
     def start(self):
         self.running = True
-
+        threading.Thread(target=self._interval_archiver, daemon=True).start()
         threading.Thread(target=self._listen_clock,  daemon=True).start()
         threading.Thread(target=self._listen_events, daemon=True).start()
         threading.Thread(target=self._listen_values, daemon=True).start()
@@ -171,3 +175,35 @@ class Writer:
 
         self.log.info(
             f"Writer started — {len(self.points_meta)} points loaded")
+
+    def _interval_archiver(self):
+        while self.running:
+            now = time.time()
+            for point_id, meta in self.points_meta.items():
+                if meta.get("onArchive", 1) == 0:
+                    continue
+                archive_interval = meta.get("archive_interval", 0)
+                if archive_interval == 0:
+                    continue
+
+                with self._ts_lock:
+                    last_ts = self.last_archive_ts.get(point_id, 0)
+                    if now - last_ts < archive_interval:
+                        continue
+                    self.last_archive_ts[point_id] = now
+
+                try:
+                    data = self.r.hgetall(f"point:{point_id}")
+                    if not data:
+                        continue
+                    value = float(data.get("value", 0))
+                    ts = int(data.get("ts", time.time()))
+                    self.volume.write("values", {
+                        "ts": ts,
+                        "point_id": point_id,
+                        "value": value
+                    })
+                except Exception as e:
+                    self.log.error(f"Interval archiver error: {e}")
+
+            time.sleep(10)
