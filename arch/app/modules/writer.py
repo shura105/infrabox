@@ -14,14 +14,10 @@ class Writer:
         self.timeout_sec = 10
 
         self.r = self._connect()
-        self.last_archive_ts = {}
         self._ts_lock = threading.Lock()
-
-        # завантажуємо метадані точок
-        self.points_meta = self._load_points_meta()
-
-        # last archive time для interval логіки
         self.last_archive_ts = {}
+
+        self.points_meta = self._load_points_meta()
 
     def _connect(self):
         r_cfg = self.config["redis"]
@@ -52,7 +48,8 @@ class Writer:
         deadband = meta.get("deadband", 0)
 
         now = time.time()
-        last_ts = self.last_archive_ts.get(point_id, 0)
+        with self._ts_lock:
+            last_ts = self.last_archive_ts.get(point_id, 0)
 
         if archive_on_change == 0:
             return True
@@ -67,11 +64,6 @@ class Writer:
 
         interval_fired = archive_interval > 0 and (
             now - last_ts) >= archive_interval
-
-        # DEBUG
-        if point_id == 3:
-            self.log.debug(
-                f"point 3: changed={changed}, interval_fired={interval_fired}, last_ts={last_ts}, now={now}, diff={now-last_ts:.1f}s")
 
         return changed or interval_fired
 
@@ -101,7 +93,6 @@ class Writer:
                         continue
                     event = json.loads(msg["data"])
 
-                    # перевіряємо onArchive
                     point_id = event.get("point_id")
                     meta = self.points_meta.get(point_id, {})
                     if meta.get("onArchive", 1) == 0:
@@ -165,17 +156,6 @@ class Writer:
                     self.log.error(f"Reconnect failed: {e}")
             time.sleep(3)
 
-    def start(self):
-        self.running = True
-        threading.Thread(target=self._interval_archiver, daemon=True).start()
-        threading.Thread(target=self._listen_clock,  daemon=True).start()
-        threading.Thread(target=self._listen_events, daemon=True).start()
-        threading.Thread(target=self._listen_values, daemon=True).start()
-        threading.Thread(target=self._watchdog,      daemon=True).start()
-
-        self.log.info(
-            f"Writer started — {len(self.points_meta)} points loaded")
-
     def _interval_archiver(self):
         while self.running:
             now = time.time()
@@ -197,9 +177,10 @@ class Writer:
                     if not data:
                         continue
                     value = float(data.get("value", 0))
-                    ts = int(data.get("ts", time.time()))
+                    # використовуємо поточний час — Redis ts може бути застарілим
+                    # якщо значення рідко проходить дедбенд (напр. disk_space)
                     self.volume.write("values", {
-                        "ts": ts,
+                        "ts": int(now),
                         "point_id": point_id,
                         "value": value
                     })
@@ -207,3 +188,14 @@ class Writer:
                     self.log.error(f"Interval archiver error: {e}")
 
             time.sleep(10)
+
+    def start(self):
+        self.running = True
+        threading.Thread(target=self._interval_archiver, daemon=True).start()
+        threading.Thread(target=self._listen_clock,      daemon=True).start()
+        threading.Thread(target=self._listen_events,     daemon=True).start()
+        threading.Thread(target=self._listen_values,     daemon=True).start()
+        threading.Thread(target=self._watchdog,          daemon=True).start()
+
+        self.log.info(
+            f"Writer started — {len(self.points_meta)} points loaded")

@@ -10,10 +10,10 @@
     <link rel="stylesheet" href="css/point.css">
 </head>
 
-<body x-data="pointApp()">
+<body x-data="pointApp()" x-init="init()">
 
     <header>
-        <a href="index.html" class="back">← Back</a>
+        <a class="back" @click.prevent="goBack()" href="index.html">← Back</a>
         <h1 x-text="title"></h1>
         <div class="status" x-text="status"></div>
     </header>
@@ -85,7 +85,6 @@
         </table>
     </div>
 
-    <!-- в кінці body, перед </body> -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.x.x/dist/chart.umd.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>

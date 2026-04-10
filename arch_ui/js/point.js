@@ -1,4 +1,28 @@
 let _chartInstance = null;
+let _rangeTimer = null;
+let _currentMode = false;
+let _abortController = null;
+
+
+function _newRequest() {
+    if (_abortController) {
+        _abortController.abort();
+    }
+    _abortController = new AbortController();
+    return _abortController.signal;
+}
+
+function _abortAll() {
+    clearTimeout(_rangeTimer);
+    if (_abortController) {
+        _abortController.abort();
+        _abortController = null;
+    }
+}
+
+// паgehide — надійніший за beforeunload при навігації назад/вперед
+window.addEventListener("pagehide", _abortAll);
+
 
 function pointApp() {
     return {
@@ -12,6 +36,11 @@ function pointApp() {
         title: "Loading...",
         status: "",
 
+        goBack() {
+            _abortAll();
+            window.location.href = "index.html";
+        },
+
         async init() {
             const params = new URLSearchParams(window.location.search);
             const idsParam = params.get("ids") || params.get("id");
@@ -22,12 +51,12 @@ function pointApp() {
             }
 
             this.pointIds = idsParam.split(",").map(Number);
-            console.log("pointIds:", this.pointIds);
-            console.log("idsParam:", idsParam);
             this.activePointId = this.pointIds[0];
 
-            allPoints = await fetchPoints();
-            this.points = this.pointIds.map(id => allPoints.find(p => p.id === id)).filter(Boolean);
+            const allPoints = await fetchPoints();
+            this.points = this.pointIds
+                .map(id => allPoints.find(p => p.id === id))
+                .filter(Boolean);
 
             if (this.points.length === 1) {
                 this.title = `${this.points[0].object} / ${this.points[0].system} / ${this.points[0].pointname}`;
@@ -36,20 +65,27 @@ function pointApp() {
             }
 
             await this.loadCurrent();
-            console.log("records:", this.records);
-            console.log("points:", this.points);
         },
 
         async loadCurrent() {
-            this.status = "Current data";
-            const toTs = Math.floor(Date.now() / 1000);
-            const fromTs = toTs - 86400; // останні 24 години
+            _currentMode = true;
+            const signal = _newRequest();
+            this.status = "Loading...";
 
-            for (const p of this.points) {
-                const data = await fetchRange(p.id, fromTs, toTs);
-                this.records[p.id] = data.slice(-200);
+            try {
+                const results = await Promise.all(
+                    this.points.map(p => fetchCurrent(p.id, signal))
+                );
+                this.points.forEach((p, i) => {
+                    this.records[p.id] = results[i];
+                });
+                this.status = "Current volume";
+                this.renderChart();
+            } catch (e) {
+                if (e.name === "AbortError") return;
+                this.status = "Error loading data";
+                console.error("loadCurrent error:", e);
             }
-            this.renderChart();
         },
 
         async loadArchive() {
@@ -58,26 +94,87 @@ function pointApp() {
                 return;
             }
 
+            _currentMode = false;
+            const signal = _newRequest();
             const fromTs = Math.floor(new Date(this.fromDt).getTime() / 1000);
             const toTs = Math.floor(new Date(this.toDt).getTime() / 1000);
 
-            this.status = `Archive: ${this.fromDt} → ${this.toDt}`;
+            this.status = "Loading archive...";
 
-            for (const p of this.points) {
-                const data = await fetchRange(p.id, fromTs, toTs);
-                this.records[p.id] = data;
+            try {
+                const results = await Promise.all(
+                    this.points.map(p => fetchRange(p.id, fromTs, toTs, signal))
+                );
+                this.points.forEach((p, i) => {
+                    this.records[p.id] = results[i];
+                });
+                this.status = `${this.fromDt} → ${this.toDt}`;
+                this.renderChart();
+            } catch (e) {
+                if (e.name === "AbortError") return;
+                this.status = "Error loading archive";
+                console.error("loadArchive error:", e);
             }
-            this.renderChart();
         },
 
         setActive(id) {
             this.activePointId = id;
-            this.renderChart();
+            this._updateChartData();
         },
 
         zoomIn() { if (_chartInstance) _chartInstance.zoom(1.2); },
         zoomOut() { if (_chartInstance) _chartInstance.zoom(0.8); },
-        zoomReset() { if (_chartInstance) _chartInstance.resetZoom(); },
+        zoomReset() {
+            if (_chartInstance) {
+                _chartInstance.resetZoom();
+                if (!_currentMode) {
+                    this._onRangeChange(_chartInstance);
+                }
+            }
+        },
+
+        _onRangeChange(chart) {
+            _currentMode = false;
+
+            clearTimeout(_rangeTimer);
+            if (_abortController) _abortController.abort();
+
+            _rangeTimer = setTimeout(async () => {
+                const signal = _newRequest();
+                const { min, max } = chart.scales.x;
+                const fromTs = Math.floor(min / 1000);
+                const toTs = Math.floor(max / 1000);
+
+                this.status = "Loading...";
+                try {
+                    const results = await Promise.all(
+                        this.points.map(p => fetchRange(p.id, fromTs, toTs, signal))
+                    );
+                    this.points.forEach((p, i) => {
+                        this.records[p.id] = results[i];
+                    });
+                    this.status = `${formatTs(fromTs)} → ${formatTs(toTs)}`;
+                    this._updateChartData();
+                } catch (e) {
+                    if (e.name === "AbortError") return;
+                    this.status = "Error loading data";
+                    console.error("_onRangeChange error:", e);
+                }
+            }, 400);
+        },
+
+        _updateChartData() {
+            if (!_chartInstance) return;
+            _chartInstance.data.datasets.forEach((ds, i) => {
+                const p = this.points[i];
+                if (!p) return;
+                const isActive = p.id === this.activePointId;
+                ds.data = (this.records[p.id] || []).map(r => ({ x: r.ts * 1000, y: r.value }));
+                ds.borderWidth = isActive ? 2 : 1;
+                ds.order = isActive ? 0 : 1;
+            });
+            _chartInstance.update("none");
+        },
 
         renderChart() {
             const colors = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
@@ -110,12 +207,13 @@ function pointApp() {
             }
 
             if (_chartInstance) {
-                _chartInstance.data.datasets = datasets;
-                _chartInstance.update();
-                return;
+                _chartInstance.destroy();
+                _chartInstance = null;
             }
 
             const ctx = document.getElementById("pointChart").getContext("2d");
+            const self = this;
+
             _chartInstance = new Chart(ctx, {
                 type: "line",
                 data: { datasets },
@@ -126,8 +224,17 @@ function pointApp() {
                     plugins: {
                         legend: { display: false },
                         zoom: {
-                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
-                            pan: { enabled: true, mode: "x" }
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: "x",
+                                onZoomComplete: ({ chart }) => self._onRangeChange(chart)
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: "x",
+                                onPanComplete: ({ chart }) => self._onRangeChange(chart)
+                            }
                         },
                         annotation: { annotations }
                     },

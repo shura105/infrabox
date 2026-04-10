@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -5,23 +6,38 @@ import uvicorn
 
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from modules.arch_client import (
     get_status, get_volumes, get_volume_meta,
     get_events, get_values, get_selfdiag,
-    get_config, get_sessions, control
+    get_config, get_sessions, control,
+    get_current_values
 )
 
 app = FastAPI(title="Infrabox Arch Backend")
 
-# --- CORS для фронтенду ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+CHART_MAX_POINTS = 1000
+
+
+# --- GLOBAL ERROR HANDLER ---
+# CORSMiddleware не додає заголовки до unhandled exceptions (500).
+# Цей handler перехоплює їх і повертає JSON з CORS заголовками.
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 
 def setup_logger():
@@ -49,7 +65,43 @@ def setup_logger():
     return logger
 
 
+def _downsample(data: list, max_points: int) -> list:
+    n = len(data)
+    if n <= max_points:
+        return data
+
+    result = [data[0]]
+    bucket_size = (n - 2) / (max_points - 2)
+
+    for i in range(max_points - 2):
+        start = int(i * bucket_size) + 1
+        end = int((i + 1) * bucket_size) + 1
+        bucket = data[start:end]
+        if not bucket:
+            continue
+        prev_y = result[-1]["value"]
+        next_y = data[min(end, n - 1)]["value"]
+        mid_y = (prev_y + next_y) / 2
+        best = max(bucket, key=lambda r: abs(r["value"] - mid_y))
+        result.append(best)
+
+    result.append(data[-1])
+    return result
+
+
+def _vol_intersects(meta: dict, from_ts: int, to_ts: int) -> bool:
+    try:
+        opened_at = int(datetime.fromisoformat(meta["opened_at"]).timestamp())
+        closed_at = meta.get("closed_at")
+        closed_ts = int(datetime.fromisoformat(
+            closed_at).timestamp()) if closed_at else int(time.time())
+        return closed_ts >= from_ts and opened_at <= to_ts
+    except Exception:
+        return False
+
+
 # --- ROUTES ---
+
 @app.get("/status")
 async def status():
     return await get_status()
@@ -97,105 +149,107 @@ async def control_action(action: str):
 
 
 # --- POINTS ---
+
 @app.get("/points")
 async def points():
     vols = await get_volumes()
     if not vols:
         return []
-    # vols вже відфільтровані і відсортовані по даті
-    latest = vols[0]  # перший = найновіший (reverse=True)
-    return await get_config(latest)
+    return await get_config(vols[0])
+
+
+@app.get("/points/{point_id}/current")
+async def point_current(point_id: int):
+    return await get_current_values(point_id)
 
 
 @app.get("/points/{point_id}/values")
 async def point_values(point_id: int, volume: str = None,
                        from_ts: int = None, to_ts: int = None):
-    """значення точки — з конкретного тому або останнього"""
     if not volume:
         vols = await get_volumes()
         if not vols:
             return []
-        volume = sorted(vols)[-1]
+        volume = vols[0]
     return await get_values(volume, point_id, from_ts, to_ts)
 
 
 @app.get("/points/{point_id}/events")
 async def point_events(point_id: int, volume: str = None):
-    """події точки"""
     if not volume:
         vols = await get_volumes()
         if not vols:
             return []
-        volume = sorted(vols)[-1]
+        volume = vols[0]
     return await get_events(volume, point_id)
 
 
 @app.get("/points/{point_id}/range")
-async def point_range(point_id: int, from_ts: int, to_ts: int):
-    """значення точки за період — збирає з усіх томів"""
+async def point_range(point_id: int, from_ts: int, to_ts: int,
+                      max_points: int = CHART_MAX_POINTS):
     vols = await get_volumes()
     if not vols:
         return []
 
+    metas = await asyncio.gather(
+        *[get_volume_meta(v) for v in vols],
+        return_exceptions=True
+    )
+
+    relevant = [
+        v for v, m in zip(vols, metas)
+        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
+    ]
+
+    if not relevant:
+        return []
+
+    results = await asyncio.gather(
+        *[get_values(v, point_id, from_ts, to_ts) for v in relevant],
+        return_exceptions=True
+    )
+
     result = []
-
-    for vol in vols:
-        # перевіряємо чи том перетинається з запитаним періодом
-        try:
-            meta = await get_volume_meta(vol)
-            # парсимо час відкриття тому
-            opened_at = int(datetime.fromisoformat(
-                meta["opened_at"]).timestamp())
-            closed_at = meta.get("closed_at")
-            if closed_at:
-                closed_ts = int(datetime.fromisoformat(closed_at).timestamp())
-            else:
-                closed_ts = int(time.time())  # поточний том
-
-            # том поза діапазоном — пропускаємо
-            if closed_ts < from_ts or opened_at > to_ts:
-                continue
-
-            data = await get_values(vol, point_id, from_ts, to_ts)
-            result.extend(data)
-
-        except Exception:
+    for data in results:
+        if isinstance(data, Exception):
             continue
+        result.extend(data)
 
-    # сортуємо по часу
     result.sort(key=lambda x: x["ts"])
-    return result
+    return _downsample(result, max_points)
 
 
 @app.get("/points/{point_id}/state_range")
 async def point_state_range(point_id: int, from_ts: int, to_ts: int):
-    """події точки за період — збирає з усіх томів"""
     vols = await get_volumes()
     if not vols:
         return []
 
+    metas = await asyncio.gather(
+        *[get_volume_meta(v) for v in vols],
+        return_exceptions=True
+    )
+
+    relevant = [
+        v for v, m in zip(vols, metas)
+        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
+    ]
+
+    if not relevant:
+        return []
+
+    results = await asyncio.gather(
+        *[get_events(v, point_id) for v in relevant],
+        return_exceptions=True
+    )
+
     result = []
-
-    for vol in vols:
-        try:
-            meta = await get_volume_meta(vol)
-            opened_at = int(datetime.fromisoformat(
-                meta["opened_at"]).timestamp())
-            closed_at = meta.get("closed_at")
-            closed_ts = int(datetime.fromisoformat(
-                closed_at).timestamp()) if closed_at else int(time.time())
-
-            if closed_ts < from_ts or opened_at > to_ts:
-                continue
-
-            data = await get_events(vol, point_id)
-            # фільтруємо по часу (events мають ts в мілісекундах)
-            data = [e for e in data
-                    if from_ts * 1000 <= e.get("ts", 0) <= to_ts * 1000]
-            result.extend(data)
-
-        except Exception:
+    for data in results:
+        if isinstance(data, Exception):
             continue
+        filtered = [e for e in data
+                    if from_ts * 1000 <= e.get("ts", 0) <= to_ts * 1000]
+        result.extend(filtered)
 
     result.sort(key=lambda x: x["ts"])
     return result
@@ -204,4 +258,4 @@ async def point_state_range(point_id: int, from_ts: int, to_ts: int):
 if __name__ == "__main__":
     log = setup_logger()
     log.info("Arch Backend started")
-    uvicorn.run(app, host="0.0.0.0", port=8101, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8101, log_level="warning")

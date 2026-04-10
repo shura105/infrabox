@@ -15,6 +15,11 @@ async function fetchVolumes() {
     return r.json();
 }
 
+async function fetchCurrent(pointId, signal) {
+    const r = await fetch(`${API_URL}/points/${pointId}/current`, { signal });
+    return r.json();
+}
+
 async function fetchValues(pointId, volume = null, fromTs = null, toTs = null) {
     let url = volume
         ? `${API_URL}/volumes/${volume}/values?point_id=${pointId}`
@@ -46,7 +51,10 @@ async function controlArchivator(action) {
     return r.json();
 }
 
-async function fetchRange(pointId, fromTs, toTs) {
-    const r = await fetch(`${API_URL}/points/${pointId}/range?from_ts=${fromTs}&to_ts=${toTs}`);
+async function fetchRange(pointId, fromTs, toTs, signal) {
+    const r = await fetch(
+        `${API_URL}/points/${pointId}/range?from_ts=${fromTs}&to_ts=${toTs}`,
+        { signal }
+    );
     return r.json();
 }
