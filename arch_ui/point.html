@@ -15,7 +15,7 @@
     <header>
         <a class="back" @click.prevent="goBack()" href="index.html">← Back</a>
         <h1 x-text="title"></h1>
-        <div class="status" x-text="status"></div>
+        <div class="status" :class="{'status-loading': status.startsWith('Loading')}" x-text="status"></div>
     </header>
 
     <!-- POINT INFO -->
@@ -37,23 +37,32 @@
         </div>
 
         <div class="view-toggle">
-            <button :class="{active: view === 'chart'}" @click="view = 'chart'">Chart</button>
-            <button :class="{active: view === 'table'}" @click="view = 'table'">Table</button>
+            <button @click="exportCSV()">Export CSV</button>
+            <button @click="printTable()">Print</button>
         </div>
     </div>
 
-    <div class="zoom-controls">
-        <button @click="zoomIn()">+</button>
-        <button @click="zoomOut()">−</button>
-        <button @click="zoomReset()">Reset</button>
+    <!-- ZOOM + POINT BUTTONS (chart only) -->
+    <div class="chart-toolbar" x-show="view === 'chart'">
+        <div class="zoom-controls">
+            <button @click="zoomOut()">−</button>
+            <button @click="zoomIn()">+</button>
+            <button @click="zoomReset()">Reset</button>
+        </div>
+        <div class="point-buttons" x-show="points.length > 1">
+            <template x-for="p in points" :key="p.id">
+                <span class="point-btn-group" :class="{'active-group': activePointId === p.id}">
+                    <button :class="{active: activePointId === p.id}" @click="setActive(p.id)" x-text="p.pointname"></button>
+                    <input type="checkbox" :checked="pointVisible[p.id]" @change="toggleVisible(p.id)">
+                </span>
+            </template>
+        </div>
     </div>
 
-    <!-- POINT BUTTONS -->
-    <div class="point-buttons" x-show="points.length > 1">
-        <template x-for="p in points" :key="p.id">
-            <button :class="{active: activePointId === p.id}" @click="setActive(p.id)" x-text="p.pointname">
-            </button>
-        </template>
+    <!-- VIEW TOOLBAR (chart/table toggle) — above both chart and table, right-aligned -->
+    <div class="view-toolbar">
+        <button :class="{active: view === 'chart'}" @click="view = 'chart'">Chart</button>
+        <button :class="{active: view === 'table'}" @click="view = 'table'">Table</button>
     </div>
 
     <!-- CHART -->
@@ -63,22 +72,24 @@
 
     <!-- TABLE -->
     <div x-show="view === 'table'" class="table-container">
-        <div class="table-actions">
-            <button @click="exportCSV()">Export CSV</button>
-            <button @click="printTable()">Print</button>
-        </div>
         <table>
             <thead>
                 <tr>
-                    <th>Timestamp</th>
-                    <th>Value</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <template x-for="p in points" :key="p.id">
+                        <th x-text="`${p.pointname}${p.unit ? ', ' + p.unit : ''}`"></th>
+                    </template>
                 </tr>
             </thead>
             <tbody>
-                <template x-for="r in (records[activePointId] || [])" :key="r.ts">
+                <template x-for="row in tableRows()" :key="row.ts">
                     <tr>
-                        <td x-text="formatTs(r.ts)"></td>
-                        <td x-text="`${r.value} ${points.find(p=>p.id===activePointId)?.unit || ''}`"></td>
+                        <td x-text="formatDate(row.ts)"></td>
+                        <td x-text="formatTime(row.ts)"></td>
+                        <template x-for="(val, i) in row.values" :key="i">
+                            <td x-text="val !== null ? val : '—'"></td>
+                        </template>
                     </tr>
                 </template>
             </tbody>

@@ -4,23 +4,26 @@ import os
 
 ARCH_URL = os.environ.get("ARCH_URL", "http://localhost:8100")
 
-# обмежуємо кількість одночасних запитів до arch
-# щоб пул з'єднань не вичерпувався при великій кількості томів
-_semaphore = asyncio.Semaphore(8)
+# реальний rate limiting — через semaphore, не через пул httpx.
+# max_connections=None (без обмежень пулу) + max_keepalive_connections=0
+# (без keepalive для localhost) повністю усуває PoolTimeout.
+# Semaphore гарантує що arch ніколи не отримає більше 6 запитів одночасно.
+_semaphore = asyncio.Semaphore(6)
 
 _client = httpx.AsyncClient(
     base_url=ARCH_URL,
-    timeout=httpx.Timeout(
-        connect=5.0,
-        read=60.0,
-        write=5.0,
-        pool=30.0      # збільшено — чекає поки семафор звільниться
-    ),
+    timeout=httpx.Timeout(connect=5.0, read=60.0, write=5.0, pool=5.0),
     limits=httpx.Limits(
-        max_connections=10,        # менше з'єднань, але контрольовано
-        max_keepalive_connections=8,
-        keepalive_expiry=30.0
+        max_connections=None,
+        max_keepalive_connections=0,
     )
+)
+
+# окремий клієнт для status/control — не конкурує з пулом range-запитів
+_status_client = httpx.AsyncClient(
+    base_url=ARCH_URL,
+    timeout=httpx.Timeout(connect=3.0, read=5.0, write=3.0, pool=3.0),
+    limits=httpx.Limits(max_connections=2, max_keepalive_connections=2)
 )
 
 
@@ -39,7 +42,7 @@ async def _post(path: str, **kwargs):
 
 
 async def get_status():
-    r = await _client.get("/status")  # без семафору — завжди має проходити
+    r = await _status_client.get("/status")
     r.raise_for_status()
     return r.json()
 
@@ -94,4 +97,6 @@ async def get_sessions():
 
 
 async def control(action: str):
-    return await _post(f"/control/{action}")
+    r = await _status_client.post(f"/control/{action}")
+    r.raise_for_status()
+    return r.json()

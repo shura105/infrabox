@@ -81,14 +81,23 @@
                 status: "Loading...",
 
                 async init() {
-                    const data = await fetchStatus();
-                    this.status = `Volume: ${data.current_volume.volume} | Records: ${data.current_volume.record_count}`;
-
-                    this.points = await fetchPoints();
-                    this.objects = [...new Set(this.points.map(p => p.object))];
-                    this.allSystems = [...new Set(this.points.map(p => p.system))];
-                    this.filteredSystems = this.allSystems;
-                    this.filtered = this.points;
+                    for (let attempt = 1; attempt <= 5; attempt++) {
+                        try {
+                            const data = await fetchStatus();
+                            this.status = `Volume: ${data.current_volume.volume} | Records: ${data.current_volume.record_count}`;
+                            this.points = await fetchPoints();
+                            this.objects = [...new Set(this.points.map(p => p.object))];
+                            this.allSystems = [...new Set(this.points.map(p => p.system))];
+                            this.filteredSystems = this.allSystems;
+                            this.filtered = this.points;
+                            return;
+                        } catch (e) {
+                            this.status = attempt < 5
+                                ? `Connecting... (${attempt}/5)`
+                                : "Archivator unavailable";
+                            if (attempt < 5) await new Promise(r => setTimeout(r, 2000));
+                        }
+                    }
                 },
 
                 onObjectChange() {

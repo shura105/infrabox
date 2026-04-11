@@ -28,6 +28,7 @@ function pointApp() {
         points: [],
         activePointId: null,
         records: {},
+        pointVisible: {},
         view: "chart",
         fromDt: "",
         toDt: "",
@@ -62,6 +63,8 @@ function pointApp() {
                 console.error("init fetchPoints error:", e);
                 return;
             }
+
+            this.points.forEach(p => { this.pointVisible[p.id] = true; });
 
             if (this.points.length === 1) {
                 this.title = `${this.points[0].object} / ${this.points[0].system} / ${this.points[0].pointname}`;
@@ -124,7 +127,12 @@ function pointApp() {
 
         setActive(id) {
             this.activePointId = id;
-            this._updateChartData();
+            this.renderChart();
+        },
+
+        toggleVisible(id) {
+            this.pointVisible[id] = !this.pointVisible[id];
+            this.renderChart();
         },
 
         zoomIn() { if (_chartInstance) _chartInstance.zoom(1.2); },
@@ -174,6 +182,7 @@ function pointApp() {
                 const isActive = p.id === this.activePointId;
                 ds.data = (this.records[p.id] || []).map(r => ({ x: r.ts * 1000, y: r.value }));
                 ds.borderWidth = isActive ? 2 : 1;
+                ds.pointRadius = isActive ? 1.5 : 0;
                 ds.order = isActive ? 0 : 1;
             });
             _chartInstance.update("none");
@@ -193,10 +202,12 @@ function pointApp() {
                     borderColor: colors[i],
                     backgroundColor: isSingle ? "rgba(126,184,247,0.08)" : "transparent",
                     borderWidth: isActive ? 2 : 1,
-                    pointRadius: 0,
+                    pointRadius: isActive ? 0.75 : 0,
+                    pointHoverRadius: isActive ? 4 : 0,
                     tension: 0.2,
                     order: isActive ? 0 : 1,
-                    yAxisID: isActive ? "y" : `y${i}`
+                    yAxisID: (isActive || !this.pointVisible[p.id]) ? "y" : `y${i}`,
+                    hidden: !this.pointVisible[p.id]
                 };
             });
 
@@ -216,6 +227,46 @@ function pointApp() {
                 _chartInstance.destroy();
                 _chartInstance = null;
             }
+
+            const activePoint = this.points.find(p => p.id === this.activePointId);
+            const scales = {
+                x: {
+                    type: "time",
+                    time: {
+                        tooltipFormat: "dd.MM.yyyy HH:mm:ss",
+                        displayFormats: {
+                            second: "HH:mm:ss",
+                            minute: "dd.MM HH:mm",
+                            hour:   "dd.MM HH:mm",
+                            day:    "dd.MM.yyyy",
+                            week:   "dd.MM.yyyy",
+                            month:  "MM.yyyy",
+                        }
+                    },
+                    ticks: {
+                        color: "#6b7280",
+                        maxTicksLimit: 8,
+                        maxRotation: 35,
+                        minRotation: 35
+                    },
+                    grid: { color: "#1e2130" }
+                },
+                y: {
+                    ticks: { color: "#4caf50" },
+                    border: { color: "#4caf50" },
+                    grid: { color: "#1e2130" },
+                    ...(activePoint?.min != null && activePoint?.max != null
+                        ? { min: activePoint.min, max: activePoint.max } : {})
+                }
+            };
+            this.points.forEach((p, i) => {
+                if (p.id === this.activePointId || !this.pointVisible[p.id]) return;
+                scales[`y${i}`] = {
+                    ticks: { color: "#6b7280" },
+                    grid: { display: false },
+                    ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
+                };
+            });
 
             const ctx = document.getElementById("pointChart").getContext("2d");
             const self = this;
@@ -244,26 +295,33 @@ function pointApp() {
                         },
                         annotation: { annotations }
                     },
-                    scales: {
-                        x: {
-                            type: "time",
-                            time: { tooltipFormat: "dd.MM.yyyy HH:mm:ss" },
-                            ticks: { color: "#6b7280", maxTicksLimit: 8 },
-                            grid: { color: "#1e2130" }
-                        },
-                        y: {
-                            ticks: { color: "#6b7280" },
-                            grid: { color: "#1e2130" }
-                        }
-                    }
+                    scales
                 }
             });
         },
 
+        tableRows() {
+            const tsSet = new Set();
+            this.points.forEach(p => (this.records[p.id] || []).forEach(r => tsSet.add(r.ts)));
+            const lookup = {};
+            this.points.forEach(p => {
+                (this.records[p.id] || []).forEach(r => {
+                    if (!lookup[r.ts]) lookup[r.ts] = {};
+                    lookup[r.ts][p.id] = r.value;
+                });
+            });
+            return [...tsSet].sort((a, b) => a - b).map(ts => ({
+                ts,
+                values: this.points.map(p => lookup[ts]?.[p.id] ?? null)
+            }));
+        },
+
         exportCSV() {
-            const activeData = this.records[this.activePointId] || [];
-            const rows = [["timestamp", "value"]];
-            activeData.forEach(r => rows.push([formatTs(r.ts), r.value]));
+            const headers = ["date", "time", ...this.points.map(p => `${p.pointname} (${p.unit})`)];
+            const rows = [headers];
+            this.tableRows().forEach(row => {
+                rows.push([formatDate(row.ts), formatTime(row.ts), ...row.values.map(v => v ?? '')]);
+            });
             const csv = rows.map(r => r.join(",")).join("\n");
             const blob = new Blob([csv], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
@@ -281,4 +339,12 @@ function pointApp() {
 
 function formatTs(ts) {
     return new Date(ts * 1000).toLocaleString();
+}
+
+function formatDate(ts) {
+    return new Date(ts * 1000).toLocaleDateString();
+}
+
+function formatTime(ts) {
+    return new Date(ts * 1000).toLocaleTimeString();
 }

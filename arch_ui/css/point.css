@@ -97,10 +97,66 @@ button.active {
     padding: 20px;
 }
 
-.table-actions {
+.chart-toolbar {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.zoom-controls {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.point-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-left: 32px;
+}
+
+.point-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid #2a2d3a;
+    border-radius: 6px;
+    padding: 3px 8px 3px 4px;
+}
+
+.point-btn-group button {
+    border: none;
+    background: transparent;
+    padding: 2px 4px;
+}
+
+.point-btn-group input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #4caf50;
+    cursor: pointer;
+}
+
+.point-btn-group.active-group {
+    border-color: #4caf50;
+    box-shadow: 0 0 0 1px #4caf50;
+    background: #0d2010;
+}
+
+.point-btn-group button.active {
+    color: #4caf50;
+    background: transparent;
+}
+
+.view-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
 .table-container table {
