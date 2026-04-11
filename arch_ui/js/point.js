@@ -2,6 +2,7 @@ let _chartInstance = null;
 let _rangeTimer = null;
 let _currentMode = false;
 let _abortController = null;
+let _renderGeneration = 0;
 
 
 function _newRequest() {
@@ -47,13 +48,20 @@ function pointApp() {
                 return;
             }
 
-            this.pointIds = idsParam.split(",").map(Number);
+            this.pointIds = idsParam.split(",").map(Number).filter(n => Number.isFinite(n));
             this.activePointId = this.pointIds[0];
 
-            const allPoints = await fetchPoints();
-            this.points = this.pointIds
-                .map(id => allPoints.find(p => p.id === id))
-                .filter(Boolean);
+            try {
+                const allPoints = await fetchPoints();
+                this.points = this.pointIds
+                    .map(id => allPoints.find(p => p.id === id))
+                    .filter(Boolean);
+            } catch (e) {
+                this.title = "Error loading points";
+                this.status = e.message;
+                console.error("init fetchPoints error:", e);
+                return;
+            }
 
             if (this.points.length === 1) {
                 this.title = `${this.points[0].object} / ${this.points[0].system} / ${this.points[0].pointname}`;
@@ -172,6 +180,7 @@ function pointApp() {
         },
 
         renderChart() {
+            const generation = ++_renderGeneration;
             const colors = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
             const isSingle = this.points.length === 1;
 
@@ -200,6 +209,8 @@ function pointApp() {
                 annotations.warnLow = { type: "box", yMin: p.alarm_min, yMax: p.warn_min, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
                 annotations.alarmLow = { type: "box", yMin: p.min, yMax: p.alarm_min, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
             }
+
+            if (generation !== _renderGeneration) return;
 
             if (_chartInstance) {
                 _chartInstance.destroy();

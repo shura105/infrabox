@@ -1,23 +1,25 @@
 const API_URL = `http://${window.location.hostname}:8101`;
 
-async function fetchStatus() {
-    const r = await fetch(`${API_URL}/status`);
+async function _fetchJson(url, options = {}) {
+    const r = await fetch(url, options);
+    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText} — ${url}`);
     return r.json();
+}
+
+async function fetchStatus() {
+    return _fetchJson(`${API_URL}/status`);
 }
 
 async function fetchPoints() {
-    const r = await fetch(`${API_URL}/points`);
-    return r.json();
+    return _fetchJson(`${API_URL}/points`);
 }
 
 async function fetchVolumes() {
-    const r = await fetch(`${API_URL}/volumes`);
-    return r.json();
+    return _fetchJson(`${API_URL}/volumes`);
 }
 
 async function fetchCurrent(pointId, signal) {
-    const r = await fetch(`${API_URL}/points/${pointId}/current`, { signal });
-    return r.json();
+    return _fetchJson(`${API_URL}/points/${pointId}/current`, { signal });
 }
 
 async function fetchValues(pointId, volume = null, fromTs = null, toTs = null) {
@@ -29,8 +31,7 @@ async function fetchValues(pointId, volume = null, fromTs = null, toTs = null) {
         ? `${API_URL}/volumes/${volume}/values?${params}`
         : `${API_URL}/points/${pointId}/values?${params}`;
 
-    const r = await fetch(url);
-    return r.json();
+    return _fetchJson(url);
 }
 
 async function fetchEvents(pointId, volume = null) {
@@ -38,24 +39,20 @@ async function fetchEvents(pointId, volume = null) {
         ? `${API_URL}/volumes/${volume}/events?point_id=${pointId}`
         : `${API_URL}/points/${pointId}/events`;
 
-    const r = await fetch(url);
-    return r.json();
+    return _fetchJson(url);
 }
 
 async function fetchSessions() {
-    const r = await fetch(`${API_URL}/sessions`);
-    return r.json();
+    return _fetchJson(`${API_URL}/sessions`);
 }
 
 async function controlArchivator(action) {
-    const r = await fetch(`${API_URL}/control/${action}`, { method: "POST" });
-    return r.json();
+    return _fetchJson(`${API_URL}/control/${action}`, { method: "POST" });
 }
 
 async function fetchRange(pointId, fromTs, toTs, signal) {
-    const r = await fetch(
+    return _fetchJson(
         `${API_URL}/points/${pointId}/range?from_ts=${fromTs}&to_ts=${toTs}`,
         { signal }
     );
-    return r.json();
 }

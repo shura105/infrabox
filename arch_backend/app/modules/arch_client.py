@@ -27,17 +27,20 @@ _client = httpx.AsyncClient(
 async def _get(path: str, **kwargs):
     async with _semaphore:
         r = await _client.get(path, **kwargs)
+        r.raise_for_status()
         return r.json()
 
 
 async def _post(path: str, **kwargs):
     async with _semaphore:
         r = await _client.post(path, **kwargs)
+        r.raise_for_status()
         return r.json()
 
 
 async def get_status():
     r = await _client.get("/status")  # без семафору — завжди має проходити
+    r.raise_for_status()
     return r.json()
 
 
@@ -58,7 +61,7 @@ async def get_current_values(point_id: int = None):
 
 async def get_events(volume: str, point_id: int = None):
     params = {}
-    if point_id:
+    if point_id is not None:
         params["point_id"] = point_id
     return await _get(f"/volumes/{volume}/events", params=params)
 
@@ -66,18 +69,18 @@ async def get_events(volume: str, point_id: int = None):
 async def get_values(volume: str, point_id: int = None,
                      from_ts: int = None, to_ts: int = None):
     params = {}
-    if point_id:
+    if point_id is not None:
         params["point_id"] = point_id
-    if from_ts:
+    if from_ts is not None:
         params["from_ts"] = from_ts
-    if to_ts:
+    if to_ts is not None:
         params["to_ts"] = to_ts
     return await _get(f"/volumes/{volume}/values", params=params)
 
 
 async def get_selfdiag(volume: str, point_id: int = None):
     params = {}
-    if point_id:
+    if point_id is not None:
         params["point_id"] = point_id
     return await _get(f"/volumes/{volume}/selfdiag", params=params)
 

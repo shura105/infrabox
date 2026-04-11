@@ -78,6 +78,7 @@ def main():
 
     client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, 60)
+    client.loop_start()
 
     state = {}
     for p in points:

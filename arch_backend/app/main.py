@@ -27,9 +27,12 @@ app.add_middleware(
 
 CHART_MAX_POINTS = 1000
 
+# обмежуємо кількість одночасних range-запитів:
+# кожен fetch_range робить десятки HTTP-викликів до arch,
+# тому більше 2 паралельних операцій вичерпують пул з'єднань
+_range_semaphore = asyncio.Semaphore(2)
 
-# CORSMiddleware не додає заголовки до unhandled exceptions (500).
-# Цей handler перехоплює їх і повертає JSON з CORS заголовками.
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -64,12 +67,26 @@ def setup_logger():
     return logger
 
 
+async def _run_or_cancel(request: Request, coro):
+    """
+    Виконує корутину як task.
+    Якщо клієнт відключився — скасовує task і повертає [].
+    Звільняє семафорні слоти миттєво при Back.
+    """
+    task = asyncio.create_task(coro)
+    while not task.done():
+        if await request.is_disconnected():
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+            return []
+        await asyncio.sleep(0.05)
+    return await task
+
+
 def _downsample(data: list, max_points: int) -> list:
-    """
-    Largest-Triangle-Three-Buckets (спрощена версія).
-    Зберігає форму кривої при зменшенні кількості точок.
-    Завжди включає першу і останню точку.
-    """
     n = len(data)
     if n <= max_points:
         return data
@@ -94,15 +111,83 @@ def _downsample(data: list, max_points: int) -> list:
 
 
 def _vol_intersects(meta: dict, from_ts: int, to_ts: int) -> bool:
-    """Перевіряє чи том перетинається з запитаним діапазоном."""
     try:
         opened_at = int(datetime.fromisoformat(meta["opened_at"]).timestamp())
         closed_at = meta.get("closed_at")
-        closed_ts = int(datetime.fromisoformat(
-            closed_at).timestamp()) if closed_at else int(time.time())
+        closed_ts = int(datetime.fromisoformat(closed_at).timestamp()) if closed_at else int(time.time())
         return closed_ts >= from_ts and opened_at <= to_ts
     except Exception:
         return False
+
+
+async def _fetch_range(point_id: int, from_ts: int, to_ts: int,
+                       max_points: int = CHART_MAX_POINTS):
+    async with _range_semaphore:
+        vols = await get_volumes()
+        if not vols:
+            return []
+
+        metas = await asyncio.gather(
+            *[get_volume_meta(v) for v in vols],
+            return_exceptions=True
+        )
+
+        relevant = [
+            v for v, m in zip(vols, metas)
+            if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
+        ]
+
+        if not relevant:
+            return []
+
+        results = await asyncio.gather(
+            *[get_values(v, point_id, from_ts, to_ts) for v in relevant],
+            return_exceptions=True
+        )
+
+        result = []
+        for data in results:
+            if isinstance(data, Exception):
+                continue
+            result.extend(data)
+
+        result.sort(key=lambda x: x["ts"])
+        return _downsample(result, max_points)
+
+
+async def _fetch_state_range(point_id: int, from_ts: int, to_ts: int):
+    vols = await get_volumes()
+    if not vols:
+        return []
+
+    metas = await asyncio.gather(
+        *[get_volume_meta(v) for v in vols],
+        return_exceptions=True
+    )
+
+    relevant = [
+        v for v, m in zip(vols, metas)
+        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
+    ]
+
+    if not relevant:
+        return []
+
+    results = await asyncio.gather(
+        *[get_events(v, point_id) for v in relevant],
+        return_exceptions=True
+    )
+
+    result = []
+    for data in results:
+        if isinstance(data, Exception):
+            continue
+        filtered = [e for e in data
+                    if from_ts * 1000 <= e.get("ts", 0) <= to_ts * 1000]
+        result.extend(filtered)
+
+    result.sort(key=lambda x: x["ts"])
+    return result
 
 
 # --- ROUTES ---
@@ -165,7 +250,6 @@ async def points():
 
 @app.get("/points/{point_id}/current")
 async def point_current(point_id: int):
-    """Живі дані з поточного активного тому — без скану архіву."""
     return await get_current_values(point_id)
 
 
@@ -191,77 +275,22 @@ async def point_events(point_id: int, volume: str = None):
 
 
 @app.get("/points/{point_id}/range")
-async def point_range(point_id: int, from_ts: int, to_ts: int,
+async def point_range(request: Request, point_id: int,
+                      from_ts: int, to_ts: int,
                       max_points: int = CHART_MAX_POINTS):
-    """Архівні дані за діапазоном — паралельно з усіх релевантних томів."""
-    vols = await get_volumes()
-    if not vols:
-        return []
-
-    metas = await asyncio.gather(
-        *[get_volume_meta(v) for v in vols],
-        return_exceptions=True
+    return await _run_or_cancel(
+        request,
+        _fetch_range(point_id, from_ts, to_ts, max_points)
     )
-
-    relevant = [
-        v for v, m in zip(vols, metas)
-        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
-    ]
-
-    if not relevant:
-        return []
-
-    results = await asyncio.gather(
-        *[get_values(v, point_id, from_ts, to_ts) for v in relevant],
-        return_exceptions=True
-    )
-
-    result = []
-    for data in results:
-        if isinstance(data, Exception):
-            continue
-        result.extend(data)
-
-    result.sort(key=lambda x: x["ts"])
-    return _downsample(result, max_points)
 
 
 @app.get("/points/{point_id}/state_range")
-async def point_state_range(point_id: int, from_ts: int, to_ts: int):
-    """Події точки за діапазоном — паралельно з усіх релевантних томів."""
-    vols = await get_volumes()
-    if not vols:
-        return []
-
-    metas = await asyncio.gather(
-        *[get_volume_meta(v) for v in vols],
-        return_exceptions=True
+async def point_state_range(request: Request, point_id: int,
+                            from_ts: int, to_ts: int):
+    return await _run_or_cancel(
+        request,
+        _fetch_state_range(point_id, from_ts, to_ts)
     )
-
-    relevant = [
-        v for v, m in zip(vols, metas)
-        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
-    ]
-
-    if not relevant:
-        return []
-
-    results = await asyncio.gather(
-        *[get_events(v, point_id) for v in relevant],
-        return_exceptions=True
-    )
-
-    result = []
-    for data in results:
-        if isinstance(data, Exception):
-            continue
-        # events.ts — мілісекунди
-        filtered = [e for e in data
-                    if from_ts * 1000 <= e.get("ts", 0) <= to_ts * 1000]
-        result.extend(filtered)
-
-    result.sort(key=lambda x: x["ts"])
-    return result
 
 
 if __name__ == "__main__":
