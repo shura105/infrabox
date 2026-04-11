@@ -21,19 +21,20 @@ async function fetchCurrent(pointId, signal) {
 }
 
 async function fetchValues(pointId, volume = null, fromTs = null, toTs = null) {
-    let url = volume
-        ? `${API_URL}/volumes/${volume}/values?point_id=${pointId}`
-        : `${API_URL}/points/${pointId}/values?`;
+    const params = new URLSearchParams({ point_id: pointId });
+    if (fromTs) params.set("from_ts", fromTs);
+    if (toTs) params.set("to_ts", toTs);
 
-    if (fromTs) url += `&from_ts=${fromTs}`;
-    if (toTs) url += `&to_ts=${toTs}`;
+    const url = volume
+        ? `${API_URL}/volumes/${volume}/values?${params}`
+        : `${API_URL}/points/${pointId}/values?${params}`;
 
     const r = await fetch(url);
     return r.json();
 }
 
 async function fetchEvents(pointId, volume = null) {
-    let url = volume
+    const url = volume
         ? `${API_URL}/volumes/${volume}/events?point_id=${pointId}`
         : `${API_URL}/points/${pointId}/events`;
 

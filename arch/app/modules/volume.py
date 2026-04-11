@@ -22,9 +22,10 @@ class Volume:
         self.record_count = 0
         self.log = logging.getLogger("arch.volume")
 
-        self._open()
+        # lock ініціалізується ДО _open() щоб write() не падав при race
         self._lock = threading.Lock()
         self.recording = self._load_state()
+        self._open()
 
     def _volume_name(self):
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -37,12 +38,8 @@ class Volume:
         self.opened_at = datetime.now()
         self.record_count = 0
 
-        # --- знімок конфігурації ---
         self._write_config_snap()
-
-        # --- мета тому ---
         self._write_meta("open")
-
         self._write_session("open")
 
         self.log.info(f"Volume opened: {name}")
@@ -113,12 +110,9 @@ class Volume:
         )
 
     def rotate(self):
-        elapsed_hours = (datetime.now() -
-                         self.opened_at).total_seconds() / 3600
-
         if self.record_count >= self.max_records:
             reason = "max_records"
-        elif elapsed_hours >= self.max_duration_hours:
+        elif (datetime.now() - self.opened_at).total_seconds() / 3600 >= self.max_duration_hours:
             reason = "max_duration"
         else:
             reason = "manual"
@@ -134,6 +128,20 @@ class Volume:
                 self.rotate()
             self._write_file(f"{stream}.json", record)
             self.record_count += 1
+
+    def stop(self):
+        """Зупинка запису через API — атомарна операція."""
+        with self._lock:
+            self._close(reason="manual_stop")
+            self._save_state(False)
+            self.recording = False
+
+    def start(self):
+        """Старт запису через API — атомарна операція."""
+        with self._lock:
+            self._open()
+            self._save_state(True)
+            self.recording = True
 
     def get_current_meta(self):
         return {

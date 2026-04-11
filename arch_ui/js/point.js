@@ -5,9 +5,7 @@ let _abortController = null;
 
 
 function _newRequest() {
-    if (_abortController) {
-        _abortController.abort();
-    }
+    if (_abortController) _abortController.abort();
     _abortController = new AbortController();
     return _abortController.signal;
 }
@@ -20,7 +18,6 @@ function _abortAll() {
     }
 }
 
-// паgehide — надійніший за beforeunload при навігації назад/вперед
 window.addEventListener("pagehide", _abortAll);
 
 
@@ -127,9 +124,7 @@ function pointApp() {
         zoomReset() {
             if (_chartInstance) {
                 _chartInstance.resetZoom();
-                if (!_currentMode) {
-                    this._onRangeChange(_chartInstance);
-                }
+                if (!_currentMode) this._onRangeChange(_chartInstance);
             }
         },
 

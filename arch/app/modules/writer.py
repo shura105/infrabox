@@ -13,11 +13,13 @@ class Writer:
         self.last_heartbeat = time.time()
         self.timeout_sec = 10
 
-        self.r = self._connect()
         self._ts_lock = threading.Lock()
-        self.last_archive_ts = {}
+        self.last_archive_ts = {}  # ініціалізується один раз
 
         self.points_meta = self._load_points_meta()
+
+        # r ініціалізується останнім — після всіх інших полів
+        self.r = self._connect()
 
     def _connect(self):
         r_cfg = self.config["redis"]
@@ -48,13 +50,14 @@ class Writer:
         deadband = meta.get("deadband", 0)
 
         now = time.time()
+
+        # читаємо last_archive_ts під локом — запобігаємо dirty read
         with self._ts_lock:
             last_ts = self.last_archive_ts.get(point_id, 0)
 
         if archive_on_change == 0:
             return True
 
-        changed = False
         if prev_value is None:
             changed = True
         elif deadband > 0:
@@ -62,15 +65,15 @@ class Writer:
         else:
             changed = value != prev_value
 
-        interval_fired = archive_interval > 0 and (
-            now - last_ts) >= archive_interval
+        interval_fired = archive_interval > 0 and (now - last_ts) >= archive_interval
 
         return changed or interval_fired
 
     def _listen_clock(self):
         while self.running:
             try:
-                pubsub = self.r.pubsub()
+                r = self.r  # локальна копія — захист від watchdog reconnect
+                pubsub = r.pubsub()
                 pubsub.subscribe("bus:clock")
                 for msg in pubsub.listen():
                     if not self.running:
@@ -84,7 +87,8 @@ class Writer:
     def _listen_events(self):
         while self.running:
             try:
-                pubsub = self.r.pubsub()
+                r = self.r
+                pubsub = r.pubsub()
                 pubsub.subscribe("bus:event")
                 for msg in pubsub.listen():
                     if not self.running:
@@ -98,8 +102,7 @@ class Writer:
                     if meta.get("onArchive", 1) == 0:
                         continue
 
-                    stream = "selfdiag" if event.get(
-                        "system") == "selfDiag" else "events"
+                    stream = "selfdiag" if event.get("system") == "selfDiag" else "events"
                     self.volume.write(stream, event)
             except Exception as e:
                 self.log.error(f"Writer events error: {e}")
@@ -109,7 +112,8 @@ class Writer:
         prev_values = {}
         while self.running:
             try:
-                pubsub = self.r.pubsub()
+                r = self.r
+                pubsub = r.pubsub()
                 pubsub.subscribe("bus:data")
                 for msg in pubsub.listen():
                     if not self.running:
@@ -118,13 +122,12 @@ class Writer:
                         continue
 
                     point_id = int(msg["data"])
-                    data = self.r.hgetall(f"point:{point_id}")
+                    data = r.hgetall(f"point:{point_id}")
                     if not data:
                         continue
 
                     value = float(data.get("value", 0))
                     ts = int(data.get("ts", time.time()))
-
                     prev = prev_values.get(point_id)
 
                     if self._should_archive(point_id, value, prev):
@@ -145,11 +148,12 @@ class Writer:
         while self.running:
             elapsed = time.time() - self.last_heartbeat
             if elapsed > self.timeout_sec:
-                self.log.error(
-                    f"Redis heartbeat lost ({elapsed:.1f}s) — reconnecting...")
+                self.log.error(f"Redis heartbeat lost ({elapsed:.1f}s) — reconnecting...")
                 try:
-                    self.r = self._connect()
-                    self.r.ping()
+                    new_r = self._connect()
+                    new_r.ping()
+                    # атомарна заміна — listener треди беруть локальну копію self.r
+                    self.r = new_r
                     self.last_heartbeat = time.time()
                     self.log.info("Redis reconnected")
                 except Exception as e:
@@ -173,7 +177,8 @@ class Writer:
                     self.last_archive_ts[point_id] = now
 
                 try:
-                    data = self.r.hgetall(f"point:{point_id}")
+                    r = self.r
+                    data = r.hgetall(f"point:{point_id}")
                     if not data:
                         continue
                     value = float(data.get("value", 0))
@@ -197,5 +202,4 @@ class Writer:
         threading.Thread(target=self._listen_values,     daemon=True).start()
         threading.Thread(target=self._watchdog,          daemon=True).start()
 
-        self.log.info(
-            f"Writer started — {len(self.points_meta)} points loaded")
+        self.log.info(f"Writer started — {len(self.points_meta)} points loaded")

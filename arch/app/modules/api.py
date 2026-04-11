@@ -16,7 +16,7 @@ def set_volume(volume):
 
 
 def _iter_lines(volume_dir, filename):
-    """Генератор рядків з .json або .json.gz — не завантажує все в пам'ять."""
+    """Генератор рядків — не завантажує весь файл в пам'ять."""
     json_path = os.path.join(DATA_DIR, volume_dir, filename)
     gz_path = json_path + ".gz"
 
@@ -58,7 +58,7 @@ def _read_values_filtered(volume_dir, point_id=None, from_ts=None, to_ts=None):
         if from_ts and ts < from_ts:
             continue
         if to_ts and ts > to_ts:
-            break
+            break  # файл відсортований — далі читати немає сенсу
 
         if point_id and r.get("point_id") != point_id:
             continue
@@ -111,8 +111,8 @@ def list_volumes():
 @app.get("/current/values")
 def get_current_values(point_id: int = None):
     """
-    Читає values з поточного активного тому.
-    Швидко — один маленький файл, без скану всього архіву.
+    Читає values з поточного активного тому напряму.
+    Швидко — один маленький файл без скану всього архіву.
     """
     if _volume is None:
         raise HTTPException(status_code=503, detail="Not initialized")
@@ -187,9 +187,7 @@ def get_sessions():
 def stop_archivator():
     if _volume is None:
         raise HTTPException(status_code=503, detail="Not initialized")
-    _volume._close(reason="manual_stop")
-    _volume._save_state(False)
-    _volume.recording = False
+    _volume.stop()  # атомарна операція з локом всередині Volume
     return {"status": "stopped"}
 
 
@@ -197,9 +195,7 @@ def stop_archivator():
 def start_archivator():
     if _volume is None:
         raise HTTPException(status_code=503, detail="Not initialized")
-    _volume._open()
-    _volume._save_state(True)
-    _volume.recording = True
+    _volume.start()  # атомарна операція з локом всередині Volume
     return {"status": "started", "volume": os.path.basename(_volume.current_dir)}
 
 

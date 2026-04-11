@@ -28,7 +28,6 @@ app.add_middleware(
 CHART_MAX_POINTS = 1000
 
 
-# --- GLOBAL ERROR HANDLER ---
 # CORSMiddleware не додає заголовки до unhandled exceptions (500).
 # Цей handler перехоплює їх і повертає JSON з CORS заголовками.
 @app.exception_handler(Exception)
@@ -66,6 +65,11 @@ def setup_logger():
 
 
 def _downsample(data: list, max_points: int) -> list:
+    """
+    Largest-Triangle-Three-Buckets (спрощена версія).
+    Зберігає форму кривої при зменшенні кількості точок.
+    Завжди включає першу і останню точку.
+    """
     n = len(data)
     if n <= max_points:
         return data
@@ -90,6 +94,7 @@ def _downsample(data: list, max_points: int) -> list:
 
 
 def _vol_intersects(meta: dict, from_ts: int, to_ts: int) -> bool:
+    """Перевіряє чи том перетинається з запитаним діапазоном."""
     try:
         opened_at = int(datetime.fromisoformat(meta["opened_at"]).timestamp())
         closed_at = meta.get("closed_at")
@@ -160,6 +165,7 @@ async def points():
 
 @app.get("/points/{point_id}/current")
 async def point_current(point_id: int):
+    """Живі дані з поточного активного тому — без скану архіву."""
     return await get_current_values(point_id)
 
 
@@ -187,6 +193,7 @@ async def point_events(point_id: int, volume: str = None):
 @app.get("/points/{point_id}/range")
 async def point_range(point_id: int, from_ts: int, to_ts: int,
                       max_points: int = CHART_MAX_POINTS):
+    """Архівні дані за діапазоном — паралельно з усіх релевантних томів."""
     vols = await get_volumes()
     if not vols:
         return []
@@ -221,6 +228,7 @@ async def point_range(point_id: int, from_ts: int, to_ts: int,
 
 @app.get("/points/{point_id}/state_range")
 async def point_state_range(point_id: int, from_ts: int, to_ts: int):
+    """Події точки за діапазоном — паралельно з усіх релевантних томів."""
     vols = await get_volumes()
     if not vols:
         return []
@@ -247,6 +255,7 @@ async def point_state_range(point_id: int, from_ts: int, to_ts: int):
     for data in results:
         if isinstance(data, Exception):
             continue
+        # events.ts — мілісекунди
         filtered = [e for e in data
                     if from_ts * 1000 <= e.get("ts", 0) <= to_ts * 1000]
         result.extend(filtered)
