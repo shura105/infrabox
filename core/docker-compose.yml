@@ -8,8 +8,6 @@ services:
     restart: unless-stopped
     networks:
       - infrabox-net
-    ports:
-      - "6379:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -41,6 +39,24 @@ services:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/mosquitto-sim/data:/mosquitto/data
       - ./mosquitto/mosquitto-sim/log:/mosquitto/log
+
+  auth:
+    build: ./auth
+    container_name: infrabox-auth
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: infrabox-redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
+      TZ: Europe/Kyiv
+    networks:
+      - infrabox-net
+    volumes:
+      - ./auth:/app
 
   core:
     build: ./service

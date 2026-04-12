@@ -9,24 +9,20 @@ services:
     environment:
       REDIS_HOST: infrabox-redis
       REDIS_PORT: 6379
-    expose:
-      - "8090"
-    ports:
-      - "8090:8090"
     volumes:
       - ./backend:/app
 
   web:
-    image: nginx:stable-alpine
+    build: ./frontend
     container_name: infrabox-web
     restart: unless-stopped
     networks:
       - infrabox-net
     ports:
-      - "8080:80"
+      - "80:80"     # HTTP → redirect to HTTPS
+      - "443:443"   # HTTPS — єдина зовнішня точка входу
     volumes:
       - ./frontend/html:/usr/share/nginx/html
-      - ./frontend/conf.d:/etc/nginx/conf.d
       - ./frontend/nginx.conf:/etc/nginx/nginx.conf
 
 networks:

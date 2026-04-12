@@ -4,7 +4,8 @@ services:
     build: ./archivator
     container_name: infrabox-arch
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - infrabox-net
     environment:
       TZ: Europe/Kyiv
       PYTHONUNBUFFERED: 1
@@ -18,11 +19,12 @@ services:
     build: ./backend
     container_name: infrabox-arch-backend
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - infrabox-net
     environment:
       TZ: Europe/Kyiv
       PYTHONUNBUFFERED: 1
-      ARCH_URL: http://localhost:8100
+      ARCH_URL: http://infrabox-arch:8100
     volumes:
       - ../log:/app/log
 
@@ -30,9 +32,14 @@ services:
     image: nginx:stable-alpine
     container_name: infrabox-arch-ui
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - infrabox-net
     environment:
       TZ: Europe/Kyiv
     volumes:
       - ./ui:/usr/share/nginx/html:ro
       - ./ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+networks:
+  infrabox-net:
+    external: true

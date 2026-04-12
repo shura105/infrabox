@@ -1,4 +1,4 @@
-const API_URL = `http://${window.location.hostname}:8101`;
+const API_URL = '/arch/api';
 
 async function _fetchJson(url, options = {}) {
     const r = await fetch(url, options);
