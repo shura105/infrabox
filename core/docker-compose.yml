@@ -1,0 +1,114 @@
+services:
+
+  redis:
+    image: redis:7
+    container_name: infrabox-redis
+    command: >
+      redis-server --save "" --appendonly no --logfile ""
+    restart: unless-stopped
+    networks:
+      - infrabox-net
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mosquitto-real:
+    image: eclipse-mosquitto:2
+    container_name: infrabox-mosquitto-real
+    restart: unless-stopped
+    networks:
+      - infrabox-net
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/mosquitto-real/data:/mosquitto/data
+      - ./mosquitto/mosquitto-real/log:/mosquitto/log
+
+  mosquitto-sim:
+    image: eclipse-mosquitto:2
+    container_name: infrabox-mosquitto-sim
+    restart: unless-stopped
+    networks:
+      - infrabox-net
+    ports:
+      - "1884:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/mosquitto-sim/data:/mosquitto/data
+      - ./mosquitto/mosquitto-sim/log:/mosquitto/log
+
+  core:
+    build: ./service
+    container_name: infrabox-core
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      mosquitto-real:
+        condition: service_started
+      mosquitto-sim:
+        condition: service_started
+    environment:
+      PYTHONUNBUFFERED: 1
+      REDIS_HOST: infrabox-redis
+      REDIS_PORT: 6379
+      MQTT_REAL_HOST: infrabox-mosquitto-real
+      MQTT_SIM_HOST: infrabox-mosquitto-sim
+      MQTT_PORT: 1883
+      DROP_ID: homeServ-1
+      TZ: Europe/Kyiv
+    networks:
+      - infrabox-net
+    volumes:
+      - ../log:/app/log
+      - ./service:/app
+
+  simulator:
+    build: ./tools/simulator
+    container_name: infrabox-simulator
+    restart: unless-stopped
+    depends_on:
+      - mosquitto-sim
+    environment:
+      MQTT_HOST: infrabox-mosquitto-sim
+      MQTT_PORT: 1883
+      POINTS_PATH: /app/config/points.json
+      TZ: Europe/Kyiv
+    networks:
+      - infrabox-net
+    volumes:
+      - ./service/config/points.json:/app/config/points.json
+      - ../log:/app/log
+
+  selfdiagnostic:
+    build: ./tools/selfDiagnostic
+    container_name: infrabox-selfdiagnostic
+    restart: unless-stopped
+    depends_on:
+      - mosquitto-sim
+      - mosquitto-real
+    environment:
+      MQTT_HOST: infrabox-mosquitto-sim
+      MQTT_PORT: 1883
+      OBJECT: home
+      DROP: homeServ-1
+      TZ: Europe/Kyiv
+    networks:
+      - infrabox-net
+    privileged: true
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - ./service/config/points.json:/app/config/points.json:ro
+      - ../log:/app/log
+
+networks:
+  infrabox-net:
+    name: infrabox-net
+    driver: bridge

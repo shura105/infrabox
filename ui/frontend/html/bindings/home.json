@@ -1,0 +1,20 @@
+{
+  "bindings": [
+    {
+      "element": "temp_home",
+      "point": 101,
+      "type": "text",
+      "format": "{value} °C"
+    },
+    {
+      "element": "temp_home",
+      "point": 101,
+      "type": "color",
+      "rules": [
+        { "if": "value < 60", "color": "green" },
+        { "if": "value < 80", "color": "orange" },
+        { "if": "value >= 80", "color": "red" }
+      ]
+    }
+  ]
+}

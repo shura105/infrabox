@@ -1,0 +1,15 @@
+<svg width="600" height="300" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- температура -->
+    <text id="home_heating_inputTemperature" x="50" y="50">-- °C</text>
+
+    <!-- тиск -->
+    <text id="home_heating_pressure" x="50" y="100">-- bar</text>
+
+    <!-- газ -->
+    <text id="boiler_gas_flow" x="50" y="150">-- m3/h</text>
+
+    <!-- сонячка -->
+    <text id="solar_power_voltage" x="50" y="200">-- V</text>
+
+</svg>

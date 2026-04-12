@@ -1,0 +1,38 @@
+services:
+
+  archivator:
+    build: ./archivator
+    container_name: infrabox-arch
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Europe/Kyiv
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./archivator/config:/app/config
+      - ./archivator/data:/app/data
+      - ../log:/app/log
+      - ../core/service/config/points.json:/app/config/points.json:ro
+
+  arch-backend:
+    build: ./backend
+    container_name: infrabox-arch-backend
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Europe/Kyiv
+      PYTHONUNBUFFERED: 1
+      ARCH_URL: http://localhost:8100
+    volumes:
+      - ../log:/app/log
+
+  arch-ui:
+    image: nginx:stable-alpine
+    container_name: infrabox-arch-ui
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Europe/Kyiv
+    volumes:
+      - ./ui:/usr/share/nginx/html:ro
+      - ./ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro

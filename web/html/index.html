@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Infrabox</title>
+
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            padding: 6px;
+            border: 1px solid #444;
+        }
+
+        /* 🔥 ФІКСОВАНА ШИРИНА VALUE */
+        td.value {
+            width: 10ch;              /* ≈ 10 символів */
+            font-family: monospace;   /* однакова ширина символів */
+            text-align: right;        /* як у приладах */
+        }
+
+        /* юніти компактно */
+        td.unit {
+            width: 5ch;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<!-- прибрати
+<h2>Схема</h2>
+<div id="scheme"></div> -->
+
+<h2>Всі точки</h2>
+<table id="pointsTable" border="1" cellspacing="0" cellpadding="5">
+    <thead>
+        <tr>
+            <th>Object</th>
+            <th>System</th>
+            <th>Name</th>
+            <th style="width:120px">Value</th>
+            <th>Unit</th>
+            <th>Quality</th>
+        </tr>
+    </thead>
+    <tbody id="pointsBody"></tbody>
+</table>
+
+<style>
+    #pointsTable td {
+        font-size: 24px;
+        padding: 8px;
+    }
+
+    #pointsTable td:nth-child(4) {
+        text-align: right;
+        font-family: monospace;
+    }
+</style>
+
+<script src="app.js"></script>
+
+</body>
+</html>
