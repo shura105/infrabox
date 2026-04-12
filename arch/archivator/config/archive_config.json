@@ -12,8 +12,8 @@
         "port": 8100
     },
     "compression": {
-        "enabled": true,
-        "on_close": true
+        "enabled": false,
+        "on_close": false
     },
     "sources": {
         "events": true,

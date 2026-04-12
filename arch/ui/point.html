@@ -47,7 +47,6 @@
         <div class="zoom-controls">
             <button @click="zoomOut()">−</button>
             <button @click="zoomIn()">+</button>
-            <button @click="zoomReset()">Reset</button>
         </div>
         <div class="point-buttons" x-show="points.length > 1">
             <template x-for="p in points" :key="p.id">

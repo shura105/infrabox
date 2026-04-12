@@ -149,8 +149,17 @@ async def _fetch_range(point_id: int, from_ts: int, to_ts: int,
         if not relevant:
             return []
 
+        # Для великих діапазонів обмежуємо кількість записів per-volume
+        # щоб не передавати зайві дані через HTTP (архіватор зробить stride)
+        duration = to_ts - from_ts
+        if duration > 3600 and len(relevant) > 0:
+            per_vol_max = max(200, (max_points * 2) // len(relevant))
+        else:
+            per_vol_max = None
+
         results = await asyncio.gather(
-            *[get_values(v, point_id, from_ts, to_ts) for v in relevant],
+            *[get_values(v, point_id, from_ts, to_ts, max_records=per_vol_max)
+              for v in relevant],
             return_exceptions=True
         )
 

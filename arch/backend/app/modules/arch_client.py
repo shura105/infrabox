@@ -70,7 +70,8 @@ async def get_events(volume: str, point_id: int = None):
 
 
 async def get_values(volume: str, point_id: int = None,
-                     from_ts: int = None, to_ts: int = None):
+                     from_ts: int = None, to_ts: int = None,
+                     max_records: int = None):
     params = {}
     if point_id is not None:
         params["point_id"] = point_id
@@ -78,6 +79,8 @@ async def get_values(volume: str, point_id: int = None,
         params["from_ts"] = from_ts
     if to_ts is not None:
         params["to_ts"] = to_ts
+    if max_records is not None:
+        params["max_records"] = max_records
     return await _get(f"/volumes/{volume}/values", params=params)
 
 

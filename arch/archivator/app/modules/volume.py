@@ -126,7 +126,14 @@ class Volume:
         with self._lock:
             if self.should_rotate():
                 self.rotate()
-            self._write_file(f"{stream}.json", record)
+            if stream == "values":
+                # Зберігаємо per-point для швидкого читання: values_{point_id}.json
+                # замість одного великого values.json (~100× менший файл на точку)
+                pid = record.get("point_id")
+                if pid is not None:
+                    self._write_file(f"values_{pid}.json", record)
+            else:
+                self._write_file(f"{stream}.json", record)
             self.record_count += 1
 
     def stop(self):

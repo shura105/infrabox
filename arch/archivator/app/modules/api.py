@@ -70,61 +70,68 @@ def _bisect_json_file(f, from_ts: int) -> None:
     f.seek(lo)
 
 
+def _read_ndjson_filtered(f, point_id=None, from_ts=None, to_ts=None,
+                          use_bisect=False) -> list:
+    """Читає відфільтровані записи з відкритого файлу (text mode)."""
+    if use_bisect and from_ts:
+        _bisect_json_file(f, from_ts)
+    result = []
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        ts = r.get("ts", 0)
+        if from_ts and ts < from_ts:
+            continue
+        if to_ts and ts > to_ts:
+            break
+        if point_id and r.get("point_id") != point_id:
+            continue
+        result.append(r)
+    return result
+
+
 def _read_values_filtered(volume_dir, point_id=None, from_ts=None, to_ts=None):
     """
-    Стримінгове читання values.json з раннім виходом.
-    Записи впорядковані за часом — зупиняємось як тільки ts > to_ts.
-    Для .json файлів: бінарний пошук до from_ts замість лінійного скану.
-    """
-    json_path = os.path.join(DATA_DIR, volume_dir, "values.json")
-    gz_path = json_path + ".gz"
+    Читання values з тому з фільтрацією.
 
-    result = []
+    Пріоритет форматів:
+    1. values_{point_id}.json / .gz  — per-point файл (новий формат, ~100× менший)
+    2. values.json / .gz             — combined файл (старий формат, fallback)
+    """
+    base = os.path.join(DATA_DIR, volume_dir)
+
+    # --- per-point файл (новий формат) ---
+    if point_id is not None:
+        pp_json = os.path.join(base, f"values_{point_id}.json")
+        pp_gz = pp_json + ".gz"
+        if os.path.exists(pp_json):
+            with open(pp_json) as f:
+                return _read_ndjson_filtered(f, point_id, from_ts, to_ts,
+                                             use_bisect=True)
+        if os.path.exists(pp_gz):
+            with gzip.open(pp_gz, "rt") as f:
+                return _read_ndjson_filtered(f, point_id, from_ts, to_ts,
+                                             use_bisect=False)
+
+    # --- combined файл (старий формат, fallback) ---
+    json_path = os.path.join(base, "values.json")
+    gz_path = json_path + ".gz"
 
     if os.path.exists(json_path):
         with open(json_path) as f:
-            if from_ts:
-                _bisect_json_file(f, from_ts)
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                ts = r.get("ts", 0)
-                if from_ts and ts < from_ts:
-                    continue
-                if to_ts and ts > to_ts:
-                    break
-                if point_id and r.get("point_id") != point_id:
-                    continue
-                result.append(r)
-
-    elif os.path.exists(gz_path):
+            return _read_ndjson_filtered(f, point_id, from_ts, to_ts,
+                                         use_bisect=True)
+    if os.path.exists(gz_path):
         with gzip.open(gz_path, "rt") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                ts = r.get("ts", 0)
-                if from_ts and ts < from_ts:
-                    continue
-                if to_ts and ts > to_ts:
-                    break
-                if point_id and r.get("point_id") != point_id:
-                    continue
-                result.append(r)
+            return _read_ndjson_filtered(f, point_id, from_ts, to_ts,
+                                         use_bisect=False)
 
-    else:
-        raise HTTPException(status_code=404, detail="values.json not found")
-
-    return result
+    raise HTTPException(status_code=404, detail="values.json not found")
 
 
 def _read_json(volume_dir, filename):
@@ -178,15 +185,35 @@ def get_current_values(point_id: int = None):
 
     volume_dir = os.path.basename(_volume.current_dir)
 
-    try:
-        records = _read_file(volume_dir, "values.json")
-    except HTTPException:
-        return []
-
     if point_id is not None:
-        records = [r for r in records if r.get("point_id") == point_id]
-
-    return records
+        # Новий формат: per-point файл
+        try:
+            return _read_file(volume_dir, f"values_{point_id}.json")
+        except HTTPException:
+            pass
+        # Fallback: combined values.json (старий формат)
+        try:
+            records = _read_file(volume_dir, "values.json")
+            return [r for r in records if r.get("point_id") == point_id]
+        except HTTPException:
+            return []
+    else:
+        # Всі точки: збираємо з усіх per-point файлів
+        vol_path = os.path.join(DATA_DIR, volume_dir)
+        all_records = []
+        for fname in os.listdir(vol_path):
+            if fname.startswith("values_") and fname.endswith(".json"):
+                try:
+                    all_records.extend(_read_file(volume_dir, fname))
+                except HTTPException:
+                    pass
+        if not all_records:
+            # Fallback: combined
+            try:
+                all_records = _read_file(volume_dir, "values.json")
+            except HTTPException:
+                pass
+        return all_records
 
 
 # --- VOLUME META ---
@@ -207,7 +234,8 @@ def get_events(volume_dir: str, point_id: int = None):
 # --- VALUES ---
 @app.get("/volumes/{volume_dir}/values")
 def get_values(volume_dir: str, point_id: int = None,
-               from_ts: int = None, to_ts: int = None):
+               from_ts: int = None, to_ts: int = None,
+               max_records: int = None):
     # Швидка перевірка за meta.json: якщо том закритий і closed_at < from_ts — пропускаємо
     if from_ts is not None:
         try:
@@ -220,7 +248,11 @@ def get_values(volume_dir: str, point_id: int = None,
                     return []
         except Exception:
             pass  # якщо meta недоступна — продовжуємо звичайним шляхом
-    return _read_values_filtered(volume_dir, point_id, from_ts, to_ts)
+    records = _read_values_filtered(volume_dir, point_id, from_ts, to_ts)
+    if max_records and len(records) > max_records:
+        step = len(records) / max_records
+        records = [records[int(i * step)] for i in range(max_records)]
+    return records
 
 
 # --- SELFDIAG ---

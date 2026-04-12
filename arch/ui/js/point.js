@@ -127,26 +127,28 @@ function pointApp() {
         },
 
         setActive(id) {
+            if (!this.pointVisible[id]) return;
             this.activePointId = id;
-            this.renderChart();
+            this._applyActivePoint();
         },
 
         toggleVisible(id) {
             this.pointVisible[id] = !this.pointVisible[id];
-            this.renderChart();
+            this.activePointId = id;
+            // Якщо активна точка стала прихованою — передаємо активність першій видимій
+            if (!this.pointVisible[this.activePointId]) {
+                const next = this.points.find(p => this.pointVisible[p.id]);
+                if (next) this.activePointId = next.id;
+            }
+            this._applyActivePoint();
         },
 
-        zoomIn() { if (_chartInstance) _chartInstance.zoom(1.2); },
+        zoomIn()  { if (_chartInstance) _chartInstance.zoom(1.2); },
         zoomOut() { if (_chartInstance) _chartInstance.zoom(0.8); },
-        zoomReset() {
-            if (_chartInstance) {
-                _chartInstance.resetZoom();
-                if (!_currentMode) this._onRangeChange(_chartInstance);
-            }
-        },
 
         _onRangeChange(chart) {
-            _currentMode = false;
+            // У current-режимі зум/пан — суто візуальний, дані не підвантажуємо
+            if (_currentMode) return;
 
             clearTimeout(_rangeTimer);
             if (_abortController) _abortController.abort();
@@ -185,11 +187,23 @@ function pointApp() {
                 ds.borderWidth = isActive ? 2 : 1;
                 ds.pointRadius = isActive ? 1.5 : 0;
                 ds.order = isActive ? 0 : 1;
+                ds.yAxisID = `y_${p.id}`;
             });
             _chartInstance.update("none");
         },
 
-        renderChart() {
+        // Зміна активної точки: зберігаємо x-діапазон і перебудовуємо
+        // (порядок осей у Chart.js визначає їх позицію — активна має бути першою = найближчою до поля)
+        _applyActivePoint() {
+            let xMin = null, xMax = null;
+            if (_chartInstance) {
+                xMin = _chartInstance.scales.x.min;
+                xMax = _chartInstance.scales.x.max;
+            }
+            this.renderChart(xMin, xMax);
+        },
+
+        renderChart(xMin = null, xMax = null) {
             const generation = ++_renderGeneration;
             const colors = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
             const isSingle = this.points.length === 1;
@@ -208,7 +222,7 @@ function pointApp() {
                     pointHoverRadius: isActive ? 4 : 0,
                     tension: 0.2,
                     order: isActive ? 0 : 1,
-                    yAxisID: (isActive || !this.pointVisible[p.id]) ? "y" : `y${i}`,
+                    yAxisID: `y_${p.id}`,
                     hidden: !this.pointVisible[p.id]
                 };
             });
@@ -230,42 +244,47 @@ function pointApp() {
                 _chartInstance = null;
             }
 
-            const activePoint = this.points.find(p => p.id === this.activePointId);
-            const scales = {
-                x: {
-                    type: "time",
-                    time: {
-                        tooltipFormat: "dd.MM.yyyy HH:mm:ss",
-                        displayFormats: {
-                            second: "HH:mm:ss",
-                            minute: "dd.MM HH:mm",
-                            hour:   "dd.MM HH:mm",
-                            day:    "dd.MM.yyyy",
-                            week:   "dd.MM.yyyy",
-                            month:  "MM.yyyy",
-                        }
-                    },
-                    ticks: {
-                        color: "#6b7280",
-                        maxTicksLimit: 8,
-                        maxRotation: 35,
-                        minRotation: 35
-                    },
-                    grid: { color: "#1e2130" }
+            const xAxisConfig = {
+                type: "time",
+                time: {
+                    tooltipFormat: "dd.MM.yyyy HH:mm:ss",
+                    displayFormats: {
+                        second: "HH:mm:ss",
+                        minute: "dd.MM HH:mm",
+                        hour:   "dd.MM HH:mm",
+                        day:    "dd.MM.yyyy",
+                        week:   "dd.MM.yyyy",
+                        month:  "MM.yyyy",
+                    }
                 },
-                y: {
-                    ticks: { color: "#4caf50" },
-                    border: { color: "#4caf50" },
-                    grid: { color: "#1e2130" },
-                    ...(activePoint?.min != null && activePoint?.max != null
-                        ? { min: activePoint.min, max: activePoint.max } : {})
-                }
+                ticks: {
+                    color: "#6b7280",
+                    maxTicksLimit: 8,
+                    maxRotation: 35,
+                    minRotation: 35
+                },
+                grid: { color: "#1e2130" }
             };
-            this.points.forEach((p, i) => {
-                if (p.id === this.activePointId || !this.pointVisible[p.id]) return;
-                scales[`y${i}`] = {
-                    ticks: { color: "#6b7280" },
-                    grid: { display: false },
+            if (xMin != null) xAxisConfig.min = xMin;
+            if (xMax != null) xAxisConfig.max = xMax;
+
+            const scales = { x: xAxisConfig };
+
+            // Активна вісь — першою (Chart.js: перша зліва = найближча до поля)
+            const orderedPoints = [
+                this.points.find(p => p.id === this.activePointId),
+                ...this.points.filter(p => p.id !== this.activePointId)
+            ].filter(Boolean);
+
+            orderedPoints.forEach(p => {
+                const isActive = p.id === this.activePointId;
+                scales[`y_${p.id}`] = {
+                    display: this.pointVisible[p.id],
+
+                    position: "left",
+                    ticks: { color: isActive ? "#4caf50" : "#6b7280" },
+                    border: { color: isActive ? "#4caf50" : "#4b5563" },
+                    grid: { color: "#1e2130", drawOnChartArea: isActive },
                     ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
                 };
             });
@@ -280,6 +299,7 @@ function pointApp() {
                     responsive: true,
                     maintainAspectRatio: false,
                     parsing: false,
+                    layout: { padding: { top: 16 } },
                     plugins: {
                         legend: { display: false },
                         zoom: {
@@ -300,6 +320,7 @@ function pointApp() {
                     scales
                 }
             });
+
         },
 
         tableRows() {
