@@ -121,12 +121,18 @@ def _downsample(data: list, max_points: int) -> list:
     return result
 
 
-def _vol_intersects(meta: dict, from_ts: int, to_ts: int) -> bool:
+# Максимальна тривалість тому + запас (24h + 5хв).
+# Використовується для фільтрації томів за іменем без HTTP-запитів metadata.
+_MAX_VOL_DURATION = 24 * 3600 + 300
+
+
+def _vol_name_intersects(vol_name: str, from_ts: int, to_ts: int) -> bool:
+    """Фільтр тому за іменем (формат YYYY-MM-DD_HH-MM-SS, локальний час).
+    Не робить жодних HTTP-запитів — замінює _vol_intersects + get_volume_meta."""
     try:
-        opened_at = int(datetime.fromisoformat(meta["opened_at"]).timestamp())
-        closed_at = meta.get("closed_at")
-        closed_ts = int(datetime.fromisoformat(closed_at).timestamp()) if closed_at else int(time.time())
-        return closed_ts >= from_ts and opened_at <= to_ts
+        opened_at = int(datetime.strptime(vol_name, "%Y-%m-%d_%H-%M-%S").timestamp())
+        closed_at = min(opened_at + _MAX_VOL_DURATION, int(time.time()))
+        return closed_at >= from_ts and opened_at <= to_ts
     except Exception:
         return False
 
@@ -138,15 +144,7 @@ async def _fetch_range(point_id: int, from_ts: int, to_ts: int,
         if not vols:
             return []
 
-        metas = await asyncio.gather(
-            *[get_volume_meta(v) for v in vols],
-            return_exceptions=True
-        )
-
-        relevant = [
-            v for v, m in zip(vols, metas)
-            if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
-        ]
+        relevant = [v for v in vols if _vol_name_intersects(v, from_ts, to_ts)]
 
         if not relevant:
             return []
@@ -171,15 +169,7 @@ async def _fetch_state_range(point_id: int, from_ts: int, to_ts: int):
     if not vols:
         return []
 
-    metas = await asyncio.gather(
-        *[get_volume_meta(v) for v in vols],
-        return_exceptions=True
-    )
-
-    relevant = [
-        v for v, m in zip(vols, metas)
-        if not isinstance(m, Exception) and _vol_intersects(m, from_ts, to_ts)
-    ]
+    relevant = [v for v in vols if _vol_name_intersects(v, from_ts, to_ts)]
 
     if not relevant:
         return []
