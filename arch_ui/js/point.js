@@ -67,9 +67,10 @@ function pointApp() {
             this.points.forEach(p => { this.pointVisible[p.id] = true; });
 
             if (this.points.length === 1) {
-                this.title = `${this.points[0].object} / ${this.points[0].system} / ${this.points[0].pointname}`;
+                const p = this.points[0];
+                this.title = `${p.object} / ${p.system} / ${p.pointname} (${p.id})`;
             } else {
-                this.title = this.points.map(p => p.pointname).join(", ");
+                this.title = this.points.map(p => `${p.pointname} (${p.id})`).join(", ");
             }
 
             await this.loadCurrent();
@@ -198,7 +199,8 @@ function pointApp() {
                 const isActive = p.id === this.activePointId;
                 return {
                     label: p.pointname,
-                    data: data.map(r => ({ x: r.ts * 1000, y: r.value })),
+                    data: data.map(r => ({ x: r.ts * 1000, y: r.value ?? null })),
+                    spanGaps: false,
                     borderColor: colors[i],
                     backgroundColor: isSingle ? "rgba(126,184,247,0.08)" : "transparent",
                     borderWidth: isActive ? 2 : 1,

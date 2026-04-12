@@ -14,7 +14,8 @@ class Writer:
         self.timeout_sec = 10
 
         self._ts_lock = threading.Lock()
-        self.last_archive_ts = {}  # ініціалізується один раз
+        self.last_archive_ts = {}   # коли востаннє писали в архів
+        self.last_received_ts = {}  # коли востаннє приходили дані (незалежно від фільтрів)
 
         self.points_meta = self._load_points_meta()
 
@@ -126,6 +127,8 @@ class Writer:
                     if not data:
                         continue
 
+                    self.last_received_ts[point_id] = time.time()
+
                     value = float(data.get("value", 0))
                     ts = int(data.get("ts", time.time()))
                     prev = prev_values.get(point_id)
@@ -159,6 +162,42 @@ class Writer:
                 except Exception as e:
                     self.log.error(f"Reconnect failed: {e}")
             time.sleep(3)
+
+    def _gap_writer(self):
+        """Пише null-запис в архів, якщо точка мовчить довше ніж interval*3 (мін. 120 с)."""
+        time.sleep(60)  # затримка старту — даємо час зібрати first_received
+        while self.running:
+            now = time.time()
+            for point_id, meta in self.points_meta.items():
+                if meta.get("onArchive", 1) == 0:
+                    continue
+
+                interval = meta.get("interval", 60)
+                threshold = max(interval * 3, 120)
+
+                last_rcv = self.last_received_ts.get(point_id, 0)
+                if last_rcv == 0:
+                    continue  # ще жодного повідомлення — не рахуємо як gap
+
+                if now - last_rcv < threshold:
+                    continue  # дані свіжі
+
+                with self._ts_lock:
+                    last_arch = self.last_archive_ts.get(point_id, 0)
+
+                if now - last_arch < threshold:
+                    continue  # вже писали null нещодавно
+
+                self.volume.write("values", {
+                    "ts": int(now),
+                    "point_id": point_id,
+                    "value": None
+                })
+                with self._ts_lock:
+                    self.last_archive_ts[point_id] = now
+                self.log.info(f"Gap recorded for point {point_id} (silent {now - last_rcv:.0f}s)")
+
+            time.sleep(30)
 
     def _interval_archiver(self):
         while self.running:
@@ -197,6 +236,7 @@ class Writer:
     def start(self):
         self.running = True
         threading.Thread(target=self._interval_archiver, daemon=True).start()
+        threading.Thread(target=self._gap_writer,        daemon=True).start()
         threading.Thread(target=self._listen_clock,      daemon=True).start()
         threading.Thread(target=self._listen_events,     daemon=True).start()
         threading.Thread(target=self._listen_values,     daemon=True).start()

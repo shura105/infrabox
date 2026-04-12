@@ -100,8 +100,19 @@ def _downsample(data: list, max_points: int) -> list:
         bucket = data[start:end]
         if not bucket:
             continue
+
+        # null-записи — маркери розриву, зберігаємо без LTTB
+        nulls = [r for r in bucket if r["value"] is None]
+        if nulls:
+            result.append(nulls[0])
+            continue
+
         prev_y = result[-1]["value"]
         next_y = data[min(end, n - 1)]["value"]
+        if prev_y is None or next_y is None:
+            result.append(bucket[0])
+            continue
+
         mid_y = (prev_y + next_y) / 2
         best = max(bucket, key=lambda r: abs(r["value"] - mid_y))
         result.append(best)
