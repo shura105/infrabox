@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Admin</title>
+    <script>window.REQUIRED_ROLE = "admin";</script>
+    <script src="/auth.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: system-ui, sans-serif;
+            font-size: 14px;
+        }
+
+        /* ── header ── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        header .logo { font-size: 16px; font-weight: 600; color: #58a6ff; }
+        header .user { color: #8b949e; font-size: 13px; }
+        header button {
+            background: none;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        header button:hover { border-color: #58a6ff; color: #58a6ff; }
+
+        /* ── layout ── */
+        main { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+
+        h1 { font-size: 18px; margin-bottom: 20px; color: #e6edf3; }
+
+        /* ── toolbar ── */
+        .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+
+        .btn {
+            padding: 6px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-green  { background: #238636; color: #fff; }
+        .btn-green:hover  { background: #2ea043; }
+        .btn-red    { background: #6e2c2c; color: #f47067; }
+        .btn-red:hover    { background: #8a3535; }
+        .btn-blue   { background: #1c3a5e; color: #58a6ff; }
+        .btn-blue:hover   { background: #1f4a7a; }
+        .btn-gray   { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-gray:hover   { background: #30363d; }
+
+        /* ── table ── */
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #21262d;
+        }
+        th { color: #8b949e; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+        tr:hover td { background: #161b22; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-admin    { background: #1c3a5e; color: #58a6ff; }
+        .badge-operator { background: #1a3a1a; color: #56d364; }
+        .badge-constructor { background: #3a2a1a; color: #e3b341; }
+
+        .active-yes { color: #56d364; }
+        .active-no  { color: #f47067; }
+
+        td .actions { display: flex; gap: 6px; }
+
+        /* ── modal ── */
+        .overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.6);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .overlay.open { display: flex; }
+
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 24px;
+            width: 360px;
+            position: relative;
+        }
+        .modal h2 { font-size: 16px; margin-bottom: 20px; color: #e6edf3; }
+
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; }
+        .field input, .field select {
+            width: 100%;
+            padding: 7px 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 14px;
+            outline: none;
+        }
+        .field input:focus, .field select:focus { border-color: #58a6ff; }
+
+        .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+        .modal-error {
+            padding: 7px 10px;
+            background: #3d1c1c;
+            border: 1px solid #6e2c2c;
+            border-radius: 6px;
+            color: #f47067;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        /* ── confirm ── */
+        .confirm-msg { color: #c9d1d9; margin-bottom: 20px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">⚙ Infrabox</div>
+    <div style="display:flex;align-items:center;gap:16px">
+        <span class="user" id="headerUser"></span>
+        <button onclick="window.location.href='/'">← Головна</button>
+        <button onclick="authLogout()">Вийти</button>
+    </div>
+</header>
+
+<main>
+    <h1>Управління користувачами</h1>
+
+    <div class="toolbar">
+        <button class="btn btn-green" onclick="openCreate()">+ Додати</button>
+    </div>
+
+    <table id="usersTable">
+        <thead>
+            <tr>
+                <th>Логін</th>
+                <th>Ім'я</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="usersBody"></tbody>
+    </table>
+</main>
+
+<!-- ── Create / Edit modal ── -->
+<div class="overlay" id="editOverlay">
+    <div class="modal">
+        <h2 id="modalTitle">Новий користувач</h2>
+        <div class="modal-error" id="modalError"></div>
+
+        <div class="field" id="fieldUsername">
+            <label>Логін</label>
+            <input id="fUsername" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+            <label>Ім'я</label>
+            <input id="fDisplayName" type="text">
+        </div>
+        <div class="field">
+            <label>Роль</label>
+            <select id="fRole">
+                <option value="operator">operator</option>
+                <option value="constructor">constructor</option>
+                <option value="admin">admin</option>
+            </select>
+        </div>
+        <div class="field">
+            <label id="passwordLabel">Пароль</label>
+            <input id="fPassword" type="password" autocomplete="new-password">
+        </div>
+        <div class="field" id="fieldActive" style="display:none">
+            <label>Активний</label>
+            <select id="fActive">
+                <option value="1">Так</option>
+                <option value="0">Ні</option>
+            </select>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-gray"  onclick="closeModal()">Скасувати</button>
+            <button class="btn btn-green" id="modalSaveBtn" onclick="saveUser()">Зберегти</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Confirm delete modal ── -->
+<div class="overlay" id="confirmOverlay">
+    <div class="modal">
+        <h2>Видалити користувача</h2>
+        <p class="confirm-msg" id="confirmMsg"></p>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="closeConfirm()">Скасувати</button>
+            <button class="btn btn-red"  onclick="confirmDelete()">Видалити</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── init ──────────────────────────────────────────────────────────────────────
+document.getElementById("headerUser").textContent = authUser().display_name || authUser().role;
+
+let _users = [];
+let _editUsername = null;   // null = create, string = edit
+let _deleteUsername = null;
+
+async function api(method, path, body) {
+    const res = await fetch(path, {
+        method,
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 401) { authLogout(); return; }
+    return res;
+}
+
+// ── load users ────────────────────────────────────────────────────────────────
+async function loadUsers() {
+    const res = await api("GET", "/auth/users");
+    if (!res.ok) return;
+    _users = await res.json();
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = document.getElementById("usersBody");
+    tbody.innerHTML = "";
+
+    for (const u of _users) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><code>${u.username}</code></td>
+            <td>${u.display_name}</td>
+            <td><span class="badge badge-${u.role}">${u.role}</span></td>
+            <td class="${u.active === "1" ? "active-yes" : "active-no"}">${u.active === "1" ? "активний" : "вимкнений"}</td>
+            <td>
+                <div class="actions">
+                    <button class="btn btn-blue"  onclick="openEdit('${u.username}')">Редагувати</button>
+                    <button class="btn btn-red"   onclick="openDelete('${u.username}')">Видалити</button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+// ── create ────────────────────────────────────────────────────────────────────
+function openCreate() {
+    _editUsername = null;
+    document.getElementById("modalTitle").textContent = "Новий користувач";
+    document.getElementById("fieldUsername").style.display = "";
+    document.getElementById("fUsername").value = "";
+    document.getElementById("fDisplayName").value = "";
+    document.getElementById("fRole").value = "operator";
+    document.getElementById("fPassword").value = "";
+    document.getElementById("passwordLabel").textContent = "Пароль";
+    document.getElementById("fieldActive").style.display = "none";
+    clearModalError();
+    document.getElementById("editOverlay").classList.add("open");
+    setTimeout(() => document.getElementById("fUsername").focus(), 50);
+}
+
+// ── edit ──────────────────────────────────────────────────────────────────────
+function openEdit(username) {
+    const u = _users.find(x => x.username === username);
+    if (!u) return;
+    _editUsername = username;
+    document.getElementById("modalTitle").textContent = "Редагувати користувача";
+    document.getElementById("fieldUsername").style.display = "none";
+    document.getElementById("fDisplayName").value = u.display_name;
+    document.getElementById("fRole").value = u.role;
+    document.getElementById("fPassword").value = "";
+    document.getElementById("passwordLabel").textContent = "Новий пароль (залишіть порожнім щоб не змінювати)";
+    document.getElementById("fieldActive").style.display = "";
+    document.getElementById("fActive").value = u.active;
+    clearModalError();
+    document.getElementById("editOverlay").classList.add("open");
+    setTimeout(() => document.getElementById("fDisplayName").focus(), 50);
+}
+
+function closeModal() {
+    document.getElementById("editOverlay").classList.remove("open");
+}
+
+// ── save ──────────────────────────────────────────────────────────────────────
+async function saveUser() {
+    const btn = document.getElementById("modalSaveBtn");
+    btn.disabled = true;
+
+    if (_editUsername === null) {
+        // create
+        const username = document.getElementById("fUsername").value.trim();
+        const password = document.getElementById("fPassword").value;
+        const display_name = document.getElementById("fDisplayName").value.trim();
+        const role = document.getElementById("fRole").value;
+
+        if (!username || !password || !display_name) {
+            showModalError("Заповніть усі поля"); btn.disabled = false; return;
+        }
+
+        const res = await api("POST", "/auth/users", { username, password, display_name, role });
+        if (res.ok) {
+            closeModal();
+            await loadUsers();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showModalError(err.detail || "Помилка");
+        }
+    } else {
+        // edit
+        const body = {};
+        const password = document.getElementById("fPassword").value;
+        const display_name = document.getElementById("fDisplayName").value.trim();
+        const role = document.getElementById("fRole").value;
+        const active = document.getElementById("fActive").value;
+
+        if (password)      body.password     = password;
+        if (display_name)  body.display_name = display_name;
+        body.role   = role;
+        body.active = active;
+
+        const res = await api("PUT", `/auth/users/${_editUsername}`, body);
+        if (res.ok) {
+            closeModal();
+            await loadUsers();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showModalError(err.detail || "Помилка");
+        }
+    }
+
+    btn.disabled = false;
+}
+
+// ── delete ────────────────────────────────────────────────────────────────────
+function openDelete(username) {
+    _deleteUsername = username;
+    document.getElementById("confirmMsg").textContent =
+        `Видалити користувача «${username}»? Цю дію не можна скасувати.`;
+    document.getElementById("confirmOverlay").classList.add("open");
+}
+
+function closeConfirm() {
+    document.getElementById("confirmOverlay").classList.remove("open");
+    _deleteUsername = null;
+}
+
+async function confirmDelete() {
+    if (!_deleteUsername) return;
+    const res = await api("DELETE", `/auth/users/${_deleteUsername}`);
+    closeConfirm();
+    if (res.ok) await loadUsers();
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function showModalError(msg) {
+    const el = document.getElementById("modalError");
+    el.textContent = msg;
+    el.style.display = "block";
+}
+function clearModalError() {
+    const el = document.getElementById("modalError");
+    el.textContent = "";
+    el.style.display = "none";
+}
+
+// Закриття оверлею кліком на фон
+document.getElementById("editOverlay").addEventListener("click", e => {
+    if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById("confirmOverlay").addEventListener("click", e => {
+    if (e.target === e.currentTarget) closeConfirm();
+});
+
+// Enter у формі
+document.getElementById("editOverlay").addEventListener("keydown", e => {
+    if (e.key === "Enter") saveUser();
+    if (e.key === "Escape") closeModal();
+});
+document.getElementById("confirmOverlay").addEventListener("keydown", e => {
+    if (e.key === "Escape") closeConfirm();
+});
+
+// ── start ─────────────────────────────────────────────────────────────────────
+loadUsers();
+</script>
+</body>
+</html>

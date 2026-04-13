@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Login</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 32px;
+            width: 320px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #58a6ff;
+            letter-spacing: 1px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+
+        input {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 15px;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        input:focus { border-color: #58a6ff; }
+
+        button[type=submit] {
+            width: 100%;
+            padding: 9px;
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        button[type=submit]:hover { background: #2ea043; }
+        button[type=submit]:disabled { background: #1a4423; cursor: default; }
+
+        .error {
+            margin-top: 14px;
+            padding: 8px 12px;
+            background: #3d1c1c;
+            border: 1px solid #6e2c2c;
+            border-radius: 6px;
+            color: #f47067;
+            font-size: 13px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">⚙ Infrabox</div>
+    <form id="loginForm">
+        <label for="username">Логін</label>
+        <input id="username" type="text" autocomplete="username" autofocus required>
+
+        <label for="password">Пароль</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+
+        <button type="submit" id="submitBtn">Увійти</button>
+        <div class="error" id="errorMsg"></div>
+    </form>
+</div>
+
+<script>
+    // Якщо вже авторизований — одразу на головну
+    if (localStorage.getItem("token")) {
+        window.location.replace("/");
+    }
+
+    const form      = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const errorMsg  = document.getElementById("errorMsg");
+
+    form.addEventListener("submit", async e => {
+        e.preventDefault();
+        errorMsg.style.display = "none";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "…";
+
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value;
+
+        try {
+            const res = await fetch("/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem("token",        data.access_token);
+                localStorage.setItem("role",         data.role ?? "");
+                localStorage.setItem("display_name", data.display_name ?? username);
+
+                window.location.replace("/");
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showError(err.detail || "Невірний логін або пароль");
+            }
+        } catch {
+            showError("Помилка з'єднання з сервером");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Увійти";
+        }
+    });
+
+    function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.style.display = "block";
+    }
+</script>
+</body>
+</html>

@@ -63,7 +63,11 @@ async def login(req: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_token(req.username, user["role"], user["display_name"])
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        role=user["role"],
+        display_name=user["display_name"],
+    )
 
 
 @app.get("/auth/me")

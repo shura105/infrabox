@@ -2,3 +2,4 @@ fastapi
 uvicorn
 paho-mqtt
 redis
+httpx

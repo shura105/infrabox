@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Constructor</title>
+    <script>window.REQUIRED_ROLE = "admin";</script>
+    <script src="/auth.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak]{display:none!important}
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{background:#0d1117;color:#c9d1d9;font-family:system-ui,sans-serif;font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+        /* ── toolbar ── */
+        .tb{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 14px;background:#161b22;border-bottom:1px solid #30363d;flex-shrink:0}
+        .tb-sep{width:1px;height:24px;background:#30363d;margin:0 2px;flex-shrink:0}
+        .lbl{color:#8b949e;font-size:12px;white-space:nowrap}
+        .sc-title{font-size:14px;font-weight:600;color:#e6edf3}
+        .sc-badge{font-size:11px;color:#8b949e;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:2px 6px}
+        .mode-badge{font-size:11px;font-weight:600;border-radius:4px;padding:3px 9px;background:#1c3a5e;color:#58a6ff;border:1px solid #2d5a8e}
+
+        .btn{padding:4px 11px;border-radius:5px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;line-height:1.6}
+        .btn:hover{background:#30363d}
+        .btn:disabled{opacity:.4;cursor:default}
+        .btn-red{background:#3d1c1c;border-color:#6e2c2c;color:#f47067}
+        .btn-red:hover{background:#4a2020}
+
+        /* ── layout ── */
+        .main{display:flex;flex:1;overflow:hidden}
+
+        /* ── left panel (elements mode) ── */
+        .palette{width:154px;flex-shrink:0;background:#161b22;border-right:1px solid #30363d;padding:10px 8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto}
+        .pal-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;padding:0 2px}
+        .pal-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#1c2128;border:1px solid #30363d;border-radius:6px;cursor:grab;user-select:none;transition:background .12s,border-color .12s}
+        .pal-item:hover{background:#21262d;border-color:#58a6ff;color:#58a6ff}
+        .pal-item:active{cursor:grabbing;opacity:.7}
+        .pal-icon{font-size:15px;width:18px;text-align:center}
+
+        /* ── structure left panel ── */
+        .struct-pal{width:130px;flex-shrink:0;background:#161b22;border-right:1px solid #30363d;
+                    padding:10px 8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto}
+
+        /* ── structure canvas ── */
+        .struct-area{flex:1;overflow:auto;background:#0a0e14;position:relative}
+        .struct-canvas{position:relative;flex-shrink:0}
+        .struct-canvas svg{position:absolute;inset:0;pointer-events:none;z-index:20}
+
+        /* decoration elements */
+        .deco{position:absolute;cursor:move;user-select:none}
+        .deco.sel-deco{outline:2px solid #58a6ff;outline-offset:1px;z-index:11}
+        .deco-group{width:100%;height:100%}
+        .deco-label{width:100%;height:100%;display:flex;align-items:center;
+                    font-weight:600;overflow:hidden;white-space:nowrap}
+        /* arrow deco */
+        .deco-arrow-line{position:absolute;top:50%;left:0;transform-origin:left center;height:0}
+        .deco-arrow-head{position:absolute;top:50%;right:-1px;transform:translateY(-50%);
+                         width:0;height:0;border-style:solid}
+        /* resize handles */
+        .rh{position:absolute;width:9px;height:9px;background:#58a6ff;border:1px solid #0d1117;
+            border-radius:2px;z-index:30}
+        .rh-br{bottom:-5px;right:-5px;cursor:se-resize}
+        .rh-bm{bottom:-5px;left:calc(50% - 4px);cursor:s-resize}
+        .rh-mr{top:calc(50% - 4px);right:-5px;cursor:e-resize}
+
+        .snode{position:absolute;width:160px;cursor:move;user-select:none;z-index:5}
+        .snode-inner{background:#161b22;border:2px solid #30363d;border-radius:8px;padding:10px 12px;transition:border-color .15s}
+        .snode-inner:hover{border-color:#444}
+        .snode.sel .snode-inner{border-color:#58a6ff;background:#1c2128}
+        .snode-title{font-size:13px;font-weight:600;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .snode-id{font-size:11px;color:#8b949e;margin-top:2px}
+        /* .snode-hint removed */
+
+        /* ── elements canvas ── */
+        .canvas-area{flex:1;overflow:auto;background:#0a0e14;padding:16px;display:flex;align-items:flex-start;justify-content:flex-start}
+        .c-el{position:absolute;cursor:move;user-select:none}
+        .c-el.sel{outline:2px solid #58a6ff;outline-offset:1px;z-index:10}
+        .r-label{display:flex;align-items:center;width:100%;height:100%;overflow:hidden}
+        .r-value{display:flex;flex-direction:column;justify-content:center;padding:4px 8px;border:1px solid #333;border-radius:4px;background:rgba(0,0,0,.3);width:100%;height:100%}
+        .r-value .vl{font-size:11px;color:#8b949e}
+        .r-navbtn{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600}
+        .r-indicator{width:100%;height:100%;border-radius:50%}
+        .r-rect{width:100%;height:100%}
+
+        /* ── props panel ── */
+        .props{width:234px;flex-shrink:0;background:#161b22;border-left:1px solid #30363d;padding:12px;overflow-y:auto}
+        .pr-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+        .pr{margin-bottom:9px}
+        .pr label{display:block;font-size:11px;color:#8b949e;margin-bottom:3px}
+        .pr input[type=text],.pr input[type=number],.pr select{width:100%;padding:5px 8px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:13px;outline:none}
+        .pr input:focus,.pr select:focus{border-color:#58a6ff}
+        .pr input[type=color]{width:100%;height:28px;padding:2px 4px;background:#0d1117;border:1px solid #30363d;border-radius:4px;cursor:pointer}
+        .pr2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+        .pr2 label{display:block;font-size:11px;color:#8b949e;margin-bottom:3px}
+        .pr2 input{width:100%;padding:5px 7px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:13px;outline:none}
+        .pr2 input:focus{border-color:#58a6ff}
+        .pr-inline{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+        .pr-inline label{font-size:12px;color:#c9d1d9;cursor:pointer;margin:0}
+        .pr-sep{height:1px;background:#21262d;margin:8px 0 11px}
+
+        /* ── modal ── */
+        .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:200}
+        .overlay.open{display:flex}
+        .modal{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;width:340px}
+        .modal h2{font-size:15px;margin-bottom:18px;color:#e6edf3}
+        .modal-err{padding:7px 10px;background:#3d1c1c;border:1px solid #6e2c2c;border-radius:5px;color:#f47067;font-size:12px;margin-bottom:12px;display:none}
+        .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+
+        /* ── status ── */
+        .status{height:24px;background:#0d1117;border-top:1px solid #21262d;display:flex;align-items:center;padding:0 14px;flex-shrink:0}
+        .status span{font-size:11px;color:#8b949e}
+        .status .ok{color:#56d364}
+        .status .err{color:#f47067}
+    </style>
+</head>
+<body x-data="app()" x-cloak @mousemove.window="onMove" @mouseup.window="onUp">
+
+<!-- toolbar -->
+<div class="tb">
+    <button class="btn" onclick="window.location.href='/'">← Головна</button>
+    <div class="tb-sep"></div>
+    <span class="mode-badge" x-show="mode === 'elements'">✏ Елементи</span>
+
+    <!-- structure mode tools -->
+    <template x-if="mode === 'structure'">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="tb-sep"></div>
+            <button class="btn" @click="openCreate()">+ Екран</button>
+            <div class="tb-sep"></div>
+            <button class="btn" @click="saveAll">💾 Зберегти</button>
+        </div>
+    </template>
+
+    <!-- elements mode tools -->
+    <template x-if="mode === 'elements'">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="tb-sep"></div>
+            <button class="btn" @click="mode='structure';sel=null">← Структура</button>
+            <span class="sc-title" x-text="sc.title"></span>
+            <span class="sc-badge" x-text="sc.id"></span>
+            <div class="tb-sep"></div>
+            <label class="pr-inline" style="margin:0;gap:6px">
+                <input type="checkbox" x-model="sc.snap">
+                <span class="lbl">Snap</span>
+            </label>
+            <span class="lbl">Grid:</span>
+            <input type="number" x-model.number="sc.grid" min="4" max="100" style="width:50px;padding:3px 7px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;outline:none">
+            <div class="tb-sep"></div>
+            <button class="btn btn-red" x-show="sel" @click="delEl">🗑 Видалити</button>
+            <div class="tb-sep"></div>
+            <button class="btn" @click="saveAll">💾 Зберегти</button>
+        </div>
+    </template>
+
+    <div style="flex:1"></div>
+    <button class="btn" @click="authLogout()">Вийти</button>
+</div>
+
+<div class="main">
+
+    <!-- ═══════════ STRUCTURE MODE ═══════════ -->
+    <template x-if="mode === 'structure'">
+        <div style="display:flex;flex:1;overflow:hidden">
+
+            <!-- structure left panel -->
+            <div class="struct-pal">
+                <div class="pal-title">Оформлення</div>
+                <template x-for="item in structPalette" :key="item.type">
+                    <div class="pal-item" draggable="true" @dragstart="decodrag($event,item.type)">
+                        <span class="pal-icon" x-text="item.icon"></span>
+                        <span x-text="item.label"></span>
+                    </div>
+                </template>
+                <div class="pal-title" style="margin-top:10px">Сітка</div>
+                <div class="pr-inline" style="margin-bottom:4px">
+                    <input type="checkbox" x-model="sgrid.snap" id="sgSnap">
+                    <label for="sgSnap" style="font-size:12px;color:#c9d1d9;cursor:pointer">Snap</label>
+                </div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:3px">Крок</div>
+                <input type="number" x-model.number="sgrid.step" min="10" max="200"
+                       style="width:100%;padding:4px 7px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:13px;outline:none">
+            </div>
+
+            <!-- structure canvas -->
+            <div class="struct-area" id="structArea" @dragover.prevent @drop.prevent="decoDrop"
+                 @wheel.prevent="sZoom($event)">
+                <div class="struct-canvas" id="structCanvas"
+                     :style="`width:${CANVAS_W}px;height:${CANVAS_H}px;
+                              transform:scale(${_sScale});transform-origin:top left;
+                              background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+                                               linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+                              background-size:${sgrid.step}px ${sgrid.step}px;`"
+                     @click.self="selNodeId=null;selDecoId=null">
+
+                    <!-- SVG lines -->
+                    <svg :width="CANVAS_W" :height="CANVAS_H">
+                        <defs>
+                            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                                <path d="M0,0 L0,6 L8,3 z" fill="#556"/>
+                            </marker>
+                            <marker id="arr-deco" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                                <path d="M0,0 L0,6 L8,3 z" fill="#58a6ff"/>
+                            </marker>
+                        </defs>
+                        <!-- hierarchy lines -->
+                        <template x-for="node in project.screens" :key="'l'+node.id">
+                            <template x-if="node.parent && nodeById(node.parent)">
+                                <line
+                                    :x1="(nodeById(node.parent).x||0)+80"
+                                    :y1="(nodeById(node.parent).y||0)+56"
+                                    :x2="(node.x||0)+80"
+                                    :y2="(node.y||0)"
+                                    stroke="#334" stroke-width="2"
+                                    marker-end="url(#arr)"/>
+                            </template>
+                        </template>
+                    </svg>
+
+                    <!-- deco elements (groups behind nodes, labels/arrows above) -->
+                    <template x-for="d in decos" :key="d.id">
+                        <div class="deco" :class="{'sel-deco': selDecoId===d.id}"
+                             :style="`left:${d.x}px;top:${d.y}px;width:${d.w}px;height:${d.h||1}px;
+                                      z-index:${d.type==='group'?1:12}`"
+                             @mousedown.stop="decoDown($event,d)" @click.stop="selDecoId=d.id;selNodeId=null">
+                            <!-- group -->
+                            <template x-if="d.type==='group'">
+                                <div class="deco-group"
+                                     :style="`background:${d.fill};border:${d.borderWidth}px solid ${d.borderColor};border-radius:${d.radius}px`"></div>
+                            </template>
+                            <!-- label -->
+                            <template x-if="d.type==='label'">
+                                <div class="deco-label"
+                                     :style="`font-size:${d.fontSize}px;color:${d.color};padding:0 8px`"
+                                     x-text="d.text"></div>
+                            </template>
+                            <!-- arrow (CSS) -->
+                            <template x-if="d.type==='arrow'">
+                                <div style="width:100%;height:100%;position:relative;overflow:visible">
+                                    <div :style="`
+                                        position:absolute;top:50%;left:0;
+                                        width:${Math.sqrt(d.w*d.w+d.h*d.h)}px;
+                                        height:0;
+                                        border-top:${d.strokeWidth}px solid ${d.color};
+                                        transform:rotate(${Math.atan2(d.h,d.w)}rad);
+                                        transform-origin:left center;
+                                    `">
+                                        <div :style="`
+                                            position:absolute;right:-1px;
+                                            top:-${d.strokeWidth*3 - 1}px;
+                                            width:0;height:0;border-style:solid;
+                                            border-width:${d.strokeWidth*3}px 0 ${d.strokeWidth*3}px ${d.strokeWidth*5}px;
+                                            border-color:transparent transparent transparent ${d.color};
+                                        `"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- resize handles (group only) -->
+                            <template x-if="selDecoId===d.id && d.type==='group'">
+                                <div>
+                                    <div class="rh rh-br" @mousedown.stop="resizeDown($event,d,'br')"></div>
+                                    <div class="rh rh-bm" @mousedown.stop="resizeDown($event,d,'bm')"></div>
+                                    <div class="rh rh-mr" @mousedown.stop="resizeDown($event,d,'mr')"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- nodes -->
+                    <template x-for="node in project.screens" :key="node.id">
+                        <div class="snode"
+                             :class="{sel: selNodeId===node.id}"
+                             :style="`left:${node.x||0}px;top:${node.y||0}px`"
+                             @mousedown.stop="nodeDown($event,node)"
+                             @click.stop="selNodeId=node.id"
+                             @dblclick.stop="openElements(node.id)">
+                            <div class="snode-inner">
+                                <div class="snode-title" x-text="node.title"></div>
+                                <div class="snode-id" x-text="node.id"></div>
+
+                            </div>
+                        </div>
+                    </template>
+
+                </div>
+            </div>
+
+            <!-- node/deco props -->
+            <div class="props">
+                <!-- nothing selected -->
+                <template x-if="!selNode && !selDeco">
+                    <div>
+                        <div style="color:#8b949e;font-size:12px;line-height:1.6">
+                            Клікніть на екран або елемент.<br><br>
+                            Подвійний клік — відкрити екран.
+                        </div>
+                    </div>
+                </template>
+                <!-- node selected -->
+                <template x-if="selNode && !selDeco">
+                    <div>
+                        <div class="pr-title">Екран</div>
+                        <div class="pr"><label>Назва</label>
+                            <input type="text" x-model="selNode.title"></div>
+                        <div class="pr"><label>ID</label>
+                            <input type="text" :value="selNode.id" disabled style="color:#8b949e"></div>
+                        <div class="pr"><label>Батьківський екран</label>
+                            <select x-model="selNode.parent">
+                                <option :value="null">— корінь —</option>
+                                <template x-for="s in project.screens.filter(s=>s.id!==selNode.id)" :key="s.id">
+                                    <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="pr-sep"></div>
+                        <button class="btn btn-red" style="width:100%" @click="confirmDeleteNode()">🗑 Видалити екран</button>
+                    </div>
+                </template>
+                <!-- deco selected -->
+                <template x-if="selDeco">
+                    <div>
+                        <div class="pr-title" x-text="selDeco.type==='group'?'Група':selDeco.type==='label'?'Підпис':'Стрілка'"></div>
+                        <div class="pr2">
+                            <div><label>X</label><input type="number" x-model.number="selDeco.x"></div>
+                            <div><label>Y</label><input type="number" x-model.number="selDeco.y"></div>
+                        </div>
+                        <template x-if="selDeco.type==='arrow'">
+                            <div>
+                                <div class="pr2">
+                                    <div><label>dX</label><input type="number" x-model.number="selDeco.w"></div>
+                                    <div><label>dY</label><input type="number" x-model.number="selDeco.h"></div>
+                                </div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selDeco.color"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selDeco.strokeWidth" min="1" max="10"></div>
+                            </div>
+                        </template>
+                        <template x-if="selDeco.type!=='arrow'">
+                            <div>
+                                <div class="pr2">
+                                    <div><label>W</label><input type="number" x-model.number="selDeco.w"></div>
+                                    <div><label>H</label><input type="number" x-model.number="selDeco.h"></div>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="selDeco.type==='group'">
+                            <div>
+                                <div class="pr"><label>Заливка</label><input type="color" x-model="selDeco.fill"></div>
+                                <div class="pr"><label>Колір рамки</label><input type="color" x-model="selDeco.borderColor"></div>
+                                <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selDeco.borderWidth" min="0" max="10"></div>
+                                <div class="pr"><label>Скруглення</label><input type="number" x-model.number="selDeco.radius" min="0" max="100"></div>
+                            </div>
+                        </template>
+                        <template x-if="selDeco.type==='label'">
+                            <div>
+                                <div class="pr"><label>Текст</label><input type="text" x-model="selDeco.text"></div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selDeco.fontSize" min="8" max="72"></div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selDeco.color"></div>
+                            </div>
+                        </template>
+                        <div class="pr-sep"></div>
+                        <button class="btn btn-red" style="width:100%" @click="delDeco">🗑 Видалити</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <!-- ═══════════ ELEMENTS MODE ═══════════ -->
+    <template x-if="mode === 'elements'">
+        <div style="display:flex;flex:1;overflow:hidden">
+
+            <!-- palette -->
+            <div class="palette">
+                <div class="pal-title">Елементи</div>
+                <template x-for="item in palette" :key="item.type">
+                    <div class="pal-item" draggable="true" @dragstart="palDrag($event,item.type)">
+                        <span class="pal-icon" x-text="item.icon"></span>
+                        <span x-text="item.label"></span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- elements canvas -->
+            <div class="canvas-area" id="ca" @dragover.prevent @drop.prevent="drop">
+                <div id="cs" :style="`transform:scale(${_scale});transform-origin:top left;`">
+                    <div id="cv"
+                         :style="`position:relative;width:${sc.width}px;height:${sc.height}px;background:${sc.bg};
+                                  background-image:${sc.snap?gridImg:'none'};background-size:${sc.grid}px ${sc.grid}px;
+                                  box-shadow:0 0 0 1px #333;`"
+                         @click.self="sel=null">
+                        <template x-for="el in els" :key="el.id">
+                            <div class="c-el" :class="{sel:sel===el.id}"
+                                 :style="`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;`"
+                                 @mousedown.stop="down($event,el)" @click.stop="sel=el.id">
+                                <div x-show="el.type==='label'" class="r-label"
+                                     :style="`font-size:${el.fontSize}px;color:${el.color};font-weight:${el.bold?'bold':'normal'};
+                                              justify-content:${el.align==='center'?'center':el.align==='right'?'flex-end':'flex-start'};`"
+                                     x-text="el.text"></div>
+                                <div x-show="el.type==='value'" class="r-value">
+                                    <span class="vl" x-show="el.showLabel" x-text="el.label"></span>
+                                    <span :style="`font-size:${el.fontSize}px;color:${el.color};font-weight:600;`"
+                                          x-text="`P:${el.point_id} ···`"></span>
+                                </div>
+                                <div x-show="el.type==='nav_btn'" class="r-navbtn"
+                                     :style="`background:${el.bg};color:${el.color};font-size:${el.fontSize}px;`"
+                                     x-text="el.text"></div>
+                                <div x-show="el.type==='indicator'" class="r-indicator"
+                                     :style="`background:${el.color};border:2px solid ${el.borderColor};`"></div>
+                                <div x-show="el.type==='rect'" class="r-rect"
+                                     :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;`"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- element props -->
+            <div class="props">
+                <template x-if="!selEl">
+                    <div>
+                        <div class="pr-title">Властивості екрана</div>
+                        <div class="pr"><label>Назва</label><input type="text" x-model="sc.title"></div>
+                        <div class="pr2">
+                            <div><label>Ширина</label><input type="number" x-model.number="sc.width" @change="updateScale"></div>
+                            <div><label>Висота</label><input type="number" x-model.number="sc.height" @change="updateScale"></div>
+                        </div>
+                        <div class="pr"><label>Фон</label><input type="color" x-model="sc.bg"></div>
+                        <div class="pr-sep"></div>
+                        <div class="pr-inline">
+                            <input type="checkbox" x-model="sc.snap" id="snCb">
+                            <label for="snCb">Grid snap</label>
+                        </div>
+                        <div class="pr"><label>Крок сітки (px)</label>
+                            <input type="number" x-model.number="sc.grid" min="4" max="100"></div>
+                    </div>
+                </template>
+                <template x-if="selEl">
+                    <div>
+                        <div class="pr-title" x-text="typeName(selEl.type)"></div>
+                        <div class="pr2">
+                            <div><label>X</label><input type="number" x-model.number="selEl.x"></div>
+                            <div><label>Y</label><input type="number" x-model.number="selEl.y"></div>
+                        </div>
+                        <div class="pr2">
+                            <div>
+                                <label x-text="selEl.type==='indicator'?'Розмір':'W'"></label>
+                                <input type="number" x-model.number="selEl.w" @input="if(selEl.type==='indicator')selEl.h=selEl.w">
+                            </div>
+                            <div x-show="selEl.type!=='indicator'">
+                                <label>H</label><input type="number" x-model.number="selEl.h">
+                            </div>
+                        </div>
+                        <div class="pr-sep"></div>
+                        <template x-if="selEl.type==='label'">
+                            <div>
+                                <div class="pr"><label>Текст</label><input type="text" x-model="selEl.text"></div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="120"></div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr"><label>Вирівнювання</label>
+                                    <select x-model="selEl.align">
+                                        <option value="left">Ліво</option>
+                                        <option value="center">Центр</option>
+                                        <option value="right">Право</option>
+                                    </select>
+                                </div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.bold" id="bCb"><label for="bCb">Жирний</label></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='value'">
+                            <div>
+                                <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="120"></div>
+                                <div class="pr"><label>Колір значення</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="slCb"><label for="slCb">Показати підпис</label></div>
+                                <div class="pr" x-show="selEl.showLabel"><label>Підпис</label><input type="text" x-model="selEl.label"></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='nav_btn'">
+                            <div>
+                                <div class="pr"><label>Текст</label><input type="text" x-model="selEl.text"></div>
+                                <div class="pr"><label>Цільовий екран</label>
+                                    <select x-model="selEl.target">
+                                        <option value="">— не обрано —</option>
+                                        <template x-for="s in project.screens" :key="s.id">
+                                            <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
+                                <div class="pr"><label>Фон</label><input type="color" x-model="selEl.bg"></div>
+                                <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='indicator'">
+                            <div>
+                                <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
+                                <div class="pr"><label>Колір (GOOD)</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='rect'">
+                            <div>
+                                <div class="pr"><label>Заливка</label><input type="color" x-model="selEl.fill"></div>
+                                <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                                <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="20"></div>
+                                <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="200"></div>
+                            </div>
+                        </template>
+                        <div class="pr-sep"></div>
+                        <button class="btn btn-red" style="width:100%" @click="delEl">🗑 Видалити елемент</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+</div>
+
+<!-- status bar -->
+<div class="status">
+    <span :class="status.ok?'ok':'err'" x-text="status.msg"></span>
+</div>
+
+<!-- create screen modal -->
+<div class="overlay" :class="{open: createModal.open}">
+    <div class="modal">
+        <h2>Новий екран</h2>
+        <div class="modal-err" id="createErr"></div>
+        <div class="pr"><label>ID (a-z, 0-9, _, -)</label>
+            <input type="text" id="newId" placeholder="heating" @input="autoTitle"></div>
+        <div class="pr"><label>Назва</label>
+            <input type="text" id="newTitle" placeholder="Опалення"></div>
+        <div class="pr"><label>Батьківський екран</label>
+            <select id="newParent">
+                <option value="">— корінь —</option>
+                <template x-for="s in project.screens" :key="s.id">
+                    <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
+                </template>
+            </select>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" @click="createModal.open=false">Скасувати</button>
+            <button class="btn" @click="createScreen">Створити</button>
+        </div>
+    </div>
+</div>
+
+<!-- delete confirm modal -->
+<div class="overlay" :class="{open: deleteModal.open}">
+    <div class="modal">
+        <h2>Видалити екран</h2>
+        <p style="color:#c9d1d9;margin-bottom:20px;line-height:1.5"
+           x-text="`Видалити «${deleteModal.node?.title}»? Файл на диску також буде видалено.`"></p>
+        <div class="modal-foot">
+            <button class="btn" @click="deleteModal.open=false">Скасувати</button>
+            <button class="btn btn-red" @click="doDelete">Видалити</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function app() {
+    return {
+        CANVAS_W: 3000,
+        CANVAS_H: 2000,
+
+        mode: "structure",   // "structure" | "elements"
+        project: { screens: [] },
+        screenCache: {},
+
+        // structure
+        sgrid: { snap: true, step: 20 },
+        decos: [],
+        selNodeId: null,
+        selDecoId: null,
+
+        // elements
+        sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" },
+        els: [],
+        sel: null,
+
+        status: { msg:"Готово", ok:true },
+        createModal: { open:false },
+        deleteModal:  { open:false, node:null },
+
+        _scale: 1,
+        _sScale: 1,   // structure zoom
+        _drag:  null,
+        _off:   { x:0, y:0 },
+        _ndrag: null,
+        _noff:  { x:0, y:0 },
+        _ddrag: null,
+        _doff:  { x:0, y:0 },
+        _rdrag: null,  // resize: { deco, handle, startX, startY, startW, startH }
+        _groupChildren: [],  // nodes+decos inside dragged group
+
+        palette: [
+            { type:"label",     icon:"T",  label:"Мітка" },
+            { type:"value",     icon:"⌗",  label:"Значення" },
+            { type:"nav_btn",   icon:"→",  label:"Навігація" },
+            { type:"indicator", icon:"●",  label:"Індикатор" },
+            { type:"rect",      icon:"▭",  label:"Прямокутник" },
+        ],
+
+        defaults: {
+            label:     { w:160, h:36,  text:"Мітка",     fontSize:16, color:"#e6edf3", bold:false, align:"left" },
+            value:     { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"" },
+            nav_btn:   { w:150, h:44,  text:"Перейти →", fontSize:14, target:"", bg:"#1c3a5e", color:"#58a6ff" },
+            indicator: { w:24,  h:24,  point_id:101,      color:"#4caf50", borderColor:"#2d7a2d" },
+            rect:      { w:200, h:100, fill:"#1e2130",    borderColor:"#444", borderWidth:1, radius:4 },
+        },
+
+        get gridImg() {
+            return `linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px)`;
+        },
+        get selEl()     { return this.els.find(e => e.id === this.sel) ?? null; },
+        get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? null; },
+        get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
+        get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
+
+        nodeById(id) { return this.project.screens.find(s => s.id === id); },
+
+        structPalette: [
+            { type:"group",  icon:"▭", label:"Група" },
+            { type:"label",  icon:"T",  label:"Підпис" },
+        ],
+
+        decoDefaults: {
+            group: { w:300, h:200, fill:"rgba(30,40,60,0.5)", borderColor:"#334", borderWidth:2, radius:8 },
+            label: { w:160, h:32,  text:"Група",  fontSize:14, color:"#8b949e" },
+            arrow: { w:120, h:80,  color:"#58a6ff", strokeWidth:2 },
+        },
+
+        snapV(v) { return this.sgrid.snap ? Math.round(v / this.sgrid.step) * this.sgrid.step : Math.round(v); },
+
+        sZoom(e) {
+            if (!e.ctrlKey) return;
+            const delta = e.deltaY < 0 ? 1.1 : 0.9;
+            this._sScale = Math.min(3, Math.max(0.2, this._sScale * delta));
+        },
+
+        async init() {
+            window.addEventListener("resize", () => this.updateScale());
+            document.addEventListener("keydown", e => {
+                if ((e.key==="Delete"||e.key==="Backspace") &&
+                    !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)) {
+                    if (this.mode==="elements" && this.sel) this.delEl();
+                }
+            });
+            await this.loadProject();
+        },
+
+        setStatus(msg, ok=true) { this.status = { msg, ok }; },
+
+        // ── API ────────────────────────────────────────────────────────────────
+        async apiGet(path) {
+            const r = await fetch(path, { headers: authHeaders() });
+            if (r.status===404) return null;
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        },
+        async apiPut(path, data) {
+            const r = await fetch(path, {
+                method:"PUT", headers:{...authHeaders(),"Content-Type":"application/json"},
+                body: JSON.stringify(data),
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        },
+        async apiDelete(path) {
+            const r = await fetch(path, { method:"DELETE", headers: authHeaders() });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        },
+
+        // ── project ────────────────────────────────────────────────────────────
+        async loadProject() {
+            try {
+                const p = await this.apiGet("/api/project");
+                if (p) {
+                    this.decos   = p.decos   ?? [];
+                    this.project = { screens: p.screens ?? [] };
+                }
+                this.setStatus("Проект завантажено");
+            } catch(e) { this.setStatus("Помилка: "+e.message, false); }
+        },
+
+        async saveProject() {
+            await this.apiPut("/api/project", { ...this.project, decos: this.decos });
+        },
+
+        getScreenPath(id) {
+            const parts = [];
+            let cur = id;
+            const visited = new Set();
+            while (cur) {
+                if (visited.has(cur)) break;
+                visited.add(cur);
+                parts.unshift(cur);
+                const node = this.project.screens.find(s => s.id===cur);
+                cur = node?.parent ?? null;
+            }
+            return parts.join("/");
+        },
+
+        cacheCurrentScreen() {
+            if (!this.sc.id) return;
+            this.screenCache[this.sc.id] = {
+                screen:   JSON.parse(JSON.stringify(this.sc)),
+                elements: JSON.parse(JSON.stringify(this.els)),
+            };
+        },
+
+        async saveAll() {
+            this.cacheCurrentScreen();
+            const allIds = this.project.screens.map(s => s.id);
+            if (!allIds.length) { this.setStatus("Немає екранів"); return; }
+            this.setStatus(`Збереження ${allIds.length} екранів…`);
+            let ok=0, fail=0;
+            for (const id of allIds) {
+                try {
+                    const path = this.getScreenPath(id);
+                    const node = this.project.screens.find(s => s.id===id);
+                    const cached = this.screenCache[id] ?? {
+                        screen:   { id, title:node?.title??id, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" },
+                        elements: [],
+                    };
+                    await this.apiPut(`/api/screens/${path}`, cached);
+                    ok++;
+                } catch { fail++; }
+            }
+            await this.saveProject();
+            this.setStatus(fail ? `Збережено ${ok}, помилок ${fail}` : `Збережено ${ok} екранів`, !fail);
+        },
+
+        // ── structure: create ─────────────────────────────────────────────────
+        openCreate() {
+            document.getElementById("newId").value    = "";
+            document.getElementById("newTitle").value = "";
+            // default parent = selected node
+            const sel = document.getElementById("newParent");
+            if (sel) sel.value = this.selNodeId || "";
+            document.getElementById("createErr").style.display = "none";
+            this.createModal.open = true;
+            this.$nextTick(() => document.getElementById("newId").focus());
+        },
+
+        autoTitle() {
+            const id = document.getElementById("newId").value;
+            const t  = document.getElementById("newTitle");
+            if (!t.value) t.value = id;
+        },
+
+        createScreen() {
+            const id     = document.getElementById("newId").value.trim();
+            const title  = document.getElementById("newTitle").value.trim() || id;
+            const parent = document.getElementById("newParent").value || null;
+            const err    = document.getElementById("createErr");
+
+            if (!id || !/^[a-z0-9_-]+$/.test(id)) {
+                err.textContent="ID: лише a-z, 0-9, _, -"; err.style.display="block"; return;
+            }
+            if (this.project.screens.find(s=>s.id===id)) {
+                err.textContent="Такий ID вже існує"; err.style.display="block"; return;
+            }
+
+            // авто-позиція: поряд з батьком або за замовчуванням
+            let x = 40, y = 40;
+            if (parent) {
+                const p = this.nodeById(parent);
+                if (p) {
+                    const children = this.project.screens.filter(s=>s.parent===parent);
+                    x = (p.x||0) + children.length * 200;
+                    y = (p.y||0) + 120;
+                }
+            } else {
+                const roots = this.project.screens.filter(s=>!s.parent);
+                x = roots.length * 200 + 40;
+                y = 40;
+            }
+
+            this.project.screens.push({ id, title, parent, x, y });
+            this.createModal.open = false;
+            this.selNodeId = id;
+            this.setStatus(`Екран «${title}» додано`);
+        },
+
+        // ── structure: delete ─────────────────────────────────────────────────
+        confirmDeleteNode() {
+            const node = this.selNode;
+            if (!node) return;
+            this.deleteModal = { open:true, node };
+        },
+
+        async doDelete() {
+            const { node } = this.deleteModal;
+            this.deleteModal.open = false;
+            try {
+                await this.apiDelete(`/api/screens/${this.getScreenPath(node.id)}`).catch(()=>{});
+                this.project.screens = this.project.screens.filter(s=>s.id!==node.id);
+                this.project.screens.forEach(s=>{ if(s.parent===node.id) s.parent=null; });
+                delete this.screenCache[node.id];
+                await this.saveProject();
+                if (this.selNodeId===node.id) this.selNodeId=null;
+                this.setStatus(`Екран «${node.title}» видалено`);
+            } catch(e) { this.setStatus("Помилка: "+e.message, false); }
+        },
+
+        // ── structure: node drag ──────────────────────────────────────────────
+        nodeDown(e, node) {
+            this.selNodeId = node.id;
+            this.selDecoId = null;
+            this._ndrag    = node;
+            const r = document.getElementById("structCanvas").getBoundingClientRect();
+            this._noff.x = e.clientX - r.left - (node.x||0);
+            this._noff.y = e.clientY - r.top  - (node.y||0);
+        },
+
+        // ── deco ──────────────────────────────────────────────────────────────
+        decodrag(e, type) { e.dataTransfer.setData("decoType", type); },
+
+        decoDrop(e) {
+            const type = e.dataTransfer.getData("decoType");
+            if (!type) return;
+            const r = document.getElementById("structCanvas").getBoundingClientRect();
+            const x = this.snapV(e.clientX - r.left);
+            const y = this.snapV(e.clientY - r.top);
+            const id = "deco_" + Date.now();
+            this.decos.push({ id, type, x, y, ...this.decoDefaults[type] });
+            this.selDecoId = id;
+            this.selNodeId = null;
+        },
+
+        decoDown(e, d) {
+            this.selDecoId = d.id;
+            this.selNodeId = null;
+            this._ddrag = d;
+            const r = document.getElementById("structCanvas").getBoundingClientRect();
+            this._doff.x = e.clientX - r.left - d.x;
+            this._doff.y = e.clientY - r.top  - d.y;
+            // collect children inside group for block move
+            if (d.type === 'group') {
+                this._groupChildren = [
+                    ...this.project.screens.filter(n => this._insideGroup(n, d)),
+                    ...this.decos.filter(c => c.id !== d.id && this._insideGroup(c, d)),
+                ].map(o => ({ obj: o, dx: o.x - d.x, dy: o.y - d.y }));
+            } else {
+                this._groupChildren = [];
+            }
+        },
+
+        _insideGroup(obj, g) {
+            return obj.x >= g.x && obj.y >= g.y &&
+                   (obj.x + (obj.w||160)) <= (g.x + g.w) &&
+                   (obj.y + (obj.h||56))  <= (g.y + g.h);
+        },
+
+        resizeDown(e, d, handle) {
+            e.stopPropagation();
+            this._rdrag = { deco: d, handle, startX: e.clientX, startY: e.clientY, startW: d.w, startH: d.h };
+        },
+
+        delDeco() {
+            if (!this.selDecoId) return;
+            this.decos = this.decos.filter(d => d.id !== this.selDecoId);
+            this.selDecoId = null;
+        },
+
+        // ── open elements mode ────────────────────────────────────────────────
+        async openElements(id) {
+            this.cacheCurrentScreen();
+            try {
+                this.setStatus("Завантаження…");
+                const node = this.project.screens.find(s=>s.id===id);
+                if (this.screenCache[id]) {
+                    this.sc  = this.screenCache[id].screen;
+                    this.els = this.screenCache[id].elements;
+                } else {
+                    const path = this.getScreenPath(id);
+                    const data = await this.apiGet(`/api/screens/${path}`);
+                    if (data) {
+                        this.sc  = data.screen;
+                        this.els = data.elements;
+                    } else {
+                        this.sc  = { id, title:node?.title??id, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" };
+                        this.els = [];
+                    }
+                    this.screenCache[id] = {
+                        screen:   JSON.parse(JSON.stringify(this.sc)),
+                        elements: JSON.parse(JSON.stringify(this.els)),
+                    };
+                }
+                this.sel  = null;
+                this.mode = "elements";
+                this.setStatus(`Екран «${this.sc.title}»`);
+                this.$nextTick(() => this.updateScale());
+            } catch(e) { this.setStatus("Помилка: "+e.message, false); }
+        },
+
+        // ── elements canvas ───────────────────────────────────────────────────
+        updateScale() {
+            const ca = document.getElementById("ca");
+            if (!ca) return;
+            const sw = (ca.clientWidth  - 32) / this.sc.width;
+            const sh = (ca.clientHeight - 32) / this.sc.height;
+            this._scale = Math.min(sw, sh, 1);
+        },
+
+        snap(v, g) { return this.sc.snap ? Math.round(v/g)*g : Math.round(v); },
+
+        palDrag(e, type) { e.dataTransfer.setData("elType", type); },
+
+        drop(e) {
+            const type = e.dataTransfer.getData("elType");
+            if (!type) return;
+            const cv = document.getElementById("cv");
+            if (!cv) return;
+            const r = cv.getBoundingClientRect();
+            const x = this.snap((e.clientX-r.left)/this._scale, this.sc.grid);
+            const y = this.snap((e.clientY-r.top) /this._scale, this.sc.grid);
+            const id = "el_"+Date.now();
+            this.els.push({ id, type, x, y, ...this.defaults[type] });
+            this.sel = id;
+        },
+
+        down(e, el) {
+            this.sel   = el.id;
+            this._drag = el;
+            const cv = document.getElementById("cv");
+            const r  = cv.getBoundingClientRect();
+            this._off.x = (e.clientX-r.left)/this._scale - el.x;
+            this._off.y = (e.clientY-r.top) /this._scale - el.y;
+        },
+
+        // shared mousemove/mouseup
+        onMove(e) {
+            // resize deco
+            if (this._rdrag) {
+                const { deco, handle, startX, startY, startW, startH } = this._rdrag;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (handle === 'br' || handle === 'mr') deco.w = Math.max(60, this.snapV(startW + dx));
+                if (handle === 'br' || handle === 'bm') deco.h = Math.max(40, this.snapV(startH + dy));
+                return;
+            }
+            // node drag (structure)
+            if (this._ndrag) {
+                const r = document.getElementById("structCanvas")?.getBoundingClientRect();
+                if (!r) return;
+                this._ndrag.x = Math.max(0, this.snapV(e.clientX - r.left - this._noff.x));
+                this._ndrag.y = Math.max(0, this.snapV(e.clientY - r.top  - this._noff.y));
+                return;
+            }
+            // deco drag (structure) + group children
+            if (this._ddrag) {
+                const r = document.getElementById("structCanvas")?.getBoundingClientRect();
+                if (!r) return;
+                const nx = Math.max(0, this.snapV(e.clientX - r.left - this._doff.x));
+                const ny = Math.max(0, this.snapV(e.clientY - r.top  - this._doff.y));
+                this._ddrag.x = nx;
+                this._ddrag.y = ny;
+                for (const c of this._groupChildren) {
+                    c.obj.x = nx + c.dx;
+                    c.obj.y = ny + c.dy;
+                }
+                return;
+            }
+            // element drag (elements mode)
+            if (this._drag) {
+                const cv = document.getElementById("cv");
+                if (!cv) return;
+                const r  = cv.getBoundingClientRect();
+                const el = this._drag;
+                const x  = this.snap((e.clientX-r.left)/this._scale - this._off.x, this.sc.grid);
+                const y  = this.snap((e.clientY-r.top) /this._scale - this._off.y, this.sc.grid);
+                el.x = Math.max(0, Math.min(x, this.sc.width  - el.w));
+                el.y = Math.max(0, Math.min(y, this.sc.height - el.h));
+            }
+        },
+
+        onUp() { this._drag=null; this._ndrag=null; this._ddrag=null; this._rdrag=null; this._groupChildren=[]; },
+
+        delEl() {
+            if (!this.sel) return;
+            this.els = this.els.filter(e=>e.id!==this.sel);
+            this.sel = null;
+        },
+
+        typeName(t) {
+            return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
+                     indicator:"Індикатор", rect:"Прямокутник" }[t]??t;
+        },
+    };
+}
+</script>
+</body>
+</html>

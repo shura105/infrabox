@@ -11,6 +11,7 @@ services:
       REDIS_PORT: 6379
     volumes:
       - ./backend:/app
+      - ./data:/app/data
 
   web:
     build: ./frontend

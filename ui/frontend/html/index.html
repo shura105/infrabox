@@ -61,7 +61,17 @@
     }
 </style>
 
+<script src="/auth.js"></script>
 <script src="app.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const btn = document.createElement("button");
+        btn.textContent = "Вийти";
+        btn.style.cssText = "position:fixed;top:10px;right:10px;padding:6px 14px;background:#21262d;border:1px solid #444;border-radius:6px;color:#c9d1d9;cursor:pointer;font-size:13px;";
+        btn.onclick = () => authLogout();
+        document.body.appendChild(btn);
+    });
+</script>
 
 </body>
 </html>
