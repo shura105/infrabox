@@ -73,14 +73,14 @@
 
         /* ── elements canvas ── */
         .canvas-area{flex:1;overflow:auto;background:#0a0e14;padding:16px;display:flex;align-items:flex-start;justify-content:flex-start}
-        .c-el{position:absolute;cursor:move;user-select:none}
+        .c-el{position:absolute;cursor:move;user-select:none;overflow:hidden}
         .c-el.sel{outline:2px solid #58a6ff;outline-offset:1px;z-index:10}
-        .r-label{display:flex;align-items:center;width:100%;height:100%;overflow:hidden}
-        .r-value{display:flex;flex-direction:column;justify-content:center;padding:4px 8px;border:1px solid #333;border-radius:4px;background:rgba(0,0,0,.3);width:100%;height:100%}
-        .r-value .vl{font-size:11px;color:#8b949e}
-        .r-navbtn{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600}
-        .r-indicator{width:100%;height:100%;border-radius:50%}
-        .r-rect{width:100%;height:100%}
+        .r-label{position:absolute;inset:0;display:flex;align-items:center;overflow:hidden}
+        .r-value{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;padding:4px 8px;border:1px solid #333;border-radius:4px;background:rgba(0,0,0,.3);overflow:hidden}
+        .r-value .vl{font-size:11px;color:#8b949e;flex-shrink:0}
+        .r-navbtn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600;overflow:hidden}
+        .r-indicator{position:absolute;inset:0;border-radius:50%}
+        .r-rect{position:absolute;inset:0}
 
         /* ── props panel ── */
         .props{width:234px;flex-shrink:0;background:#161b22;border-left:1px solid #30363d;padding:12px;overflow-y:auto}
@@ -139,13 +139,6 @@
             <span class="sc-title" x-text="sc.title"></span>
             <span class="sc-badge" x-text="sc.id"></span>
             <div class="tb-sep"></div>
-            <label class="pr-inline" style="margin:0;gap:6px">
-                <input type="checkbox" x-model="sc.snap">
-                <span class="lbl">Snap</span>
-            </label>
-            <span class="lbl">Grid:</span>
-            <input type="number" x-model.number="sc.grid" min="4" max="100" style="width:50px;padding:3px 7px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;outline:none">
-            <div class="tb-sep"></div>
             <button class="btn btn-red" x-show="sel" @click="delEl">🗑 Видалити</button>
             <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
@@ -203,17 +196,7 @@
                             </marker>
                         </defs>
                         <!-- hierarchy lines -->
-                        <template x-for="node in project.screens" :key="'l'+node.id">
-                            <template x-if="node.parent && nodeById(node.parent)">
-                                <line
-                                    :x1="(nodeById(node.parent).x||0)+80"
-                                    :y1="(nodeById(node.parent).y||0)+56"
-                                    :x2="(node.x||0)+80"
-                                    :y2="(node.y||0)"
-                                    stroke="#334" stroke-width="2"
-                                    marker-end="url(#arr)"/>
-                            </template>
-                        </template>
+                        <g x-html="svgLinesHtml"></g>
                     </svg>
 
                     <!-- deco elements (groups behind nodes, labels/arrows above) -->
@@ -287,7 +270,7 @@
             <!-- node/deco props -->
             <div class="props">
                 <!-- nothing selected -->
-                <template x-if="!selNode && !selDeco">
+                <template x-if="!selNodeId && !selDecoId">
                     <div>
                         <div style="color:#8b949e;font-size:12px;line-height:1.6">
                             Клікніть на екран або елемент.<br><br>
@@ -296,7 +279,7 @@
                     </div>
                 </template>
                 <!-- node selected -->
-                <template x-if="selNode && !selDeco">
+                <template x-if="selNodeId && !selDecoId">
                     <div>
                         <div class="pr-title">Екран</div>
                         <div class="pr"><label>Назва</label>
@@ -383,30 +366,40 @@
             <div class="canvas-area" id="ca" @dragover.prevent @drop.prevent="drop">
                 <div id="cs" :style="`transform:scale(${_scale});transform-origin:top left;`">
                     <div id="cv"
-                         :style="`position:relative;width:${sc.width}px;height:${sc.height}px;background:${sc.bg};
-                                  background-image:${sc.snap?gridImg:'none'};background-size:${sc.grid}px ${sc.grid}px;
+                         :style="`position:relative;width:${sc.width}px;height:${sc.height}px;background-color:${sc.bg};
+                                  background-image:${cvBgImage()};background-size:${cvBgSize()};
                                   box-shadow:0 0 0 1px #333;`"
-                         @click.self="sel=null">
+                         @click.self="selectEl(null)">
                         <template x-for="el in els" :key="el.id">
-                            <div class="c-el" :class="{sel:sel===el.id}"
-                                 :style="`left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;`"
-                                 @mousedown.stop="down($event,el)" @click.stop="sel=el.id">
-                                <div x-show="el.type==='label'" class="r-label"
-                                     :style="`font-size:${el.fontSize}px;color:${el.color};font-weight:${el.bold?'bold':'normal'};
-                                              justify-content:${el.align==='center'?'center':el.align==='right'?'flex-end':'flex-start'};`"
-                                     x-text="el.text"></div>
-                                <div x-show="el.type==='value'" class="r-value">
-                                    <span class="vl" x-show="el.showLabel" x-text="el.label"></span>
-                                    <span :style="`font-size:${el.fontSize}px;color:${el.color};font-weight:600;`"
-                                          x-text="`P:${el.point_id} ···`"></span>
-                                </div>
-                                <div x-show="el.type==='nav_btn'" class="r-navbtn"
-                                     :style="`background:${el.bg};color:${el.color};font-size:${el.fontSize}px;`"
-                                     x-text="el.text"></div>
-                                <div x-show="el.type==='indicator'" class="r-indicator"
-                                     :style="`background:${el.color};border:2px solid ${el.borderColor};`"></div>
-                                <div x-show="el.type==='rect'" class="r-rect"
-                                     :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;`"></div>
+                            <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;`"
+                                 @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
+                                <template x-if="el.type==='label'">
+                                    <div class="r-label"
+                                         :style="`font-size:${el.fontSize*fScale()}px;color:${el.color};font-weight:${el.bold?'bold':'normal'};
+                                                  justify-content:${el.align==='center'?'center':el.align==='right'?'flex-end':'flex-start'};`"
+                                         x-text="el.text"></div>
+                                </template>
+                                <template x-if="el.type==='value'">
+                                    <div class="r-value">
+                                        <span class="vl" x-show="el.showLabel" x-text="el.label" :style="`font-size:${11*fScale()}px`"></span>
+                                        <span :style="`font-size:${el.fontSize*fScale()}px;color:${el.color};font-weight:600;`"
+                                              x-text="`P:${el.point_id} ···`"></span>
+                                    </div>
+                                </template>
+                                <template x-if="el.type==='nav_btn'">
+                                    <div class="r-navbtn"
+                                         :style="`background:${el.bg};color:${el.color};font-size:${el.fontSize*fScale()}px;`"
+                                         x-text="el.text"></div>
+                                </template>
+                                <template x-if="el.type==='indicator'">
+                                    <div class="r-indicator"
+                                         :style="`background:${el.color};border:2px solid ${el.borderColor};`"></div>
+                                </template>
+                                <template x-if="el.type==='rect'">
+                                    <div class="r-rect"
+                                         :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;`"></div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -415,15 +408,32 @@
 
             <!-- element props -->
             <div class="props">
-                <template x-if="!selEl">
+                <template x-if="sel === null">
                     <div>
                         <div class="pr-title">Властивості екрана</div>
                         <div class="pr"><label>Назва</label><input type="text" x-model="sc.title"></div>
                         <div class="pr2">
-                            <div><label>Ширина</label><input type="number" x-model.number="sc.width" @change="updateScale"></div>
-                            <div><label>Висота</label><input type="number" x-model.number="sc.height" @change="updateScale"></div>
+                            <div><label>Ширина</label>
+                                <input type="number" :value="sc.width" @change="resizeByWidth(+$event.target.value)">
+                            </div>
+                            <div><label>Висота</label>
+                                <input type="number" :value="sc.height" @change="resizeByHeight(+$event.target.value)">
+                            </div>
                         </div>
-                        <div class="pr"><label>Фон</label><input type="color" x-model="sc.bg"></div>
+                        <div class="pr"><label>Фон (колір)</label><input type="color" x-model="sc.bg"></div>
+                        <div class="pr">
+                            <label>Фонове зображення (SVG / PNG)</label>
+                            <label class="btn" style="display:block;text-align:center;cursor:pointer;width:100%">
+                                📁 Обрати файл
+                                <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp" @change="loadBgImage" style="display:none">
+                            </label>
+                            <template x-if="sc.bgImage">
+                                <div style="margin-top:6px">
+                                    <img :src="sc.bgImage" style="width:100%;max-height:80px;object-fit:contain;border-radius:4px;border:1px solid #30363d;">
+                                    <button class="btn btn-red" style="width:100%;margin-top:4px" @click="sc.bgImage=''">✕ Прибрати фон</button>
+                                </div>
+                            </template>
+                        </div>
                         <div class="pr-sep"></div>
                         <div class="pr-inline">
                             <input type="checkbox" x-model="sc.snap" id="snCb">
@@ -433,20 +443,23 @@
                             <input type="number" x-model.number="sc.grid" min="4" max="100"></div>
                     </div>
                 </template>
-                <template x-if="selEl">
+                <template x-if="sel !== null">
                     <div>
                         <div class="pr-title" x-text="typeName(selEl.type)"></div>
                         <div class="pr2">
-                            <div><label>X</label><input type="number" x-model.number="selEl.x"></div>
-                            <div><label>Y</label><input type="number" x-model.number="selEl.y"></div>
+                            <div><label>X</label><input type="number" :value="Math.round(selEl.x*sc.width)" @change="selEl.x=+$event.target.value/sc.width"></div>
+                            <div><label>Y</label><input type="number" :value="Math.round(selEl.y*sc.height)" @change="selEl.y=+$event.target.value/sc.height"></div>
                         </div>
                         <div class="pr2">
                             <div>
                                 <label x-text="selEl.type==='indicator'?'Розмір':'W'"></label>
-                                <input type="number" x-model.number="selEl.w" @input="if(selEl.type==='indicator')selEl.h=selEl.w">
+                                <input type="number" :value="Math.round(selEl.w*sc.width)"
+                                       @change="selEl.w=+$event.target.value/sc.width; if(selEl.type==='indicator')selEl.h=selEl.w">
                             </div>
                             <div x-show="selEl.type!=='indicator'">
-                                <label>H</label><input type="number" x-model.number="selEl.h">
+                                <label>H</label>
+                                <input type="number" :value="Math.round(selEl.h*sc.height)"
+                                       @change="selEl.h=+$event.target.value/sc.height">
                             </div>
                         </div>
                         <div class="pr-sep"></div>
@@ -574,7 +587,7 @@ function app() {
         selDecoId: null,
 
         // elements
-        sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" },
+        sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
         els: [],
         sel: null,
 
@@ -583,6 +596,9 @@ function app() {
         deleteModal:  { open:false, node:null },
 
         _scale: 1,
+        _bgAspect: null,
+        _refW: 0, _refH: 0,
+        _selIdx: -1,   // індекс виділеного елементу в els (для точної реактивності)
         _sScale: 1,   // structure zoom
         _drag:  null,
         _off:   { x:0, y:0 },
@@ -612,12 +628,32 @@ function app() {
         get gridImg() {
             return `linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px)`;
         },
-        get selEl()     { return this.els.find(e => e.id === this.sel) ?? null; },
-        get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? null; },
+        cvBgImage() {
+            const layers = [];
+            if (this.sc.snap) layers.push(this.gridImg);
+            if (this.sc.bgImage) layers.push(`url(${this.sc.bgImage})`);
+            return layers.length ? layers.join(',') : 'none';
+        },
+        cvBgSize() {
+            const sizes = [];
+            if (this.sc.snap) sizes.push(`${this.sc.grid}px ${this.sc.grid}px`, `${this.sc.grid}px ${this.sc.grid}px`);
+            if (this.sc.bgImage) sizes.push('100% 100%');
+            return sizes.join(',') || 'auto';
+        },
+        get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
+        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; },
+        get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? {}; },
         get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
 
         nodeById(id) { return this.project.screens.find(s => s.id === id); },
+        get svgLinesHtml() {
+            return this.project.screens
+                .filter(n => n.parent && this.nodeById(n.parent))
+                .map(n => { const p = this.nodeById(n.parent);
+                    return `<line x1="${(p.x||0)+80}" y1="${(p.y||0)+56}" x2="${(n.x||0)+80}" y2="${(n.y||0)}" stroke="#334" stroke-width="2" marker-end="url(#arr)"/>`;
+                }).join('');
+        },
 
         structPalette: [
             { type:"group",  icon:"▭", label:"Група" },
@@ -697,6 +733,9 @@ function app() {
                 const node = this.project.screens.find(s => s.id===cur);
                 cur = node?.parent ?? null;
             }
+            // кореневий екран (без батька) зберігається у підпапці root/
+            const node = this.project.screens.find(s => s.id===id);
+            if (!node?.parent) parts.push("root");
             return parts.join("/");
         },
 
@@ -710,24 +749,17 @@ function app() {
 
         async saveAll() {
             this.cacheCurrentScreen();
-            const allIds = this.project.screens.map(s => s.id);
-            if (!allIds.length) { this.setStatus("Немає екранів"); return; }
-            this.setStatus(`Збереження ${allIds.length} екранів…`);
+            const ids = Object.keys(this.screenCache);
             let ok=0, fail=0;
-            for (const id of allIds) {
+            for (const id of ids) {
                 try {
                     const path = this.getScreenPath(id);
-                    const node = this.project.screens.find(s => s.id===id);
-                    const cached = this.screenCache[id] ?? {
-                        screen:   { id, title:node?.title??id, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" },
-                        elements: [],
-                    };
-                    await this.apiPut(`/api/screens/${path}`, cached);
+                    await this.apiPut(`/api/screens/${path}`, this.screenCache[id]);
                     ok++;
                 } catch { fail++; }
             }
             await this.saveProject();
-            this.setStatus(fail ? `Збережено ${ok}, помилок ${fail}` : `Збережено ${ok} екранів`, !fail);
+            this.setStatus(fail ? `Збережено ${ok}, помилок ${fail}` : ids.length ? `Збережено ${ids.length} екранів` : "Проект збережено", !fail);
         },
 
         // ── structure: create ─────────────────────────────────────────────────
@@ -748,7 +780,7 @@ function app() {
             if (!t.value) t.value = id;
         },
 
-        createScreen() {
+        async createScreen() {
             const id     = document.getElementById("newId").value.trim();
             const title  = document.getElementById("newTitle").value.trim() || id;
             const parent = document.getElementById("newParent").value || null;
@@ -779,7 +811,20 @@ function app() {
             this.project.screens.push({ id, title, parent, x, y });
             this.createModal.open = false;
             this.selNodeId = id;
-            this.setStatus(`Екран «${title}» додано`);
+
+            // одразу створюємо директорію екрана + background/ на диску
+            try {
+                const path = this.getScreenPath(id);
+                const initData = {
+                    screen:   { id, title, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
+                    elements: [],
+                };
+                await this.apiPut(`/api/screens/${path}`, initData);
+                this.screenCache[id] = initData;
+                this.setStatus(`Екран «${title}» створено`);
+            } catch(e) {
+                this.setStatus(`Екран «${title}» додано (збережіть вручну)`, false);
+            }
         },
 
         // ── structure: delete ─────────────────────────────────────────────────
@@ -879,7 +924,7 @@ function app() {
                         this.sc  = data.screen;
                         this.els = data.elements;
                     } else {
-                        this.sc  = { id, title:node?.title??id, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e" };
+                        this.sc  = { id, title:node?.title??id, width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" };
                         this.els = [];
                     }
                     this.screenCache[id] = {
@@ -887,7 +932,18 @@ function app() {
                         elements: JSON.parse(JSON.stringify(this.els)),
                     };
                 }
-                this.sel  = null;
+                // міграція: старі дані мають x/y/w/h в пікселях (>1), конвертуємо в частки
+                this.els.forEach(el => {
+                    if (el.x > 1) el.x = el.x / this.sc.width;
+                    if (el.y > 1) el.y = el.y / this.sc.height;
+                    if (el.w > 1) el.w = el.w / this.sc.width;
+                    if (el.h > 1) el.h = el.h / this.sc.height;
+                });
+                this._bgAspect = (this.sc.bgImage && this.sc.width > 0) ? this.sc.height / this.sc.width : null;
+                this._refW = this.sc.width;
+                this._refH = this.sc.height;
+                this.sel = null;
+                this._selIdx = -1;
                 this.mode = "elements";
                 this.setStatus(`Екран «${this.sc.title}»`);
                 this.$nextTick(() => this.updateScale());
@@ -895,7 +951,7 @@ function app() {
         },
 
         // ── elements canvas ───────────────────────────────────────────────────
-        updateScale() {
+updateScale() {
             const ca = document.getElementById("ca");
             if (!ca) return;
             const sw = (ca.clientWidth  - 32) / this.sc.width;
@@ -912,25 +968,42 @@ function app() {
             if (!type) return;
             const cv = document.getElementById("cv");
             if (!cv) return;
-            const r = cv.getBoundingClientRect();
-            const x = this.snap((e.clientX-r.left)/this._scale, this.sc.grid);
-            const y = this.snap((e.clientY-r.top) /this._scale, this.sc.grid);
-            const id = "el_"+Date.now();
-            this.els.push({ id, type, x, y, ...this.defaults[type] });
+            const r  = cv.getBoundingClientRect();
+            const def = this.defaults[type];
+            const xpx = this.snap((e.clientX - r.left) / this._scale - def.w / 2, this.sc.grid);
+            const ypx = this.snap((e.clientY - r.top)  / this._scale - def.h / 2, this.sc.grid);
+            const id = "el_" + Date.now();
+            if (!this._refW) { this._refW = this.sc.width; this._refH = this.sc.height; }
+            const refW = this._refW;
+            const refH = this._refH;
+            this.els.push({ id, type,
+                x: Math.max(0, xpx / this.sc.width),
+                y: Math.max(0, ypx / this.sc.height),
+                ...def,
+                w: def.w / refW,
+                h: def.h / refH,
+            });
+            this._selIdx = this.els.length - 1;
             this.sel = id;
         },
 
         down(e, el) {
-            this.sel   = el.id;
+            this.selectEl(el.id);
             this._drag = el;
             const cv = document.getElementById("cv");
             const r  = cv.getBoundingClientRect();
-            this._off.x = (e.clientX-r.left)/this._scale - el.x;
-            this._off.y = (e.clientY-r.top) /this._scale - el.y;
+            this._off.x = (e.clientX-r.left)/this._scale/this.sc.width  - el.x;
+            this._off.y = (e.clientY-r.top) /this._scale/this.sc.height - el.y;
         },
 
         // shared mousemove/mouseup
         onMove(e) {
+            // якщо ліва кнопка миші не натиснута — скидаємо всі drag-стани
+            if (!(e.buttons & 1)) {
+                this._drag = null; this._ndrag = null;
+                this._ddrag = null; this._rdrag = null;
+                return;
+            }
             // resize deco
             if (this._rdrag) {
                 const { deco, handle, startX, startY, startW, startH } = this._rdrag;
@@ -968,10 +1041,10 @@ function app() {
                 if (!cv) return;
                 const r  = cv.getBoundingClientRect();
                 const el = this._drag;
-                const x  = this.snap((e.clientX-r.left)/this._scale - this._off.x, this.sc.grid);
-                const y  = this.snap((e.clientY-r.top) /this._scale - this._off.y, this.sc.grid);
-                el.x = Math.max(0, Math.min(x, this.sc.width  - el.w));
-                el.y = Math.max(0, Math.min(y, this.sc.height - el.h));
+                const xpx = this.snap((e.clientX-r.left)/this._scale, this.sc.grid);
+                const ypx = this.snap((e.clientY-r.top) /this._scale, this.sc.grid);
+                el.x = Math.max(0, Math.min(xpx/this.sc.width  - this._off.x, (this.sc.width  - el.w)/this.sc.width));
+                el.y = Math.max(0, Math.min(ypx/this.sc.height - this._off.y, (this.sc.height - el.h)/this.sc.height));
             }
         },
 
@@ -981,6 +1054,59 @@ function app() {
             if (!this.sel) return;
             this.els = this.els.filter(e=>e.id!==this.sel);
             this.sel = null;
+            this._selIdx = -1;
+        },
+
+        fScale() { return this._refW > 0 ? this.sc.width / this._refW : 1; },
+
+        resizeByWidth(newW) {
+            if (!newW || newW < 1) return;
+            this.sc.width = newW;
+            if (this._bgAspect) this.sc.height = Math.round(newW * this._bgAspect);
+            this.updateScale();
+        },
+
+        resizeByHeight(newH) {
+            if (!newH || newH < 1) return;
+            this.sc.height = newH;
+            if (this._bgAspect) this.sc.width = Math.round(newH / this._bgAspect);
+            this.updateScale();
+        },
+
+        loadBgImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                this.sc.bgImage = ev.target.result;
+                // автоматично підганяємо розмір canvas під SVG
+                if (file.type === 'image/svg+xml') {
+                    try {
+                        const svgText = atob(ev.target.result.split(',')[1]);
+                        const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+                        const svg = doc.documentElement;
+                        let w, h;
+                        const vb = svg.getAttribute('viewBox');
+                        if (vb) {
+                            const p = vb.trim().split(/[\s,]+/);
+                            w = parseFloat(p[2]); h = parseFloat(p[3]);
+                        } else {
+                            w = parseFloat(svg.getAttribute('width'));
+                            h = parseFloat(svg.getAttribute('height'));
+                        }
+                        if (w > 0 && h > 0) {
+                            this.sc.width  = Math.round(w);
+                            this.sc.height = Math.round(h);
+                            this._bgAspect = h / w;
+                            this._refW = this.sc.width;
+                            this._refH = this.sc.height;
+                            this.$nextTick(() => this.updateScale());
+                        }
+                    } catch(_) {}
+                }
+            };
+            reader.readAsDataURL(file);
+            e.target.value = "";
         },
 
         typeName(t) {
