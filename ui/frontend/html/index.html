@@ -1,77 +1,583 @@
 <!DOCTYPE html>
-<html>
+<html lang="uk" x-data="app()" :class="theme" x-cloak>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infrabox</title>
-
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
     <style>
-        table {
-            border-collapse: collapse;
+        [x-cloak]{display:none!important}
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+        /* ── CSS variables ── */
+        :root {
+            --bg:       #0d1117;
+            --bg2:      #161b22;
+            --bg3:      #21262d;
+            --border:   #30363d;
+            --text:     #c9d1d9;
+            --text-dim: #8b949e;
+            --accent:   #58a6ff;
+            --hdr-h:    52px;
+            --ftr-h:    28px;
+        }
+        html.light {
+            --bg:       #f6f8fa;
+            --bg2:      #ffffff;
+            --bg3:      #eaeef2;
+            --border:   #d0d7de;
+            --text:     #1f2328;
+            --text-dim: #57606a;
+            --accent:   #0969da;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, sans-serif;
+            font-size: 13px;
+        }
+        body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* ── header ── */
+        header {
+            height: var(--hdr-h);
+            flex-shrink: 0;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+            position: relative;
+            z-index: 100;
+        }
+        .hdr-logo {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: -.3px;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .hdr-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+        .hdr-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .hdr-back {
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg3);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 15px;
+            flex-shrink: 0;
+            transition: background .12s;
+        }
+        .hdr-back:hover { background: var(--border); }
+        .hdr-screen {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .hdr-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .hdr-clock {
+            text-align: right;
+            line-height: 1.3;
+        }
+        .hdr-clock .time {
+            font-size: 16px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            letter-spacing: .5px;
+        }
+        .hdr-clock .date {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .btn {
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg3);
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .12s;
+        }
+        .btn:hover { background: var(--border); }
+
+        /* ── settings menu ── */
+        .settings-wrap { position: relative; }
+        .settings-btn {
+            width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg3);
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 16px;
+            transition: background .12s, color .12s;
+        }
+        .settings-btn:hover { background: var(--border); color: var(--text); }
+        .settings-drop {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 190px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.3);
+            padding: 6px 0;
+            z-index: 200;
+        }
+        .sdrop-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 14px;
+            cursor: pointer;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 13px;
+            transition: background .1s;
+        }
+        .sdrop-item:hover { background: var(--bg3); }
+        .sdrop-icon { font-size: 15px; width: 18px; text-align: center; color: var(--text-dim); }
+        .sdrop-sep { height: 1px; background: var(--border); margin: 5px 0; }
+        .toggle-wrap {
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 14px; cursor: pointer;
+            color: var(--text); font-size: 13px;
+        }
+        .toggle-wrap:hover { background: var(--bg3); }
+        .toggle {
+            position: relative;
+            width: 34px; height: 18px;
+            flex-shrink: 0;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            transition: background .2s;
+        }
+        .toggle input:checked ~ .toggle-track { background: var(--accent); border-color: var(--accent); }
+        .toggle-thumb {
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 12px; height: 12px;
+            background: var(--text-dim);
+            border-radius: 50%;
+            transition: transform .2s, background .2s;
+        }
+        .toggle input:checked ~ .toggle-thumb { transform: translateX(16px); background: #fff; }
+
+        /* ── main ── */
+        main {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+        }
+        #canvas-area {
             width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
         }
 
-        th, td {
-            padding: 6px;
-            border: 1px solid #444;
+        /* ── canvas ── */
+        .cv-wrap { position: relative; flex-shrink: 0; }
+        #cv {
+            position: relative;
+            transform-origin: top left;
+            box-shadow: 0 4px 24px rgba(0,0,0,.5);
         }
+        /* element styles (same as constructor) */
+        .c-el { position: absolute; }
+        .r-label { position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; }
+        .r-value {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; justify-content: flex-start;
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 4px;
+            background: rgba(0,0,0,.25);
+            overflow: hidden;
+        }
+        .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
+        .r-value .vv { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .r-value .vu { font-size: 11px; color: var(--text-dim); }
+        .r-navbtn {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,.15);
+            font-weight: 600;
+            overflow: hidden;
+            cursor: pointer;
+            transition: filter .15s;
+        }
+        .r-navbtn:hover { filter: brightness(1.2); }
+        .r-indicator { position: absolute; inset: 0; border-radius: 50%; transition: background .3s; }
+        .r-rect { position: absolute; inset: 0; }
 
-        /* 🔥 ФІКСОВАНА ШИРИНА VALUE */
-        td.value {
-            width: 10ch;              /* ≈ 10 символів */
-            font-family: monospace;   /* однакова ширина символів */
-            text-align: right;        /* як у приладах */
+        /* ── empty / loading states ── */
+        .state-msg {
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            color: var(--text-dim);
         }
+        .state-msg .icon { font-size: 48px; opacity: .3; }
+        .state-msg p { font-size: 15px; }
 
-        /* юніти компактно */
-        td.unit {
-            width: 5ch;
-            text-align: left;
+        /* ── footer ── */
+        footer {
+            height: var(--ftr-h);
+            flex-shrink: 0;
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            gap: 12px;
         }
+        .ws-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ws-live    { background: #56d364; box-shadow: 0 0 6px #56d364; }
+        .ws-conn    { background: #f0ad4e; }
+        .ws-error   { background: #f47067; }
+        .ftr-text   { font-size: 11px; color: var(--text-dim); }
+        .ftr-right  { margin-left: auto; font-size: 11px; color: var(--text-dim); }
     </style>
 </head>
-<body>
-<!-- прибрати
-<h2>Схема</h2>
-<div id="scheme"></div> -->
 
-<h2>Всі точки</h2>
-<table id="pointsTable" border="1" cellspacing="0" cellpadding="5">
-    <thead>
-        <tr>
-            <th>Object</th>
-            <th>System</th>
-            <th>Name</th>
-            <th style="width:120px">Value</th>
-            <th>Unit</th>
-            <th>Quality</th>
-        </tr>
-    </thead>
-    <tbody id="pointsBody"></tbody>
-</table>
+<body @click="settingsOpen && (settingsOpen=false)">
 
-<style>
-    #pointsTable td {
-        font-size: 24px;
-        padding: 8px;
-    }
+<!-- ═══════════ HEADER ═══════════ -->
+<header>
+    <a class="hdr-logo" href="/">⬡ Infrabox</a>
+    <div class="hdr-sep"></div>
 
-    #pointsTable td:nth-child(4) {
-        text-align: right;
-        font-family: monospace;
-    }
-</style>
+    <!-- breadcrumb / back -->
+    <div class="hdr-breadcrumb">
+        <button class="hdr-back" x-show="history.length > 0"
+                @click.stop="goBack()" title="Назад">←</button>
+        <span class="hdr-screen" x-text="screenTitle()"></span>
+    </div>
 
-<script src="/auth.js"></script>
-<script src="app.js"></script>
+    <!-- right side -->
+    <div class="hdr-right">
+
+        <!-- clock -->
+        <div class="hdr-clock">
+            <div class="time" x-text="clock"></div>
+            <div class="date" x-text="clockDate"></div>
+        </div>
+
+        <div class="hdr-sep"></div>
+
+        <!-- settings -->
+        <div class="settings-wrap" @click.stop>
+            <div class="settings-btn" @click="settingsOpen=!settingsOpen" title="Налаштування">⚙</div>
+            <div class="settings-drop" x-show="settingsOpen" x-transition>
+                <a class="sdrop-item" href="/admin">
+                    <span class="sdrop-icon">🛡</span> Адмінка
+                </a>
+                <a class="sdrop-item" href="/dashboard">
+                    <span class="sdrop-icon">📊</span> Параметри
+                </a>
+                <div class="sdrop-sep"></div>
+                <label class="toggle-wrap" @click.stop>
+                    <span class="sdrop-icon">☀</span>
+                    Світла тема
+                    <div class="toggle" style="margin-left:auto">
+                        <input type="checkbox" :checked="theme==='light'" @change="toggleTheme()">
+                        <div class="toggle-track"></div>
+                        <div class="toggle-thumb"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- login -->
+        <a class="btn" href="/login">Увійти</a>
+    </div>
+</header>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main>
+    <div id="canvas-area">
+
+        <!-- loading -->
+        <div class="state-msg" x-show="loading">
+            <div class="icon">⏳</div>
+            <p>Завантаження...</p>
+        </div>
+
+        <!-- no screens -->
+        <div class="state-msg" x-show="!loading && !sc">
+            <div class="icon">📋</div>
+            <p>Екрани не налаштовані</p>
+            <a class="btn" href="/constructor">Відкрити конструктор</a>
+        </div>
+
+        <!-- canvas -->
+        <template x-if="sc">
+            <div class="cv-wrap"
+                 :style="`width:${sc.width*viewScale}px;height:${sc.height*viewScale}px;`">
+                <div id="cv"
+                     :style="`width:${sc.width}px;height:${sc.height}px;
+                              background-color:${sc.bg};
+                              background-image:${cvBgImage()};
+                              background-size:100% 100%;
+                              transform:scale(${viewScale});transform-origin:top left;`">
+
+                    <template x-for="el in els" :key="el.id">
+                        <div class="c-el"
+                             :style="`left:${el.x*100}%;top:${el.y*100}%;
+                                      width:${el.w*sc.width}px;height:${el.h*sc.height}px;`">
+
+                            <!-- label -->
+                            <template x-if="el.type==='label'">
+                                <div class="r-label"
+                                     :style="`font-size:${el.fontSize}px;color:${el.color};
+                                              font-weight:${el.bold?'bold':'normal'};
+                                              justify-content:${el.align==='center'?'center':el.align==='right'?'flex-end':'flex-start'};`"
+                                     x-text="el.text"></div>
+                            </template>
+
+                            <!-- value -->
+                            <template x-if="el.type==='value'">
+                                <div class="r-value">
+                                    <span class="vl" x-show="el.showLabel" x-text="el.label"></span>
+                                    <span class="vv"
+                                          :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
+                                          x-text="ptValue(el.point_id)"></span>
+                                    <span class="vu" x-show="ptUnit(el.point_id)"
+                                          x-text="ptUnit(el.point_id)"></span>
+                                </div>
+                            </template>
+
+                            <!-- nav_btn -->
+                            <template x-if="el.type==='nav_btn'">
+                                <div class="r-navbtn"
+                                     :style="`background:${el.bg};color:${el.color};font-size:${el.fontSize}px;`"
+                                     @click="navigate(el.target)"
+                                     x-text="el.text"></div>
+                            </template>
+
+                            <!-- indicator -->
+                            <template x-if="el.type==='indicator'">
+                                <div class="r-indicator"
+                                     :style="`background:${indicatorColor(el)};
+                                              border:2px solid ${indicatorBorder(el)};`"></div>
+                            </template>
+
+                            <!-- rect -->
+                            <template x-if="el.type==='rect'">
+                                <div class="r-rect"
+                                     :style="`background:${el.fill};
+                                              border:${el.borderWidth}px solid ${el.borderColor};
+                                              border-radius:${el.radius}px;`"></div>
+                            </template>
+
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</main>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+    <div class="ws-dot" :class="{'ws-live':wsStatus==='live','ws-conn':wsStatus==='connecting','ws-error':wsStatus==='error'}"></div>
+    <span class="ftr-text" x-text="wsStatus==='live'?'Live':'Підключення...'"></span>
+    <span class="ftr-text" x-show="lastUpdate" x-text="`Оновлено: ${lastUpdate}`"></span>
+    <span class="ftr-right" x-show="sc" x-text="`${sc?.width}×${sc?.height}`"></span>
+</footer>
+
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const btn = document.createElement("button");
-        btn.textContent = "Вийти";
-        btn.style.cssText = "position:fixed;top:10px;right:10px;padding:6px 14px;background:#21262d;border:1px solid #444;border-radius:6px;color:#c9d1d9;cursor:pointer;font-size:13px;";
-        btn.onclick = () => authLogout();
-        document.body.appendChild(btn);
-    });
-</script>
+function app() {
+    return {
+        theme:       localStorage.getItem('ib-theme') || 'dark',
+        project:     { screens: [] },
+        sc:          null,
+        els:         [],
+        points:      {},
+        screenId:    null,
+        history:     [],
+        wsStatus:    'connecting',
+        wsRetry:     0,
+        loading:     true,
+        clock:       '--:--:--',
+        clockDate:   '',
+        settingsOpen: false,
+        viewScale:   1,
+        lastUpdate:  '',
+        _ws:         null,
 
+        async init() {
+            this._startClock();
+            this._connectWS();
+            await this._loadProject();
+            this.$nextTick(() => this._updateScale());
+            window.addEventListener('resize', () => this._updateScale());
+        },
+
+        _startClock() {
+            const tick = () => {
+                const now = new Date();
+                this.clock = now.toLocaleTimeString('uk-UA');
+                this.clockDate = now.toLocaleDateString('uk-UA',
+                    { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+            };
+            tick();
+            setInterval(tick, 1000);
+        },
+
+        async _loadProject() {
+            try {
+                const r = await fetch('/api/pub/project');
+                if (!r.ok) { this.loading = false; return; }
+                this.project = await r.json();
+                const root = this.project.screens.find(s => !s.parent);
+                if (root) await this.loadScreen(root.id);
+            } catch(e) { console.error(e); }
+            this.loading = false;
+        },
+
+        async loadScreen(id) {
+            if (!id) return;
+            try {
+                const r = await fetch(`/api/pub/screens/${id}`);
+                if (!r.ok) return;
+                const data = await r.json();
+                this.sc  = data.screen;
+                this.els = data.elements || [];
+                this.screenId = id;
+                this.$nextTick(() => this._updateScale());
+            } catch(e) { console.error(e); }
+        },
+
+        async navigate(targetId) {
+            if (!targetId) return;
+            const target = this.project.screens.find(s => s.id === targetId);
+            if (!target) return;
+            this.history.push(this.screenId);
+            await this.loadScreen(targetId);
+        },
+
+        async goBack() {
+            if (!this.history.length) return;
+            await this.loadScreen(this.history.pop());
+        },
+
+        _connectWS() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const ws = new WebSocket(`${proto}://${location.host}/ws`);
+            this._ws = ws;
+            this.wsStatus = 'connecting';
+
+            ws.onopen  = () => { this.wsStatus = 'live'; this.wsRetry = 0; };
+            ws.onclose = () => {
+                this.wsStatus = 'error';
+                const delay = Math.min(1000 * Math.pow(2, this.wsRetry++), 30000);
+                setTimeout(() => this._connectWS(), delay);
+            };
+            ws.onerror = () => { this.wsStatus = 'error'; };
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'snapshot') {
+                    const pts = {};
+                    msg.data.forEach(p => { pts[p.id] = p; });
+                    this.points = pts;
+                } else if (msg.type === 'update') {
+                    const pts = { ...this.points };
+                    msg.data.forEach(p => { pts[p.id] = p; });
+                    this.points = pts;
+                }
+                const now = new Date();
+                this.lastUpdate = now.toLocaleTimeString('uk-UA');
+            };
+        },
+
+        _updateScale() {
+            if (!this.sc) return;
+            const area = document.getElementById('canvas-area');
+            if (!area) return;
+            const pad = 32;
+            const aw = area.clientWidth  - pad;
+            const ah = area.clientHeight - pad;
+            this.viewScale = Math.min(aw / this.sc.width, ah / this.sc.height);
+        },
+
+        toggleTheme() {
+            this.theme = this.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('ib-theme', this.theme);
+        },
+
+        screenTitle() {
+            if (!this.screenId) return 'Немає екранів';
+            const s = this.project.screens.find(s => s.id === this.screenId);
+            return s?.title || this.sc?.title || 'Екран';
+        },
+
+        cvBgImage() {
+            return this.sc?.bgImage ? `url(${this.sc.bgImage})` : 'none';
+        },
+
+        // ── live data ──
+        ptValue(id) {
+            const p = this.points[id];
+            if (!p || p.value == null) return '···';
+            const v = parseFloat(p.value);
+            return isNaN(v) ? p.value : v.toLocaleString('uk-UA', { maximumFractionDigits: 3 });
+        },
+        ptUnit(id)    { return this.points[id]?.unit    || ''; },
+        ptQuality(id) { return this.points[id]?.quality || 'NODATA'; },
+
+        _qColor(q, good) {
+            return ({ GOOD:good, WARN:'#f0ad4e', ALARM:'#f47067',
+                      UNCERT:'#8b949e', INIT:'#58a6ff', NODATA:'#484f58' })[q] || '#484f58';
+        },
+        valueColor(el)      { return this._qColor(this.ptQuality(el.point_id), el.color); },
+        indicatorColor(el)  { return this._qColor(this.ptQuality(el.point_id), el.color); },
+        indicatorBorder(el) { return this._qColor(this.ptQuality(el.point_id), el.borderColor); },
+    };
+}
+</script>
 </body>
 </html>
