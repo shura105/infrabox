@@ -98,6 +98,23 @@
             flex-shrink: 0;
             margin-left: auto;
         }
+        .hdr-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+        .hdr-user .u-icon {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px;
+        }
+        .hdr-user .u-name { color: var(--text); font-weight: 500; }
         .hdr-clock {
             text-align: right;
             line-height: 1.3;
@@ -300,17 +317,19 @@
     <!-- right side -->
     <div class="hdr-right">
 
-        <!-- clock -->
-        <div class="hdr-clock">
-            <div class="time" x-text="clock"></div>
-            <div class="date" x-text="clockDate"></div>
+        <!-- user -->
+        <div class="hdr-user">
+            <div class="u-icon">👤</div>
+            <span class="u-name" x-text="userName()"></span>
         </div>
 
         <div class="hdr-sep"></div>
 
         <!-- settings -->
         <div class="settings-wrap" @click.stop>
-            <div class="settings-btn" @click="settingsOpen=!settingsOpen" title="Налаштування">⚙</div>
+            <button class="btn" @click="settingsOpen=!settingsOpen" style="gap:5px;display:flex;align-items:center;">
+                ⚙ Налаштування
+            </button>
             <div class="settings-drop" x-show="settingsOpen" x-transition>
                 <a class="sdrop-item" href="/admin">
                     <span class="sdrop-icon">🛡</span> Адмінка
@@ -328,12 +347,23 @@
                         <div class="toggle-thumb"></div>
                     </div>
                 </label>
+                <div class="sdrop-sep"></div>
+                <div class="sdrop-item" x-show="isLoggedIn" @click="logout();settingsOpen=false">
+                    <span class="sdrop-icon">🚪</span> Вийти
+                </div>
+                <a class="sdrop-item" href="/login" x-show="!isLoggedIn">
+                    <span class="sdrop-icon">🔑</span> Увійти
+                </a>
             </div>
         </div>
 
-        <!-- login / logout -->
-        <a class="btn" href="/login" x-show="!isLoggedIn">Увійти</a>
-        <button class="btn" x-show="isLoggedIn" @click="logout()">Вийти</button>
+        <div class="hdr-sep"></div>
+
+        <!-- clock (far right) -->
+        <div class="hdr-clock">
+            <div class="time" x-text="clock"></div>
+            <div class="date" x-text="clockDate"></div>
+        </div>
     </div>
 </header>
 
@@ -551,6 +581,12 @@ function app() {
             localStorage.removeItem('role');
             localStorage.removeItem('display_name');
             this.isLoggedIn = false;
+        },
+
+        userName() {
+            return this.isLoggedIn
+                ? (localStorage.getItem('display_name') || localStorage.getItem('role') || 'user')
+                : 'operator';
         },
 
         toggleTheme() {
