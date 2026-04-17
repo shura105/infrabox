@@ -73,6 +73,17 @@
         button[type=submit]:hover { background: #2ea043; }
         button[type=submit]:disabled { background: #1a4423; cursor: default; }
 
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 13px;
+            color: #8b949e;
+            text-decoration: none;
+            transition: color .15s;
+        }
+        .back-link:hover { color: #58a6ff; }
+
         .error {
             margin-top: 14px;
             padding: 8px 12px;
@@ -98,6 +109,7 @@
         <button type="submit" id="submitBtn">Увійти</button>
         <div class="error" id="errorMsg"></div>
     </form>
+    <a class="back-link" href="/">← Головна сторінка</a>
 </div>
 
 <script>

@@ -331,8 +331,9 @@
             </div>
         </div>
 
-        <!-- login -->
-        <a class="btn" href="/login">Увійти</a>
+        <!-- login / logout -->
+        <a class="btn" href="/login" x-show="!isLoggedIn">Увійти</a>
+        <button class="btn" x-show="isLoggedIn" @click="logout()">Вийти</button>
     </div>
 </header>
 
@@ -433,6 +434,7 @@
 function app() {
     return {
         theme:       localStorage.getItem('ib-theme') || 'dark',
+        isLoggedIn:  !!localStorage.getItem('token'),
         project:     { screens: [] },
         sc:          null,
         els:         [],
@@ -542,6 +544,13 @@ function app() {
             const aw = area.clientWidth  - pad;
             const ah = area.clientHeight - pad;
             this.viewScale = Math.min(aw / this.sc.width, ah / this.sc.height);
+        },
+
+        logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            localStorage.removeItem('display_name');
+            this.isLoggedIn = false;
         },
 
         toggleTheme() {
