@@ -253,7 +253,7 @@
         .r-label { position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; }
         .r-value {
             position: absolute; inset: 0;
-            display: flex; flex-direction: column; justify-content: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: stretch;
             padding: 4px 8px;
             border: 1px solid rgba(255,255,255,.08);
             border-radius: 4px;
@@ -386,7 +386,7 @@
                             </div>
                         </label>
                         <div class="sdrop-sep"></div>
-                        <a class="sdrop-item" href="#" style="color:var(--text-dim)" @click.prevent>
+                        <a class="sdrop-item" href="/docs">
                             <span class="sdrop-icon">📄</span> Документація
                         </a>
                     </div>
@@ -471,7 +471,8 @@
                             <!-- value -->
                             <template x-if="el.type==='value'">
                                 <div class="r-value">
-                                    <span class="vl" x-show="el.showLabel" x-text="el.label"></span>
+                                    <span class="vl" x-show="el.showLabel" x-text="el.label"
+                                          :style="el.labelFontSize ? `font-size:${el.labelFontSize}px` : ''"></span>
                                     <div class="vrow">
                                         <span class="vv"
                                               :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
@@ -503,13 +504,14 @@
                                 <div class="r-rect"
                                      :style="`background:${el.fill};
                                               border:${el.borderWidth}px solid ${el.borderColor};
-                                              border-radius:${el.radius}px;`"></div>
+                                              border-radius:${el.radius}px;
+                                              opacity:${el.opacity??1};`"></div>
                             </template>
 
                             <!-- ibox_screen: підсистема зі станом параметра -->
                             <template x-if="el.type==='ibox_screen'">
                                 <div class="r-ibox"
-                                     :style="`border-color:${iboxBorderColor(el)}`"
+                                     :style="`border-color:${iboxBorderColor(el)};border-width:${el.borderWidth??2}px`"
                                      @click="navigate(el.target)">
                                     <div class="r-ibox-bg"
                                          :style="el.svgImage ? `background-image:url(${el.svgImage})` : 'background:rgba(88,166,255,.07)'"></div>
@@ -525,7 +527,7 @@
                             <!-- ibox_link: посилання на веб-сторінку -->
                             <template x-if="el.type==='ibox_link'">
                                 <div class="r-ibox"
-                                     style="border-color:rgba(255,255,255,.2)"
+                                     :style="`border-color:rgba(255,255,255,.2);border-width:${el.borderWidth??2}px`"
                                      @click="openHref(el.href)">
                                     <div class="r-ibox-bg"
                                          :style="el.svgImage ? `background-image:url(${el.svgImage})` : 'background:rgba(80,255,160,.05)'"></div>
@@ -723,8 +725,18 @@ function app() {
                       UNCERT:'#8b949e', INIT:'#58a6ff', NODATA:'#484f58' })[q] || '#484f58';
         },
         valueColor(el)      { return this._qColor(this.ptQuality(el.point_id), el.color); },
-        indicatorColor(el)  { return this._qColor(this.ptQuality(el.point_id), el.color); },
-        indicatorBorder(el) { return this._qColor(this.ptQuality(el.point_id), el.borderColor); },
+        indicatorColor(el) {
+            const q = this.ptQuality(el.point_id);
+            return ({ GOOD: el.color,        WARN:  el.colorWarn  ||'#f0ad4e',
+                      ALARM: el.colorAlarm  ||'#f47067', UNCERT: el.colorUncert||'#8b949e',
+                      INIT: '#58a6ff', NODATA: '#484f58' })[q] || '#484f58';
+        },
+        indicatorBorder(el) {
+            const q = this.ptQuality(el.point_id);
+            return ({ GOOD: el.borderColor,            WARN:  el.borderColorWarn  ||el.colorWarn  ||'#f0ad4e',
+                      ALARM: el.borderColorAlarm||el.colorAlarm||'#f47067', UNCERT: el.borderColorUncert||el.colorUncert||'#8b949e',
+                      INIT: '#58a6ff', NODATA: '#333a42' })[q] || '#333a42';
+        },
         openHref(href) {
             if (!href) return;
             if (this._ws) { this._ws.onclose = null; this._ws.close(); }

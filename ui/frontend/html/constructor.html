@@ -407,10 +407,10 @@
                                 </template>
                                 <template x-if="el.type==='rect'">
                                     <div class="r-rect"
-                                         :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;`"></div>
+                                         :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;opacity:${el.opacity??1};`"></div>
                                 </template>
                                 <template x-if="el.type==='ibox_screen'">
-                                    <div class="r-ibox">
+                                    <div class="r-ibox" :style="`border-width:${el.borderWidth??2}px`">
                                         <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(88,166,255,.07)'"></div>
                                         <div class="r-ibox-foot">
                                             <div class="r-ibox-dot"></div>
@@ -419,7 +419,7 @@
                                     </div>
                                 </template>
                                 <template x-if="el.type==='ibox_link'">
-                                    <div class="r-ibox" style="border-color:rgba(255,255,255,.18)">
+                                    <div class="r-ibox" :style="`border-color:rgba(255,255,255,.18);border-width:${el.borderWidth??2}px`">
                                         <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(80,255,160,.05)'"></div>
                                         <div class="r-ibox-foot">
                                             <span style="font-size:10px;color:#8b949e;flex-shrink:0">⇗</span>
@@ -512,6 +512,7 @@
                                 <div class="pr"><label>Колір значення</label><input type="color" x-model="selEl.color"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="slCb"><label for="slCb">Показати підпис</label></div>
                                 <div class="pr" x-show="selEl.showLabel"><label>Підпис</label><input type="text" x-model="selEl.label"></div>
+                                <div class="pr" x-show="selEl.showLabel"><label>Розмір підпису</label><input type="number" x-model.number="selEl.labelFontSize" min="8" max="60"></div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='nav_btn'">
@@ -535,8 +536,25 @@
                         <template x-if="selEl.type==='indicator'">
                             <div>
                                 <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
-                                <div class="pr"><label>Колір (GOOD)</label><input type="color" x-model="selEl.color"></div>
-                                <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Статус</label>
+                                    <select x-model="selIndQ">
+                                        <option value="GOOD">● GOOD</option>
+                                        <option value="WARN">● WARN</option>
+                                        <option value="ALARM">● ALARM</option>
+                                        <option value="UNCERT">● UNCERT</option>
+                                    </select>
+                                </div>
+                                <div class="pr"><label>Колір</label>
+                                    <input type="color"
+                                        :value="indFill(selEl, selIndQ)"
+                                        @input="setIndFill(selEl, selIndQ, $event.target.value)">
+                                </div>
+                                <div class="pr"><label>Рамка</label>
+                                    <input type="color"
+                                        :value="indBorder(selEl, selIndQ)"
+                                        @input="setIndBorder(selEl, selIndQ, $event.target.value)">
+                                </div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='rect'">
@@ -545,6 +563,8 @@
                                 <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
                                 <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="20"></div>
                                 <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="200"></div>
+                                <div class="pr"><label>Прозорість</label><input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05"
+                                    style="flex:1"> <span style="width:30px;text-align:right;flex-shrink:0" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span></div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='ibox_screen'">
@@ -567,6 +587,7 @@
                                     <input type="file" x-ref="iboxSvgFile" accept="image/svg+xml,image/*" style="display:none"
                                            @change="uploadIboxImage($event)">
                                 </div>
+                                <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
                                 <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="40"></div>
                                 <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
                             </div>
@@ -583,6 +604,7 @@
                                     <input type="file" x-ref="iboxLinkFile" accept="image/svg+xml,image/*" style="display:none"
                                            @change="uploadIboxImage($event)">
                                 </div>
+                                <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
                                 <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="40"></div>
                                 <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
                             </div>
@@ -654,6 +676,7 @@ function app() {
         decos: [],
         selNodeId: null,
         selDecoId: null,
+        selIndQ:   'GOOD',
 
         // elements
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
@@ -692,10 +715,14 @@ function app() {
             label:       { w:160, h:36,  text:"Мітка",     fontSize:16, color:"#e6edf3", bold:false, align:"left" },
             value:       { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"" },
             nav_btn:     { w:150, h:44,  text:"Перейти →", fontSize:14, target:"", bg:"#1c3a5e", color:"#58a6ff" },
-            indicator:   { w:24,  h:24,  point_id:101,      color:"#4caf50", borderColor:"#2d7a2d" },
-            rect:        { w:200, h:100, fill:"#1e2130",    borderColor:"#444", borderWidth:1, radius:4 },
-            ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0 },
-            ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"" },
+            indicator:   { w:24, h:24, point_id:101,
+                           color:"#4caf50",  borderColor:"#2d7a2d",
+                           colorWarn:"#f0ad4e",   borderColorWarn:"#c47d00",
+                           colorAlarm:"#f47067",  borderColorAlarm:"#b03030",
+                           colorUncert:"#8b949e", borderColorUncert:"#555e68" },
+            rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
+            ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
+            ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
         },
 
         get gridImg() {
@@ -714,7 +741,7 @@ function app() {
             return sizes.join(',') || 'auto';
         },
         get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
-        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; },
+        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; },
         get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? {}; },
         get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
@@ -768,6 +795,18 @@ function app() {
             if (this._selIdx >= 0 && this._selIdx < this.els.length)
                 this.els[this._selIdx].target = target;
         },
+
+        // ── indicator quality colors ───────────────────────────────────────────
+        _indKeys(q) {
+            return { GOOD:   ['color',       'borderColor'],
+                     WARN:   ['colorWarn',   'borderColorWarn'],
+                     ALARM:  ['colorAlarm',  'borderColorAlarm'],
+                     UNCERT: ['colorUncert', 'borderColorUncert'] }[q] || ['color','borderColor'];
+        },
+        indFill(el, q)   { const [k] = this._indKeys(q);    return el[k]   || '#888'; },
+        indBorder(el, q) { const [, k] = this._indKeys(q);  return el[k]   || '#555'; },
+        setIndFill(el, q, v)   { const [k] = this._indKeys(q);   el[k] = v; },
+        setIndBorder(el, q, v) { const [, k] = this._indKeys(q); el[k] = v; },
 
         // ── API ────────────────────────────────────────────────────────────────
         async apiGet(path) {
