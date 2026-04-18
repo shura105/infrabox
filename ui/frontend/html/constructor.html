@@ -950,7 +950,7 @@ function app() {
             const nx2=(cx+nLen*Math.cos(ang)).toFixed(2), ny2=(cy+nLen*Math.sin(ang)).toFixed(2);
             const nc=el.needleColor||'#e6edf3';
             const dispVal=isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
-            const vTxt=el.showValue?`<text x="${cx}" y="${cy+16}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${dispVal}</text>`:'';
+            const vTxt=el.showValue?`<text x="${cx}" y="${cy+r-4}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${dispVal}</text>`:'';
             return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
               ${zArcs}
