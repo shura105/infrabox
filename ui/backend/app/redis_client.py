@@ -25,6 +25,10 @@ class RedisClient:
                 for k, v in data.items()
             }
 
+            # include numeric id from key "point:NNN"
+            key_str = key.decode() if isinstance(key, bytes) else key
+            decoded['id'] = key_str.split(':', 1)[1]
+
             result.append(decoded)
 
         return result

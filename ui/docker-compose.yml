@@ -12,6 +12,7 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
 
   web:
     build: ./frontend

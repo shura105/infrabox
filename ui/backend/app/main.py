@@ -1,9 +1,13 @@
 from fastapi import FastAPI
 from app.redis_client import redis_client
 from app.screens import router as screens_router
+from app.ws import router as ws_router
+from app.simulator import router as simulator_router
 
 app = FastAPI()
 app.include_router(screens_router)
+app.include_router(ws_router)
+app.include_router(simulator_router)
 
 
 @app.on_event("startup")

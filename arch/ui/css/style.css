@@ -144,3 +144,13 @@ tr.selected {
 tr.selected:hover {
     background: #1e4080;
 }
+.back-btn {
+    color: #58a6ff;
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.back-btn:hover { background: #21262d; }

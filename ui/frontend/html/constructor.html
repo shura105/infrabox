@@ -81,6 +81,11 @@
         .r-navbtn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600;overflow:hidden}
         .r-indicator{position:absolute;inset:0;border-radius:50%}
         .r-rect{position:absolute;inset:0}
+        .r-ibox{position:absolute;inset:0;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;border:2px solid rgba(255,255,255,.12);transition:border-color .3s}
+        .r-ibox-bg{flex:1;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:rgba(0,0,0,.2)}
+        .r-ibox-foot{padding:3px 8px;background:rgba(0,0,0,.55);display:flex;align-items:center;gap:6px;flex-shrink:0}
+        .r-ibox-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#484f58}
+        .r-ibox-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
         /* ── props panel ── */
         .props{width:234px;flex-shrink:0;background:#161b22;border-left:1px solid #30363d;padding:12px;overflow-y:auto}
@@ -283,14 +288,18 @@
                     <div>
                         <div class="pr-title">Екран</div>
                         <div class="pr"><label>Назва</label>
-                            <input type="text" x-model="selNode.title"></div>
+                            <input type="text"
+                                :value="selNode.title"
+                                @input="project.screens.find(s=>s.id===selNodeId).title = $event.target.value"></div>
                         <div class="pr"><label>ID</label>
                             <input type="text" :value="selNode.id" disabled style="color:#8b949e"></div>
                         <div class="pr"><label>Батьківський екран</label>
-                            <select x-model="selNode.parent">
-                                <option :value="null">— корінь —</option>
-                                <template x-for="s in project.screens.filter(s=>s.id!==selNode.id)" :key="s.id">
-                                    <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
+                            <select @change="setNodeParent($event.target.value)">
+                                <option value="" :selected="!selNode.parent">— корінь —</option>
+                                <template x-for="s in project.screens.filter(s=>s.id!==selNodeId)" :key="s.id">
+                                    <option :value="s.id"
+                                            :selected="selNode.parent === s.id"
+                                            x-text="s.title+' ('+s.id+')'"></option>
                                 </template>
                             </select>
                         </div>
@@ -400,6 +409,24 @@
                                     <div class="r-rect"
                                          :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;`"></div>
                                 </template>
+                                <template x-if="el.type==='ibox_screen'">
+                                    <div class="r-ibox">
+                                        <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(88,166,255,.07)'"></div>
+                                        <div class="r-ibox-foot">
+                                            <div class="r-ibox-dot"></div>
+                                            <span class="r-ibox-title" :style="`font-size:${el.fontSize*fScale()}px;color:${el.color}`" x-text="el.title||'Підсистема'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="el.type==='ibox_link'">
+                                    <div class="r-ibox" style="border-color:rgba(255,255,255,.18)">
+                                        <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(80,255,160,.05)'"></div>
+                                        <div class="r-ibox-foot">
+                                            <span style="font-size:10px;color:#8b949e;flex-shrink:0">⇗</span>
+                                            <span class="r-ibox-title" :style="`font-size:${el.fontSize*fScale()}px;color:${el.color}`" x-text="el.title||'Веб-лінк'"></span>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -491,10 +518,12 @@
                             <div>
                                 <div class="pr"><label>Текст</label><input type="text" x-model="selEl.text"></div>
                                 <div class="pr"><label>Цільовий екран</label>
-                                    <select x-model="selEl.target">
-                                        <option value="">— не обрано —</option>
+                                    <select @change="setElTarget($event.target.value)">
+                                        <option value="" :selected="!selEl.target">— не обрано —</option>
                                         <template x-for="s in project.screens" :key="s.id">
-                                            <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
+                                            <option :value="s.id"
+                                                    :selected="selEl.target === s.id"
+                                                    x-text="s.title+' ('+s.id+')'"></option>
                                         </template>
                                     </select>
                                 </div>
@@ -516,6 +545,46 @@
                                 <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
                                 <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="20"></div>
                                 <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="200"></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='ibox_screen'">
+                            <div>
+                                <div class="pr"><label>Назва</label><input type="text" x-model="selEl.title"></div>
+                                <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="0"></div>
+                                <div class="pr"><label>Цільовий екран</label>
+                                    <select @change="setElTarget($event.target.value)">
+                                        <option value="" :selected="!selEl.target">— не обрано —</option>
+                                        <template x-for="s in project.screens" :key="s.id">
+                                            <option :value="s.id" :selected="selEl.target===s.id" x-text="s.title+' ('+s.id+')'"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr"><label>SVG / зображення</label>
+                                    <div style="display:flex;gap:6px;align-items:center">
+                                        <button class="btn" style="flex:1" @click="$refs.iboxSvgFile.click()">📁 Завантажити</button>
+                                        <button class="btn btn-red" x-show="selEl.svgImage" @click="selEl.svgImage=''">✕</button>
+                                    </div>
+                                    <input type="file" x-ref="iboxSvgFile" accept="image/svg+xml,image/*" style="display:none"
+                                           @change="uploadIboxImage($event)">
+                                </div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="40"></div>
+                                <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='ibox_link'">
+                            <div>
+                                <div class="pr"><label>Назва</label><input type="text" x-model="selEl.title"></div>
+                                <div class="pr"><label>URL</label><input type="text" x-model="selEl.href" placeholder="https://..."></div>
+                                <div class="pr"><label>SVG / зображення</label>
+                                    <div style="display:flex;gap:6px;align-items:center">
+                                        <button class="btn" style="flex:1" @click="$refs.iboxLinkFile.click()">📁 Завантажити</button>
+                                        <button class="btn btn-red" x-show="selEl.svgImage" @click="selEl.svgImage=''">✕</button>
+                                    </div>
+                                    <input type="file" x-ref="iboxLinkFile" accept="image/svg+xml,image/*" style="display:none"
+                                           @change="uploadIboxImage($event)">
+                                </div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="40"></div>
+                                <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
                             </div>
                         </template>
                         <div class="pr-sep"></div>
@@ -610,19 +679,23 @@ function app() {
         _groupChildren: [],  // nodes+decos inside dragged group
 
         palette: [
-            { type:"label",     icon:"T",  label:"Мітка" },
-            { type:"value",     icon:"⌗",  label:"Значення" },
-            { type:"nav_btn",   icon:"→",  label:"Навігація" },
-            { type:"indicator", icon:"●",  label:"Індикатор" },
-            { type:"rect",      icon:"▭",  label:"Прямокутник" },
+            { type:"label",        icon:"T",  label:"Мітка" },
+            { type:"value",        icon:"⌗",  label:"Значення" },
+            { type:"nav_btn",      icon:"→",  label:"Навігація" },
+            { type:"indicator",    icon:"●",  label:"Індикатор" },
+            { type:"rect",         icon:"▭",  label:"Прямокутник" },
+            { type:"ibox_screen",  icon:"⬡",  label:"Підсистема" },
+            { type:"ibox_link",    icon:"⇗",  label:"Веб-лінк" },
         ],
 
         defaults: {
-            label:     { w:160, h:36,  text:"Мітка",     fontSize:16, color:"#e6edf3", bold:false, align:"left" },
-            value:     { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"" },
-            nav_btn:   { w:150, h:44,  text:"Перейти →", fontSize:14, target:"", bg:"#1c3a5e", color:"#58a6ff" },
-            indicator: { w:24,  h:24,  point_id:101,      color:"#4caf50", borderColor:"#2d7a2d" },
-            rect:      { w:200, h:100, fill:"#1e2130",    borderColor:"#444", borderWidth:1, radius:4 },
+            label:       { w:160, h:36,  text:"Мітка",     fontSize:16, color:"#e6edf3", bold:false, align:"left" },
+            value:       { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"" },
+            nav_btn:     { w:150, h:44,  text:"Перейти →", fontSize:14, target:"", bg:"#1c3a5e", color:"#58a6ff" },
+            indicator:   { w:24,  h:24,  point_id:101,      color:"#4caf50", borderColor:"#2d7a2d" },
+            rect:        { w:200, h:100, fill:"#1e2130",    borderColor:"#444", borderWidth:1, radius:4 },
+            ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0 },
+            ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"" },
         },
 
         get gridImg() {
@@ -687,6 +760,15 @@ function app() {
 
         setStatus(msg, ok=true) { this.status = { msg, ok }; },
 
+        setNodeParent(parentId) {
+            const s = this.project.screens.find(s => s.id === this.selNodeId);
+            if (s) s.parent = parentId || null;
+        },
+        setElTarget(target) {
+            if (this._selIdx >= 0 && this._selIdx < this.els.length)
+                this.els[this._selIdx].target = target;
+        },
+
         // ── API ────────────────────────────────────────────────────────────────
         async apiGet(path) {
             const r = await fetch(path, { headers: authHeaders() });
@@ -723,20 +805,7 @@ function app() {
         },
 
         getScreenPath(id) {
-            const parts = [];
-            let cur = id;
-            const visited = new Set();
-            while (cur) {
-                if (visited.has(cur)) break;
-                visited.add(cur);
-                parts.unshift(cur);
-                const node = this.project.screens.find(s => s.id===cur);
-                cur = node?.parent ?? null;
-            }
-            // кореневий екран (без батька) зберігається у підпапці root/
-            const node = this.project.screens.find(s => s.id===id);
-            if (!node?.parent) parts.push("root");
-            return parts.join("/");
+            return id;  // плоска структура: screens/{id}/screen.json
         },
 
         cacheCurrentScreen() {
@@ -749,7 +818,9 @@ function app() {
 
         async saveAll() {
             this.cacheCurrentScreen();
-            const ids = Object.keys(this.screenCache);
+            // тільки екрани, що є в project — щоб не зберігати «примари» старих сесій
+            const ids = Object.keys(this.screenCache)
+                .filter(id => this.project.screens.some(s => s.id === id));
             let ok=0, fail=0;
             for (const id of ids) {
                 try {
@@ -1111,7 +1182,19 @@ updateScale() {
 
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
-                     indicator:"Індикатор", rect:"Прямокутник" }[t]??t;
+                     indicator:"Індикатор", rect:"Прямокутник",
+                     ibox_screen:"Підсистема", ibox_link:"Веб-лінк" }[t]??t;
+        },
+
+        uploadIboxImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                if (this._selIdx >= 0) this.els[this._selIdx].svgImage = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = "";
         },
     };
 }

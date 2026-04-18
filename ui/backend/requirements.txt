@@ -1,5 +1,7 @@
 fastapi
 uvicorn
+websockets
 paho-mqtt
 redis
 httpx
+docker

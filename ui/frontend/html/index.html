@@ -63,10 +63,11 @@
         }
         .hdr-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
         .hdr-breadcrumb {
+            flex: 1;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
-            flex: 1;
             min-width: 0;
             overflow: hidden;
         }
@@ -96,25 +97,7 @@
             align-items: center;
             gap: 10px;
             flex-shrink: 0;
-            margin-left: auto;
         }
-        .hdr-user {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-dim);
-            white-space: nowrap;
-        }
-        .hdr-user .u-icon {
-            width: 22px; height: 22px;
-            border-radius: 50%;
-            background: var(--bg3);
-            border: 1px solid var(--border);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 12px;
-        }
-        .hdr-user .u-name { color: var(--text); font-weight: 500; }
         .hdr-clock {
             text-align: right;
             line-height: 1.3;
@@ -143,6 +126,32 @@
             transition: background .12s;
         }
         .btn:hover { background: var(--border); }
+
+        /* ── user menu ── */
+        .user-wrap { position: relative; }
+        .hdr-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: background .12s, border-color .12s;
+        }
+        .hdr-user:hover { background: var(--bg3); border-color: var(--border); }
+        .hdr-user .u-icon {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px;
+        }
+        .hdr-user .u-name { color: var(--text); font-weight: 500; }
 
         /* ── settings menu ── */
         .settings-wrap { position: relative; }
@@ -244,16 +253,17 @@
         .r-label { position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; }
         .r-value {
             position: absolute; inset: 0;
-            display: flex; flex-direction: column; justify-content: flex-start;
+            display: flex; flex-direction: column; justify-content: center;
             padding: 4px 8px;
             border: 1px solid rgba(255,255,255,.08);
             border-radius: 4px;
             background: rgba(0,0,0,.25);
             overflow: hidden;
         }
-        .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
-        .r-value .vv { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .r-value .vu { font-size: 11px; color: var(--text-dim); }
+        .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; margin-bottom: 1px; }
+        .r-value .vrow { display: flex; align-items: baseline; gap: 4px; min-width: 0; flex: 1; }
+        .r-value .vv  { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .r-value .vu  { flex-shrink: 0; color: var(--text-dim); text-align: right; }
         .r-navbtn {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
@@ -267,6 +277,12 @@
         .r-navbtn:hover { filter: brightness(1.2); }
         .r-indicator { position: absolute; inset: 0; border-radius: 50%; transition: background .3s; }
         .r-rect { position: absolute; inset: 0; }
+        .r-ibox { position: absolute; inset: 0; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; border: 2px solid rgba(255,255,255,.12); transition: border-color .3s, filter .15s; }
+        .r-ibox:hover { filter: brightness(1.12); }
+        .r-ibox-bg { flex: 1; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        .r-ibox-foot { padding: 3px 8px; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .r-ibox-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background .3s; }
+        .r-ibox-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ── empty / loading states ── */
         .state-msg {
@@ -300,17 +316,19 @@
     </style>
 </head>
 
-<body @click="settingsOpen && (settingsOpen=false)">
+<body @click="menuOpen && (menuOpen=false, menuPage='main'); userMenuOpen && (userMenuOpen=false)">
 
 <!-- ═══════════ HEADER ═══════════ -->
 <header>
     <a class="hdr-logo" href="/">⬡ Infrabox</a>
     <div class="hdr-sep"></div>
 
-    <!-- breadcrumb / back -->
+    <!-- back button (always left) -->
+    <button class="hdr-back" x-show="history.length > 0"
+            @click.stop="goBack()" title="Назад">←</button>
+
+    <!-- title centered in remaining space -->
     <div class="hdr-breadcrumb">
-        <button class="hdr-back" x-show="history.length > 0"
-                @click.stop="goBack()" title="Назад">←</button>
         <span class="hdr-screen" x-text="screenTitle()"></span>
     </div>
 
@@ -318,42 +336,84 @@
     <div class="hdr-right">
 
         <!-- user -->
-        <div class="hdr-user">
-            <div class="u-icon">👤</div>
-            <span class="u-name" x-text="userName()"></span>
-        </div>
-
-        <div class="hdr-sep"></div>
-
-        <!-- settings -->
-        <div class="settings-wrap" @click.stop>
-            <button class="btn" @click="settingsOpen=!settingsOpen" style="gap:5px;display:flex;align-items:center;">
-                ⚙ Налаштування
-            </button>
-            <div class="settings-drop" x-show="settingsOpen" x-transition>
-                <a class="sdrop-item" href="/admin">
-                    <span class="sdrop-icon">🛡</span> Адмінка
-                </a>
-                <a class="sdrop-item" href="/dashboard">
-                    <span class="sdrop-icon">📊</span> Параметри
-                </a>
-                <div class="sdrop-sep"></div>
-                <label class="toggle-wrap" @click.stop>
-                    <span class="sdrop-icon">☀</span>
-                    Світла тема
-                    <div class="toggle" style="margin-left:auto">
-                        <input type="checkbox" :checked="theme==='light'" @change="toggleTheme()">
-                        <div class="toggle-track"></div>
-                        <div class="toggle-thumb"></div>
-                    </div>
-                </label>
-                <div class="sdrop-sep"></div>
-                <div class="sdrop-item" x-show="isLoggedIn" @click="logout();settingsOpen=false">
+        <div class="user-wrap" @click.stop>
+            <div class="hdr-user" @click="userMenuOpen=!userMenuOpen; settingsOpen=false">
+                <div class="u-icon">👤</div>
+                <span class="u-name" x-text="userName()"></span>
+            </div>
+            <div class="settings-drop" x-show="userMenuOpen" x-transition>
+                <div class="sdrop-item" x-show="isLoggedIn" @click="logout(); userMenuOpen=false">
                     <span class="sdrop-icon">🚪</span> Вийти
                 </div>
                 <a class="sdrop-item" href="/login" x-show="!isLoggedIn">
                     <span class="sdrop-icon">🔑</span> Увійти
                 </a>
+            </div>
+        </div>
+
+        <div class="hdr-sep"></div>
+
+        <!-- menu -->
+        <div class="settings-wrap" @click.stop>
+            <button class="btn" @click="menuOpen ? (menuOpen=false, menuPage='main') : (menuOpen=true); userMenuOpen=false"
+                    style="gap:5px;display:flex;align-items:center;">
+                ☰ Меню
+            </button>
+            <div class="settings-drop" x-show="menuOpen" x-transition style="min-width:200px">
+
+                <!-- головна сторінка меню -->
+                <template x-if="menuPage==='main'">
+                    <div>
+                        <div class="sdrop-item" @click="menuPage='settings'">
+                            <span class="sdrop-icon">⚙</span> Налаштування
+                            <span style="margin-left:auto;color:var(--text-dim);font-size:12px">›</span>
+                        </div>
+                        <div class="sdrop-sep"></div>
+                        <a class="sdrop-item" href="/admin">
+                            <span class="sdrop-icon">🛡</span> Адміністрування
+                        </a>
+                        <a class="sdrop-item" href="/constructor">
+                            <span class="sdrop-icon">🔧</span> Конструктор
+                        </a>
+                        <div class="sdrop-sep"></div>
+                        <label class="toggle-wrap" @click.stop>
+                            <span class="sdrop-icon">☀</span>
+                            Світла тема
+                            <div class="toggle" style="margin-left:auto">
+                                <input type="checkbox" :checked="theme==='light'" @change="toggleTheme()">
+                                <div class="toggle-track"></div>
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </label>
+                        <div class="sdrop-sep"></div>
+                        <a class="sdrop-item" href="#" style="color:var(--text-dim)" @click.prevent>
+                            <span class="sdrop-icon">📄</span> Документація
+                        </a>
+                    </div>
+                </template>
+
+                <!-- сторінка налаштувань -->
+                <template x-if="menuPage==='settings'">
+                    <div>
+                        <div class="sdrop-item" @click="menuPage='main'" style="color:var(--text-dim)">
+                            <span class="sdrop-icon" style="font-size:13px">‹</span> Назад
+                        </div>
+                        <div class="sdrop-sep"></div>
+                        <a class="sdrop-item" href="/dashboard">
+                            <span class="sdrop-icon">📊</span> Всі параметри
+                        </a>
+                        <label class="toggle-wrap" @click.stop>
+                            <span class="sdrop-icon">🤖</span>
+                            Симулятор
+                            <div class="toggle" style="margin-left:auto">
+                                <input type="checkbox" :checked="simRunning" @change="toggleSimulator()">
+                                <div class="toggle-track"></div>
+                                <div class="toggle-thumb"></div>
+                            </div>
+                        </label>
+                    </div>
+                </template>
+
             </div>
         </div>
 
@@ -381,7 +441,6 @@
         <div class="state-msg" x-show="!loading && !sc">
             <div class="icon">📋</div>
             <p>Екрани не налаштовані</p>
-            <a class="btn" href="/constructor">Відкрити конструктор</a>
         </div>
 
         <!-- canvas -->
@@ -413,11 +472,14 @@
                             <template x-if="el.type==='value'">
                                 <div class="r-value">
                                     <span class="vl" x-show="el.showLabel" x-text="el.label"></span>
-                                    <span class="vv"
-                                          :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
-                                          x-text="ptValue(el.point_id)"></span>
-                                    <span class="vu" x-show="ptUnit(el.point_id)"
-                                          x-text="ptUnit(el.point_id)"></span>
+                                    <div class="vrow">
+                                        <span class="vv"
+                                              :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
+                                              x-text="ptValue(el.point_id)"></span>
+                                        <span class="vu" x-show="ptUnit(el.point_id)"
+                                              :style="`font-size:${el.fontSize}px;`"
+                                              x-text="ptUnit(el.point_id)"></span>
+                                    </div>
                                 </div>
                             </template>
 
@@ -442,6 +504,38 @@
                                      :style="`background:${el.fill};
                                               border:${el.borderWidth}px solid ${el.borderColor};
                                               border-radius:${el.radius}px;`"></div>
+                            </template>
+
+                            <!-- ibox_screen: підсистема зі станом параметра -->
+                            <template x-if="el.type==='ibox_screen'">
+                                <div class="r-ibox"
+                                     :style="`border-color:${iboxBorderColor(el)}`"
+                                     @click="navigate(el.target)">
+                                    <div class="r-ibox-bg"
+                                         :style="el.svgImage ? `background-image:url(${el.svgImage})` : 'background:rgba(88,166,255,.07)'"></div>
+                                    <div class="r-ibox-foot">
+                                        <div class="r-ibox-dot" :style="`background:${iboxDotColor(el)}`"></div>
+                                        <span class="r-ibox-title"
+                                              :style="`font-size:${el.fontSize}px;color:${el.color}`"
+                                              x-text="el.title"></span>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- ibox_link: посилання на веб-сторінку -->
+                            <template x-if="el.type==='ibox_link'">
+                                <div class="r-ibox"
+                                     style="border-color:rgba(255,255,255,.2)"
+                                     @click="openHref(el.href)">
+                                    <div class="r-ibox-bg"
+                                         :style="el.svgImage ? `background-image:url(${el.svgImage})` : 'background:rgba(80,255,160,.05)'"></div>
+                                    <div class="r-ibox-foot">
+                                        <span style="font-size:10px;color:#8b949e;flex-shrink:0">⇗</span>
+                                        <span class="r-ibox-title"
+                                              :style="`font-size:${el.fontSize}px;color:${el.color}`"
+                                              x-text="el.title"></span>
+                                    </div>
+                                </div>
                             </template>
 
                         </div>
@@ -476,7 +570,10 @@ function app() {
         loading:     true,
         clock:       '--:--:--',
         clockDate:   '',
-        settingsOpen: false,
+        menuOpen:    false,
+        menuPage:    'main',
+        userMenuOpen: false,
+        simRunning:  null,
         viewScale:   1,
         lastUpdate:  '',
         _ws:         null,
@@ -485,8 +582,12 @@ function app() {
             this._startClock();
             this._connectWS();
             await this._loadProject();
+            this._loadSimStatus();
             this.$nextTick(() => this._updateScale());
             window.addEventListener('resize', () => this._updateScale());
+            window.addEventListener('beforeunload', () => {
+                if (this._ws) { this._ws.onclose = null; this._ws.close(); }
+            });
         },
 
         _startClock() {
@@ -503,18 +604,21 @@ function app() {
         async _loadProject() {
             try {
                 const r = await fetch('/api/pub/project');
-                if (!r.ok) { this.loading = false; return; }
-                this.project = await r.json();
-                const root = this.project.screens.find(s => !s.parent);
-                if (root) await this.loadScreen(root.id);
+                if (r.ok) this.project = await r.json();
+                await this.loadScreen('root');
             } catch(e) { console.error(e); }
             this.loading = false;
+        },
+
+        getScreenPath(id) {
+            return id;  // плоска структура: screens/{id}/screen.json
         },
 
         async loadScreen(id) {
             if (!id) return;
             try {
-                const r = await fetch(`/api/pub/screens/${id}`);
+                const path = this.getScreenPath(id);
+                const r = await fetch(`/api/pub/screens/${path}`);
                 if (!r.ok) return;
                 const data = await r.json();
                 this.sc  = data.screen;
@@ -621,6 +725,31 @@ function app() {
         valueColor(el)      { return this._qColor(this.ptQuality(el.point_id), el.color); },
         indicatorColor(el)  { return this._qColor(this.ptQuality(el.point_id), el.color); },
         indicatorBorder(el) { return this._qColor(this.ptQuality(el.point_id), el.borderColor); },
+        openHref(href) {
+            if (!href) return;
+            if (this._ws) { this._ws.onclose = null; this._ws.close(); }
+            window.location.assign(href);
+        },
+        async _loadSimStatus() {
+            try {
+                const r = await fetch('/api/pub/simulator');
+                const d = await r.json();
+                this.simRunning = d.status === 'running';
+            } catch {}
+        },
+        async toggleSimulator() {
+            const action = this.simRunning ? 'stop' : 'start';
+            try {
+                const r = await fetch(`/api/pub/simulator/${action}`, { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) this.simRunning = (action === 'start');
+            } catch {}
+        },
+        iboxDotColor(el)    { return this._qColor(this.ptQuality(el.point_id), '#56d364'); },
+        iboxBorderColor(el) {
+            const q = this.ptQuality(el.point_id);
+            return this._qColor(q, 'rgba(86,211,100,.6)');
+        },
     };
 }
 </script>
