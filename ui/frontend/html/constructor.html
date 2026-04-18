@@ -430,7 +430,7 @@
                                     </div>
                                 </template>
                                 <template x-if="el.type==='level_v' || el.type==='level_h'">
-                                    <div class="r-level" :style="`background:${el.bgColor};border:${el.borderWidth||1}px solid ${el.borderColor||'#30363d'}`">
+                                    <div class="r-level" :style="`background:${el.bgColor};border:${el.borderWidth||1}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??4}px`">
                                         <div :style="cLevelFill(el, 60)"></div>
                                         <div class="r-level-val" x-show="el.showValue"
                                              :style="`font-size:${(el.fontSize||12)*fScale()}px;color:${el.color||'#fff'}`">60%</div>
@@ -652,6 +652,8 @@
                                     </template>
                                 </div>
                                 <div class="pr-sep"></div>
+                                <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.borderRadius" min="0" max="200"></div>
+                                <div class="pr-sep"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="lvCb"><label for="lvCb">Показати значення</label></div>
                                 <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
                             </div>
@@ -773,8 +775,8 @@ function app() {
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
-            level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, showValue:true, fontSize:12, color:"#ffffff" },
-            level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, showValue:true, fontSize:12, color:"#ffffff" },
+            level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
+            level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
         },
 
         get gridImg() {
@@ -861,31 +863,11 @@ function app() {
         setIndBorder(el, q, v) { const [, k] = this._indKeys(q); el[k] = v; },
 
         // ── level helpers ──────────────────────────────────────────────────────
-        _levelGrad(el, dir) {
-            const mn = el.min, mx = el.max;
-            const range = (mx - mn) || 1;
-            const p = v => ((v - mn) / range * 100).toFixed(1) + '%';
-            const cG = el.colorGood  || '#56d364';
-            const cW = el.colorWarn  || '#f0ad4e';
-            const cA = el.colorAlarm || '#f47067';
-            const aMin = Math.max(mn, el.alarm_min ?? mn);
-            const wMin = Math.max(aMin, el.warn_min  ?? aMin);
-            const wMax = Math.min(mx,  el.warn_max  ?? mx);
-            const aMax = Math.min(mx,  el.alarm_max ?? mx);
-            const zones = [];
-            if (aMin > mn)  zones.push([mn,   aMin, cA]);
-            if (wMin > aMin) zones.push([aMin, wMin, cW]);
-            zones.push([wMin, wMax, cG]);
-            if (aMax > wMax) zones.push([wMax, aMax, cW]);
-            if (mx > aMax)  zones.push([aMax, mx,   cA]);
-            const stops = zones.flatMap(([f, t, c]) => [`${c} ${p(f)}`, `${c} ${p(t)}`]);
-            return `linear-gradient(${dir},${stops.join(',')})`;
-        },
         cLevelFill(el, pct) {
-            const grad = this._levelGrad(el, el.type === 'level_v' ? 'to top' : 'to right');
+            const color = el.colorGood || '#56d364';
             return el.type === 'level_v'
-                ? `position:absolute;bottom:0;left:0;right:0;height:${pct}%;background:${grad}`
-                : `position:absolute;top:0;left:0;bottom:0;width:${pct}%;background:${grad}`;
+                ? `position:absolute;bottom:0;left:0;right:0;height:${pct}%;background:${color}`
+                : `position:absolute;top:0;left:0;bottom:0;width:${pct}%;background:${color}`;
         },
 
         // ── API ────────────────────────────────────────────────────────────────
