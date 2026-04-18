@@ -276,7 +276,9 @@
         }
         .r-navbtn:hover { filter: brightness(1.2); }
         .r-indicator { position: absolute; inset: 0; border-radius: 50%; transition: background .3s; }
-        .r-rect { position: absolute; inset: 0; }
+        .r-rect  { position: absolute; inset: 0; }
+        .r-level { position: absolute; inset: 0; overflow: hidden; border-radius: 4px; }
+        .r-level-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.9); pointer-events: none; }
         .r-ibox { position: absolute; inset: 0; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; border: 2px solid rgba(255,255,255,.12); transition: border-color .3s, filter .15s; }
         .r-ibox:hover { filter: brightness(1.12); }
         .r-ibox-bg { flex: 1; background-size: contain; background-repeat: no-repeat; background-position: center; }
@@ -540,6 +542,24 @@
                                 </div>
                             </template>
 
+                            <!-- level_v / level_h: індикатор рівня рідини -->
+                            <template x-if="el.type==='level_v'">
+                                <div class="r-level" :style="`background:${el.bgColor};border:${el.borderWidth||1}px solid ${el.borderColor||'#30363d'}`">
+                                    <div :style="levelFillStyle(el)"></div>
+                                    <div class="r-level-val" x-show="el.showValue"
+                                         :style="`font-size:${el.fontSize||12}px;color:${el.color||'#fff'}`"
+                                         x-text="ptValue(el.point_id) + (ptUnit(el.point_id) ? ' '+ptUnit(el.point_id) : '')"></div>
+                                </div>
+                            </template>
+                            <template x-if="el.type==='level_h'">
+                                <div class="r-level" :style="`background:${el.bgColor};border:${el.borderWidth||1}px solid ${el.borderColor||'#30363d'}`">
+                                    <div :style="levelFillStyle(el)"></div>
+                                    <div class="r-level-val" x-show="el.showValue"
+                                         :style="`font-size:${el.fontSize||12}px;color:${el.color||'#fff'}`"
+                                         x-text="ptValue(el.point_id) + (ptUnit(el.point_id) ? ' '+ptUnit(el.point_id) : '')"></div>
+                                </div>
+                            </template>
+
                         </div>
                     </template>
                 </div>
@@ -736,6 +756,31 @@ function app() {
             return ({ GOOD: el.borderColor,            WARN:  el.borderColorWarn  ||el.colorWarn  ||'#f0ad4e',
                       ALARM: el.borderColorAlarm||el.colorAlarm||'#f47067', UNCERT: el.borderColorUncert||el.colorUncert||'#8b949e',
                       INIT: '#58a6ff', NODATA: '#333a42' })[q] || '#333a42';
+        },
+        levelFillStyle(el) {
+            const v = parseFloat(this.points[String(el.point_id)]?.value ?? NaN);
+            const fill = isNaN(v) ? 0 : Math.min(100, Math.max(0, (v - el.min) / ((el.max - el.min) || 1) * 100));
+            const mn = el.min, mx = el.max;
+            const range = (mx - mn) || 1;
+            const p = x => ((x - mn) / range * 100).toFixed(1) + '%';
+            const cG = el.colorGood  || '#56d364';
+            const cW = el.colorWarn  || '#f0ad4e';
+            const cA = el.colorAlarm || '#f47067';
+            const aMin = Math.max(mn, el.alarm_min ?? mn);
+            const wMin = Math.max(aMin, el.warn_min  ?? aMin);
+            const wMax = Math.min(mx,  el.warn_max  ?? mx);
+            const aMax = Math.min(mx,  el.alarm_max ?? mx);
+            const zones = [];
+            if (aMin > mn)   zones.push([mn,   aMin, cA]);
+            if (wMin > aMin) zones.push([aMin, wMin, cW]);
+            zones.push([wMin, wMax, cG]);
+            if (aMax > wMax) zones.push([wMax, aMax, cW]);
+            if (mx > aMax)   zones.push([aMax, mx,   cA]);
+            const stops = zones.flatMap(([f, t, c]) => [`${c} ${p(f)}`, `${c} ${p(t)}`]);
+            const grad = dir => `linear-gradient(${dir},${stops.join(',')})`;
+            return el.type === 'level_v'
+                ? `position:absolute;bottom:0;left:0;right:0;height:${fill}%;background:${grad('to top')};transition:height .4s`
+                : `position:absolute;top:0;left:0;bottom:0;width:${fill}%;background:${grad('to right')};transition:width .4s`;
         },
         openHref(href) {
             if (!href) return;

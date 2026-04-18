@@ -80,6 +80,8 @@
         .r-value .vl{font-size:11px;color:#8b949e;flex-shrink:0}
         .r-navbtn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600;overflow:hidden}
         .r-indicator{position:absolute;inset:0;border-radius:50%}
+        .r-level{position:absolute;inset:0;overflow:hidden;border-radius:4px}
+        .r-level-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);pointer-events:none;z-index:1}
         .r-rect{position:absolute;inset:0}
         .r-ibox{position:absolute;inset:0;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;border:2px solid rgba(255,255,255,.12);transition:border-color .3s}
         .r-ibox-bg{flex:1;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:rgba(0,0,0,.2)}
@@ -427,6 +429,13 @@
                                         </div>
                                     </div>
                                 </template>
+                                <template x-if="el.type==='level_v' || el.type==='level_h'">
+                                    <div class="r-level" :style="`background:${el.bgColor};border:${el.borderWidth||1}px solid ${el.borderColor||'#30363d'}`">
+                                        <div :style="cLevelFill(el, 60)"></div>
+                                        <div class="r-level-val" x-show="el.showValue"
+                                             :style="`font-size:${(el.fontSize||12)*fScale()}px;color:${el.color||'#fff'}`">60%</div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -609,6 +618,44 @@
                                 <div class="pr"><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
                             </div>
                         </template>
+                        <template x-if="selEl.type==='level_v' || selEl.type==='level_h'">
+                            <div>
+                                <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
+                                <div class="pr"><label>Мін</label><input type="number" x-model.number="selEl.min"></div>
+                                <div class="pr"><label>Макс</label><input type="number" x-model.number="selEl.max"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>warn_min</label><input type="number" x-model.number="selEl.warn_min" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>warn_max</label><input type="number" x-model.number="selEl.warn_max" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>alarm_min</label><input type="number" x-model.number="selEl.alarm_min" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>alarm_max</label><input type="number" x-model.number="selEl.alarm_max" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Колір</label>
+                                    <select x-model="selLevelColor">
+                                        <option value="colorGood">● GOOD</option>
+                                        <option value="colorWarn">● WARN</option>
+                                        <option value="colorAlarm">● ALARM</option>
+                                        <option value="bgColor">▪ Фон</option>
+                                        <option value="borderColor">□ Рамка</option>
+                                        <option value="color">T Шрифт</option>
+                                    </select>
+                                </div>
+                                <div class="pr">
+                                    <label x-text="selLevelColor==='borderColor'?'Товщина':'Значення'"></label>
+                                    <input x-show="selLevelColor!=='borderColor'" type="color"
+                                        :value="selEl[selLevelColor]||'#000000'"
+                                        @input="selEl[selLevelColor]=$event.target.value">
+                                    <template x-if="selLevelColor==='borderColor'">
+                                        <div style="display:flex;gap:6px">
+                                            <input type="color" x-model="selEl.borderColor" style="flex:1">
+                                            <input type="number" x-model.number="selEl.borderWidth" min="0" max="10" style="width:52px">
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="lvCb"><label for="lvCb">Показати значення</label></div>
+                                <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
+                            </div>
+                        </template>
                         <div class="pr-sep"></div>
                         <button class="btn btn-red" style="width:100%" @click="delEl">🗑 Видалити елемент</button>
                     </div>
@@ -676,7 +723,8 @@ function app() {
         decos: [],
         selNodeId: null,
         selDecoId: null,
-        selIndQ:   'GOOD',
+        selIndQ:      'GOOD',
+        selLevelColor:'colorGood',
 
         // elements
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
@@ -709,6 +757,8 @@ function app() {
             { type:"rect",         icon:"▭",  label:"Прямокутник" },
             { type:"ibox_screen",  icon:"⬡",  label:"Підсистема" },
             { type:"ibox_link",    icon:"⇗",  label:"Веб-лінк" },
+            { type:"level_v",      icon:"⥮",  label:"Рівень ↕" },
+            { type:"level_h",      icon:"⥬",  label:"Рівень ↔" },
         ],
 
         defaults: {
@@ -723,6 +773,8 @@ function app() {
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
+            level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, showValue:true, fontSize:12, color:"#ffffff" },
+            level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, showValue:true, fontSize:12, color:"#ffffff" },
         },
 
         get gridImg() {
@@ -741,7 +793,7 @@ function app() {
             return sizes.join(',') || 'auto';
         },
         get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
-        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; },
+        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; },
         get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? {}; },
         get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
@@ -807,6 +859,34 @@ function app() {
         indBorder(el, q) { const [, k] = this._indKeys(q);  return el[k]   || '#555'; },
         setIndFill(el, q, v)   { const [k] = this._indKeys(q);   el[k] = v; },
         setIndBorder(el, q, v) { const [, k] = this._indKeys(q); el[k] = v; },
+
+        // ── level helpers ──────────────────────────────────────────────────────
+        _levelGrad(el, dir) {
+            const mn = el.min, mx = el.max;
+            const range = (mx - mn) || 1;
+            const p = v => ((v - mn) / range * 100).toFixed(1) + '%';
+            const cG = el.colorGood  || '#56d364';
+            const cW = el.colorWarn  || '#f0ad4e';
+            const cA = el.colorAlarm || '#f47067';
+            const aMin = Math.max(mn, el.alarm_min ?? mn);
+            const wMin = Math.max(aMin, el.warn_min  ?? aMin);
+            const wMax = Math.min(mx,  el.warn_max  ?? mx);
+            const aMax = Math.min(mx,  el.alarm_max ?? mx);
+            const zones = [];
+            if (aMin > mn)  zones.push([mn,   aMin, cA]);
+            if (wMin > aMin) zones.push([aMin, wMin, cW]);
+            zones.push([wMin, wMax, cG]);
+            if (aMax > wMax) zones.push([wMax, aMax, cW]);
+            if (mx > aMax)  zones.push([aMax, mx,   cA]);
+            const stops = zones.flatMap(([f, t, c]) => [`${c} ${p(f)}`, `${c} ${p(t)}`]);
+            return `linear-gradient(${dir},${stops.join(',')})`;
+        },
+        cLevelFill(el, pct) {
+            const grad = this._levelGrad(el, el.type === 'level_v' ? 'to top' : 'to right');
+            return el.type === 'level_v'
+                ? `position:absolute;bottom:0;left:0;right:0;height:${pct}%;background:${grad}`
+                : `position:absolute;top:0;left:0;bottom:0;width:${pct}%;background:${grad}`;
+        },
 
         // ── API ────────────────────────────────────────────────────────────────
         async apiGet(path) {
@@ -1222,7 +1302,8 @@ updateScale() {
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
-                     ibox_screen:"Підсистема", ibox_link:"Веб-лінк" }[t]??t;
+                     ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
+                     level_v:"Рівень ↕", level_h:"Рівень ↔" }[t]??t;
         },
 
         uploadIboxImage(e) {
