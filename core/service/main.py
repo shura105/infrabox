@@ -236,6 +236,7 @@ def main():
                 key = f"point:{point_id}"
 
                 pipe = r.pipeline()
+                lim = meta["limits"]
                 pipe.hset(key, mapping={
                     "value": value,
                     "ts": ts,
@@ -243,7 +244,13 @@ def main():
                     "object": meta["object"],
                     "system": meta["system"],
                     "pointname": meta["pointname"],
-                    "unit": meta.get("unit", "")
+                    "unit": meta.get("unit", ""),
+                    "min":       lim["min"],
+                    "max":       lim["max"],
+                    "warn_min":  lim["warn_min"],
+                    "warn_max":  lim["warn_max"],
+                    "alarm_min": lim["alarm_min"],
+                    "alarm_max": lim["alarm_max"],
                 })
                 pipe.publish("bus:data", point_id)
 

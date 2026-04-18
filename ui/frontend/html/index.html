@@ -764,9 +764,16 @@ function app() {
                       ALARM: el.borderColorAlarm||el.colorAlarm||'#f47067', UNCERT: el.borderColorUncert||el.colorUncert||'#8b949e',
                       INIT: '#58a6ff', NODATA: '#333a42' })[q] || '#333a42';
         },
+        _ptLim(pt, el, key) {
+            // prefer Redis limits (written by core), fall back to element config
+            const v = parseFloat(pt?.[key]);
+            return isNaN(v) ? el[key] : v;
+        },
         levelFillStyle(el) {
-            const v = parseFloat(this.points[String(el.point_id)]?.value ?? NaN);
-            const scale = isNaN(v) ? 0 : Math.min(1, Math.max(0, (v - el.min) / ((el.max - el.min) || 1)));
+            const pt = this.points[String(el.point_id)];
+            const v = parseFloat(pt?.value ?? NaN);
+            const mn = this._ptLim(pt, el, 'min'), mx = this._ptLim(pt, el, 'max');
+            const scale = isNaN(v) ? 0 : Math.min(1, Math.max(0, (v - mn) / ((mx - mn) || 1)));
             const q = this.ptQuality(el.point_id);
             const color = ({ GOOD: el.colorGood||'#56d364', WARN: el.colorWarn||'#f0ad4e',
                              ALARM: el.colorAlarm||'#f47067', UNCERT: el.colorWarn||'#f0ad4e',
@@ -792,10 +799,16 @@ function app() {
             const value = pt ? parseFloat(pt.value) : NaN;
             const unit = this.ptUnit(el.point_id);
             const cx=50, cy=56, r=36, aw=el.arcWidth||10, SA=135, EA=405;
-            const mn=el.min, mx=el.max;
+            // use Redis limits if available — guaranteed to match core quality calculation
+            const mn       = this._ptLim(pt, el, 'min');
+            const mx       = this._ptLim(pt, el, 'max');
+            const warn_min = this._ptLim(pt, el, 'warn_min');
+            const warn_max = this._ptLim(pt, el, 'warn_max');
+            const alarm_min= this._ptLim(pt, el, 'alarm_min');
+            const alarm_max= this._ptLim(pt, el, 'alarm_max');
             const cG=el.colorGood||'#56d364', cW=el.colorWarn||'#f0ad4e', cA=el.colorAlarm||'#f47067';
-            const aMin=Math.max(mn,el.alarm_min??mn), wMin=Math.max(aMin,el.warn_min??aMin);
-            const wMax=Math.min(mx,el.warn_max??mx), aMax=Math.min(mx,el.alarm_max??mx);
+            const aMin=Math.max(mn,alarm_min), wMin=Math.max(aMin,warn_min);
+            const wMax=Math.min(mx,warn_max),  aMax=Math.min(mx,alarm_max);
             const zones=[];
             if(aMin>mn)   zones.push([mn,aMin,cA]);
             if(wMin>aMin) zones.push([aMin,wMin,cW]);
