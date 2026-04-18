@@ -686,7 +686,8 @@
                                         <option value="needleColor">↑ Стрілка</option>
                                         <option value="bgColor">▪ Фон</option>
                                         <option value="borderColor">□ Рамка</option>
-                                        <option value="color">T Шрифт</option>
+                                        <option value="color">T Значення</option>
+                                        <option value="labelColor">T Напис</option>
                                     </select>
                                 </div>
                                 <div class="pr">
@@ -832,7 +833,7 @@ function app() {
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
-            gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, label:"", labelFontSize:11, showValue:true, fontSize:13, color:"#e6edf3" },
+            gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, label:"", labelColor:"#8b949e", labelFontSize:11, showValue:true, fontSize:13, color:"#e6edf3" },
         },
 
         get gridImg() {
@@ -954,7 +955,7 @@ function app() {
             const nc=el.needleColor||'#e6edf3';
             const dispVal=isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
             const vTxt=el.showValue?`<text x="${cx}" y="${cy+r-4}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${dispVal}</text>`:'';
-            const lTxt=el.label?`<text x="${cx}" y="8" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif" opacity="0.7">${el.label}</text>`:'';
+            const lTxt=el.label?`<text x="${cx}" y="8" text-anchor="middle" fill="${el.labelColor||'#8b949e'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif">${el.label}</text>`:'';
             return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
               ${zArcs}

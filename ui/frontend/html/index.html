@@ -831,7 +831,7 @@ function app() {
             const dispVal = isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
             const disp = dispVal + (unit?' '+unit:'');
             const vTxt=el.showValue?`<text x="${cx}" y="${cy+r-4}" text-anchor="middle" fill="${tc}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${disp}</text>`:'';
-            const lTxt=el.label?`<text x="${cx}" y="8" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif" opacity="0.7">${el.label}</text>`:'';
+            const lTxt=el.label?`<text x="${cx}" y="8" text-anchor="middle" fill="${el.labelColor||'#8b949e'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif">${el.label}</text>`:'';
             return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
               ${zArcs}
