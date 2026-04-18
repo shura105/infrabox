@@ -865,9 +865,10 @@ function app() {
         // ── level helpers ──────────────────────────────────────────────────────
         cLevelFill(el, pct) {
             const color = el.colorGood || '#56d364';
+            const scale = pct / 100;
             return el.type === 'level_v'
-                ? `position:absolute;bottom:0;left:0;right:0;height:${pct}%;background:${color}`
-                : `position:absolute;top:0;left:0;bottom:0;width:${pct}%;background:${color}`;
+                ? `position:absolute;bottom:0;left:0;right:0;height:100%;background:${color};transform:scaleY(${scale});transform-origin:bottom center`
+                : `position:absolute;top:0;left:0;bottom:0;width:100%;background:${color};transform:scaleX(${scale});transform-origin:left center`;
         },
 
         // ── API ────────────────────────────────────────────────────────────────

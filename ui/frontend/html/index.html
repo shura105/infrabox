@@ -759,14 +759,14 @@ function app() {
         },
         levelFillStyle(el) {
             const v = parseFloat(this.points[String(el.point_id)]?.value ?? NaN);
-            const fill = isNaN(v) ? 0 : Math.min(100, Math.max(0, (v - el.min) / ((el.max - el.min) || 1) * 100));
+            const scale = isNaN(v) ? 0 : Math.min(1, Math.max(0, (v - el.min) / ((el.max - el.min) || 1)));
             const q = this.ptQuality(el.point_id);
             const color = ({ GOOD: el.colorGood||'#56d364', WARN: el.colorWarn||'#f0ad4e',
                              ALARM: el.colorAlarm||'#f47067', UNCERT: el.colorWarn||'#f0ad4e',
                              INIT: '#58a6ff' })[q] || (el.colorGood||'#56d364');
             return el.type === 'level_v'
-                ? `position:absolute;bottom:0;left:0;right:0;height:${fill}%;background:${color};transition:height .4s`
-                : `position:absolute;top:0;left:0;bottom:0;width:${fill}%;background:${color};transition:width .4s`;
+                ? `position:absolute;bottom:0;left:0;right:0;height:100%;background:${color};transform:scaleY(${scale});transform-origin:bottom center;transition:transform .4s`
+                : `position:absolute;top:0;left:0;bottom:0;width:100%;background:${color};transform:scaleX(${scale});transform-origin:left center;transition:transform .4s`;
         },
         openHref(href) {
             if (!href) return;
