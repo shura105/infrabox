@@ -704,6 +704,9 @@
                                 <div class="pr-sep"></div>
                                 <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.borderRadius" min="0" max="200"></div>
                                 <div class="pr-sep"></div>
+                                <div class="pr"><label>Підпис над шкалою</label><input type="text" x-model="selEl.label" placeholder="…"></div>
+                                <div class="pr" x-show="selEl.label"><label>Розмір підпису</label><input type="number" x-model.number="selEl.labelFontSize" min="6" max="30"></div>
+                                <div class="pr-sep"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="gaCb"><label for="gaCb">Показати значення</label></div>
                                 <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
                             </div>
@@ -829,7 +832,7 @@ function app() {
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
-            gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, showValue:true, fontSize:13, color:"#e6edf3" },
+            gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, label:"", labelFontSize:11, showValue:true, fontSize:13, color:"#e6edf3" },
         },
 
         get gridImg() {
@@ -951,12 +954,13 @@ function app() {
             const nc=el.needleColor||'#e6edf3';
             const dispVal=isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
             const vTxt=el.showValue?`<text x="${cx}" y="${cy+r-4}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${dispVal}</text>`:'';
+            const lTxt=el.label?`<text x="${cx}" y="${cy-r-3}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif" opacity="0.7">${el.label}</text>`:'';
             return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
               ${zArcs}
               <line x1="${nx1}" y1="${ny1}" x2="${nx2}" y2="${ny2}" stroke="${nc}" stroke-width="2" stroke-linecap="round"/>
               <circle cx="${cx}" cy="${cy}" r="3.5" fill="${nc}"/>
-              ${vTxt}</svg>`;
+              ${vTxt}${lTxt}</svg>`;
         },
         cGaugeSVGHtml(el) {
             return this._gaugeSVGHtml(el, el.min + (el.max - el.min) * 0.6);

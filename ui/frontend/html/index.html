@@ -831,12 +831,13 @@ function app() {
             const dispVal = isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
             const disp = dispVal + (unit?' '+unit:'');
             const vTxt=el.showValue?`<text x="${cx}" y="${cy+r-4}" text-anchor="middle" fill="${tc}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${disp}</text>`:'';
+            const lTxt=el.label?`<text x="${cx}" y="${cy-r-3}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.labelFontSize||11}" font-family="system-ui,sans-serif" opacity="0.7">${el.label}</text>`:'';
             return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
               ${zArcs}
               <line x1="${nx1}" y1="${ny1}" x2="${nx2}" y2="${ny2}" stroke="${nc}" stroke-width="2" stroke-linecap="round"/>
               <circle cx="${cx}" cy="${cy}" r="3.5" fill="${nc}"/>
-              ${vTxt}</svg>`;
+              ${vTxt}${lTxt}</svg>`;
         },
         openHref(href) {
             if (!href) return;
