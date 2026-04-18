@@ -273,5 +273,41 @@
     "onArchive": 1,
     "archive_interval": 0,
     "archive_on_change": 1
+  },
+  {
+    "object": "home",
+    "drop": "homeServ-1",
+    "system": "heating",
+    "pointname": "expansionTankLevel",
+    "id": 111,
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "warn_min": 20,
+    "warn_max": 80,
+    "alarm_min": 10,
+    "alarm_max": 90,
+    "deadband": 1.0,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
+  },
+  {
+    "object": "garage",
+    "drop": "garageServ-1",
+    "system": "water",
+    "pointname": "storageTankLevel",
+    "id": 112,
+    "unit": "%",
+    "min": 0,
+    "max": 100,
+    "warn_min": 15,
+    "warn_max": 85,
+    "alarm_min": 5,
+    "alarm_max": 95,
+    "deadband": 1.0,
+    "onArchive": 1,
+    "archive_interval": 0,
+    "archive_on_change": 1
   }
 ]
