@@ -82,6 +82,7 @@
         .r-indicator{position:absolute;inset:0;border-radius:50%}
         .r-level{position:absolute;inset:0;overflow:hidden;border-radius:4px}
         .r-level-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);pointer-events:none;z-index:1}
+        .r-gauge{position:absolute;inset:0;overflow:hidden}
         .r-rect{position:absolute;inset:0}
         .r-ibox{position:absolute;inset:0;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;border:2px solid rgba(255,255,255,.12);transition:border-color .3s}
         .r-ibox-bg{flex:1;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:rgba(0,0,0,.2)}
@@ -436,6 +437,12 @@
                                              :style="`font-size:${(el.fontSize||12)*fScale()}px;color:${el.color||'#fff'}`">60%</div>
                                     </div>
                                 </template>
+                                <template x-if="el.type==='gauge'">
+                                    <div class="r-gauge"
+                                         :style="`background:${el.bgColor};border:${el.borderWidth||0}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??8}px`"
+                                         x-html="cGaugeSVGHtml(el)">
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -658,6 +665,49 @@
                                 <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
                             </div>
                         </template>
+                        <template x-if="selEl.type==='gauge'">
+                            <div>
+                                <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
+                                <div class="pr"><label>Мін</label><input type="number" x-model.number="selEl.min"></div>
+                                <div class="pr"><label>Макс</label><input type="number" x-model.number="selEl.max"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>warn_min</label><input type="number" x-model.number="selEl.warn_min" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>warn_max</label><input type="number" x-model.number="selEl.warn_max" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>alarm_min</label><input type="number" x-model.number="selEl.alarm_min" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr"><label>alarm_max</label><input type="number" x-model.number="selEl.alarm_max" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Товщина дуги</label><input type="number" x-model.number="selEl.arcWidth" min="2" max="30"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Колір</label>
+                                    <select x-model="selGaugeColor">
+                                        <option value="colorGood">● GOOD</option>
+                                        <option value="colorWarn">● WARN</option>
+                                        <option value="colorAlarm">● ALARM</option>
+                                        <option value="needleColor">↑ Стрілка</option>
+                                        <option value="bgColor">▪ Фон</option>
+                                        <option value="borderColor">□ Рамка</option>
+                                        <option value="color">T Шрифт</option>
+                                    </select>
+                                </div>
+                                <div class="pr">
+                                    <label x-text="selGaugeColor==='borderColor'?'Товщина':'Значення'"></label>
+                                    <input x-show="selGaugeColor!=='borderColor'" type="color"
+                                        :value="selEl[selGaugeColor]||'#000000'"
+                                        @input="selEl[selGaugeColor]=$event.target.value">
+                                    <template x-if="selGaugeColor==='borderColor'">
+                                        <div style="display:flex;gap:6px">
+                                            <input type="color" x-model="selEl.borderColor" style="flex:1">
+                                            <input type="number" x-model.number="selEl.borderWidth" min="0" max="10" style="width:52px">
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.borderRadius" min="0" max="200"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="gaCb"><label for="gaCb">Показати значення</label></div>
+                                <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
+                            </div>
+                        </template>
                         <div class="pr-sep"></div>
                         <button class="btn btn-red" style="width:100%" @click="delEl">🗑 Видалити елемент</button>
                     </div>
@@ -727,6 +777,7 @@ function app() {
         selDecoId: null,
         selIndQ:      'GOOD',
         selLevelColor:'colorGood',
+        selGaugeColor:'colorGood',
 
         // elements
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
@@ -761,6 +812,7 @@ function app() {
             { type:"ibox_link",    icon:"⇗",  label:"Веб-лінк" },
             { type:"level_v",      icon:"⥮",  label:"Рівень ↕" },
             { type:"level_h",      icon:"⥬",  label:"Рівень ↔" },
+            { type:"gauge",        icon:"⟳",  label:"Прилад" },
         ],
 
         defaults: {
@@ -777,6 +829,7 @@ function app() {
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
+            gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, showValue:true, fontSize:13, color:"#e6edf3" },
         },
 
         get gridImg() {
@@ -795,7 +848,7 @@ function app() {
             return sizes.join(',') || 'auto';
         },
         get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
-        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; },
+        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood'; },
         get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? {}; },
         get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
@@ -861,6 +914,53 @@ function app() {
         indBorder(el, q) { const [, k] = this._indKeys(q);  return el[k]   || '#555'; },
         setIndFill(el, q, v)   { const [k] = this._indKeys(q);   el[k] = v; },
         setIndBorder(el, q, v) { const [, k] = this._indKeys(q); el[k] = v; },
+
+        // ── gauge helpers ─────────────────────────────────────────────────────
+        _gaugeArcPath(cx, cy, r, a1, a2) {
+            if (Math.abs(a2 - a1) < 0.1) return null;
+            const rd = Math.PI / 180;
+            const x1 = cx + r * Math.cos(a1*rd), y1 = cy + r * Math.sin(a1*rd);
+            const x2 = cx + r * Math.cos(a2*rd), y2 = cy + r * Math.sin(a2*rd);
+            const sw = ((a2 - a1) % 360 + 360) % 360;
+            return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${sw>180?1:0} 1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
+        },
+        _gaugeValAngle(mn, mx, v) {
+            return 135 + Math.min(1, Math.max(0, (v - mn) / ((mx - mn) || 1))) * 270;
+        },
+        _gaugeSVGHtml(el, value) {
+            const cx=50, cy=56, r=36, aw=el.arcWidth||10, SA=135, EA=405;
+            const mn=el.min, mx=el.max;
+            const cG=el.colorGood||'#56d364', cW=el.colorWarn||'#f0ad4e', cA=el.colorAlarm||'#f47067';
+            const aMin=Math.max(mn,el.alarm_min??mn), wMin=Math.max(aMin,el.warn_min??aMin);
+            const wMax=Math.min(mx,el.warn_max??mx), aMax=Math.min(mx,el.alarm_max??mx);
+            const zones=[];
+            if(aMin>mn)   zones.push([mn,aMin,cA]);
+            if(wMin>aMin) zones.push([aMin,wMin,cW]);
+            zones.push([wMin,wMax,cG]);
+            if(aMax>wMax) zones.push([wMax,aMax,cW]);
+            if(mx>aMax)   zones.push([aMax,mx,cA]);
+            const bgPath = this._gaugeArcPath(cx,cy,r,SA,EA);
+            const zArcs = zones.map(([f,t,c])=>{
+                const p=this._gaugeArcPath(cx,cy,r,this._gaugeValAngle(mn,mx,f),this._gaugeValAngle(mn,mx,t));
+                return p?`<path d="${p}" fill="none" stroke="${c}" stroke-width="${aw}" stroke-linecap="butt"/>`:''
+            }).join('');
+            const ang=(this._gaugeValAngle(mn,mx,value))*Math.PI/180;
+            const nLen=r-aw/2-2;
+            const nx1=(cx-5*Math.cos(ang)).toFixed(2), ny1=(cy-5*Math.sin(ang)).toFixed(2);
+            const nx2=(cx+nLen*Math.cos(ang)).toFixed(2), ny2=(cy+nLen*Math.sin(ang)).toFixed(2);
+            const nc=el.needleColor||'#e6edf3';
+            const dispVal=isNaN(value)?'—':String(parseFloat(value.toFixed(2)));
+            const vTxt=el.showValue?`<text x="${cx}" y="${cy+16}" text-anchor="middle" fill="${el.color||'#e6edf3'}" font-size="${el.fontSize||13}" font-family="system-ui,sans-serif" font-weight="600">${dispVal}</text>`:'';
+            return `<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <path d="${bgPath}" fill="none" stroke="#21262d" stroke-width="${aw}" stroke-linecap="butt"/>
+              ${zArcs}
+              <line x1="${nx1}" y1="${ny1}" x2="${nx2}" y2="${ny2}" stroke="${nc}" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="${cx}" cy="${cy}" r="3.5" fill="${nc}"/>
+              ${vTxt}</svg>`;
+        },
+        cGaugeSVGHtml(el) {
+            return this._gaugeSVGHtml(el, el.min + (el.max - el.min) * 0.6);
+        },
 
         // ── level helpers ──────────────────────────────────────────────────────
         cLevelFill(el, pct) {
@@ -1286,7 +1386,7 @@ updateScale() {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
-                     level_v:"Рівень ↕", level_h:"Рівень ↔" }[t]??t;
+                     level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад" }[t]??t;
         },
 
         uploadIboxImage(e) {
