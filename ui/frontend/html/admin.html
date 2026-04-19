@@ -1272,6 +1272,28 @@ async function subAction(id, action) {
 
     const res  = await admApi("POST", `/subsystems/${id}/${action}`);
     const data = res ? await res.json().catch(() => ({})) : null;
+
+    if (action === "restart") {
+        // backend fires nohup & returns immediately; poll until API responds again
+        _subLogDone("перезавантаження…", "#e3b341", "");
+        document.getElementById("subLogStatus").style.color = "#e3b341";
+        const logEl = document.getElementById("subLog");
+        let dots = 0;
+        const iv = setInterval(async () => {
+            dots++;
+            logEl.textContent = ".".repeat(dots % 10 + 1);
+            try {
+                const r = await fetch("/adm/api/subsystems", { headers: authHeaders() });
+                if (r.ok) {
+                    clearInterval(iv);
+                    _subLogDone("готово ✓", "#56d364", "");
+                    loadSubs(); loadSystem();
+                }
+            } catch (_) {}
+        }, 1000);
+        return;
+    }
+
     if (res && res.ok) {
         _subLogDone("готово ✓", "#56d364", data?.out || "");
         setTimeout(() => { loadSubs(); loadSystem(); }, 600);

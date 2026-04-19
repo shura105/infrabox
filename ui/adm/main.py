@@ -231,7 +231,9 @@ def sub_stop(sub_id: str):
 @app.post("/subsystems/{sub_id}/restart")
 def sub_restart(sub_id: str):
     s, host = _get_sub_with_host(sub_id)
-    return _ssh_run(host, f"{_compose_ssh(s['workdir'])} restart")
+    wd = shlex.quote(s["workdir"])
+    # detached so SSH returns immediately even if this container is part of the subsystem
+    return _ssh_run(host, f"nohup sh -c 'cd {wd} && docker compose restart' >/dev/null 2>&1 &")
 
 
 @app.post("/subsystems/{sub_id}/down")
