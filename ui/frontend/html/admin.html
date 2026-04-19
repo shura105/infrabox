@@ -1216,10 +1216,11 @@ function renderSubs() {
             </td>
             <td>
                 <div class="actions">
-                    ${_ctBtn(canStart, "btn-green",  "Старт",   `subAction('${s.id}','start')`, "▶")}
-                    ${_ctBtn(canStop,  "btn-gray",   "Стоп",    `subAction('${s.id}','stop')`,  "■")}
-                    ${_ctBtn(true,     "btn-orange", "Rebuild", `subBuild('${s.id}')`,           "⚙")}
-                    ${_ctBtn(canDown,  "btn-red",    "Down",    `subDown('${s.id}')`,            "↓")}
+                    ${_ctBtn(canStart,   "btn-green",  "Старт",   `subAction('${s.id}','start')`,   "▶")}
+                    ${_ctBtn(canStop,    "btn-gray",   "Стоп",    `subAction('${s.id}','stop')`,    "■")}
+                    ${_ctBtn(running>0, "btn-blue",   "Рестарт", `subAction('${s.id}','restart')`, "↺")}
+                    ${_ctBtn(true,      "btn-orange", "Rebuild", `subBuild('${s.id}')`,             "⚙")}
+                    ${_ctBtn(canDown,   "btn-red",    "Down",    `subDown('${s.id}')`,              "↓")}
                 </div>
             </td>`;
         tbody.appendChild(tr);
@@ -1266,7 +1267,7 @@ function _subLogDone(statusText, color, logText) {
 
 async function subAction(id, action) {
     const s      = _subs.find(x => x.id === id);
-    const labels = { start: "▶ Старт", stop: "■ Стоп" };
+    const labels = { start: "▶ Старт", stop: "■ Стоп", restart: "↺ Рестарт" };
     _openSubLog(`${labels[action] || action}: ${s?.name || id}`);
 
     const res  = await admApi("POST", `/subsystems/${id}/${action}`);

@@ -228,6 +228,12 @@ def sub_stop(sub_id: str):
     return _ssh_run(host, f"{_compose_ssh(s['workdir'])} stop")
 
 
+@app.post("/subsystems/{sub_id}/restart")
+def sub_restart(sub_id: str):
+    s, host = _get_sub_with_host(sub_id)
+    return _ssh_run(host, f"{_compose_ssh(s['workdir'])} restart")
+
+
 @app.post("/subsystems/{sub_id}/down")
 def sub_down(sub_id: str):
     s, host = _get_sub_with_host(sub_id)
