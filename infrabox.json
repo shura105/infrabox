@@ -1,0 +1,46 @@
+{
+  "system": {
+    "name": "Infrabox",
+    "description": "Система моніторингу та управління розумним будинком"
+  },
+  "hosts": [
+    {
+      "id": "homeServ2",
+      "name": "homeServ2",
+      "role": "primary",
+      "portainer": "http://homeServ2.local:9000",
+      "ssh_key": "",
+      "addr": "homeServ2.local"
+    }
+  ],
+  "subsystems": [
+    {
+      "id": "core",
+      "name": "Core",
+      "description": "Ядро системи: MQTT-брокери, обробка параметрів, авторизація, симулятор",
+      "host": "homeServ2",
+      "workdir": "/home/shura/infrabox/core"
+    },
+    {
+      "id": "adm",
+      "name": "Adm",
+      "description": "Адміністративний сервіс: управління контейнерами, хостом та конфігурацією",
+      "host": "homeServ2",
+      "workdir": "/home/shura/infrabox/adm"
+    },
+    {
+      "id": "ui",
+      "name": "UI",
+      "description": "Вебінтерфейс: frontend (nginx+HTTPS), backend API, WebSocket",
+      "host": "homeServ2",
+      "workdir": "/home/shura/infrabox/ui"
+    },
+    {
+      "id": "arch",
+      "name": "Arch",
+      "description": "Архіватор: запис історії параметрів, backend і UI для перегляду трендів",
+      "host": "homeServ2",
+      "workdir": "/home/shura/infrabox/arch"
+    }
+  ]
+}

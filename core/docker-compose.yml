@@ -124,7 +124,7 @@ services:
       - ./service/config/points.json:/app/config/points.json:ro
       - ../log:/app/log
 
+
 networks:
   infrabox-net:
-    name: infrabox-net
-    driver: bridge
+    external: true

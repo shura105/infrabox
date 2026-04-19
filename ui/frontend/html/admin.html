@@ -38,33 +38,62 @@
         }
         header button:hover { border-color: #58a6ff; color: #58a6ff; }
 
+        /* ── tabs ── */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid #30363d;
+            padding: 0 24px;
+            background: #161b22;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #8b949e;
+            font-size: 14px;
+            cursor: pointer;
+            transition: color .15s, border-color .15s;
+        }
+        .tab-btn:hover { color: #c9d1d9; }
+        .tab-btn.active { color: #e6edf3; border-bottom-color: #58a6ff; font-weight: 600; }
+
         /* ── layout ── */
-        main { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+        main { max-width: 900px; margin: 32px auto; padding: 0 16px; }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
 
         h1 { font-size: 18px; margin-bottom: 20px; color: #e6edf3; }
+        h2 { font-size: 15px; margin-bottom: 14px; color: #e6edf3; }
 
         /* ── toolbar ── */
         .toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
         .btn {
-            padding: 6px 16px;
+            padding: 5px 13px;
             border-radius: 6px;
             border: none;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.15s;
+            transition: background 0.15s, opacity 0.15s;
+            white-space: nowrap;
         }
+        .btn:disabled { opacity: .45; cursor: default; }
         .btn-green  { background: #238636; color: #fff; }
-        .btn-green:hover  { background: #2ea043; }
+        .btn-green:hover:not(:disabled)  { background: #2ea043; }
         .btn-red    { background: #6e2c2c; color: #f47067; }
-        .btn-red:hover    { background: #8a3535; }
+        .btn-red:hover:not(:disabled)    { background: #8a3535; }
         .btn-blue   { background: #1c3a5e; color: #58a6ff; }
-        .btn-blue:hover   { background: #1f4a7a; }
+        .btn-blue:hover:not(:disabled)   { background: #1f4a7a; }
         .btn-gray   { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .btn-gray:hover   { background: #30363d; }
+        .btn-gray:hover:not(:disabled)   { background: #30363d; }
+        .btn-orange { background: #3a2200; color: #e3b341; border: 1px solid #4a3000; }
+        .btn-orange:hover:not(:disabled) { background: #4a3000; }
 
-        /* ── table ── */
+        /* ── users table ── */
         table { width: 100%; border-collapse: collapse; }
         th, td {
             padding: 10px 12px;
@@ -81,14 +110,14 @@
             font-size: 11px;
             font-weight: 600;
         }
-        .badge-admin    { background: #1c3a5e; color: #58a6ff; }
-        .badge-operator { background: #1a3a1a; color: #56d364; }
+        .badge-admin       { background: #1c3a5e; color: #58a6ff; }
+        .badge-operator    { background: #1a3a1a; color: #56d364; }
         .badge-constructor { background: #3a2a1a; color: #e3b341; }
 
         .active-yes { color: #56d364; }
         .active-no  { color: #f47067; }
 
-        td .actions { display: flex; gap: 6px; }
+        td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
         /* ── modal ── */
         .overlay {
@@ -137,9 +166,214 @@
             margin-bottom: 12px;
             display: none;
         }
-
-        /* ── confirm ── */
         .confirm-msg { color: #c9d1d9; margin-bottom: 20px; line-height: 1.5; }
+
+        /* ── sub-tabs (level 2) ── */
+        .sub-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid #30363d;
+            margin-bottom: 24px;
+        }
+        .sub-tab-btn {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #8b949e;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color .15s, border-color .15s;
+        }
+        .sub-tab-btn:hover { color: #c9d1d9; }
+        .sub-tab-btn.active { color: #e6edf3; border-bottom-color: #388bfd; font-weight: 600; }
+        .sub-panel { display: none; }
+        .sub-panel.active { display: block; }
+
+        /* ── ssh key textarea ── */
+        .ssh-key-block { margin-bottom: 18px; }
+        .ssh-key-block label { display:block; font-size:12px; color:#8b949e; margin-bottom:4px; }
+        .ssh-key-block textarea {
+            width: 100%; box-sizing: border-box;
+            background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+            color: #c9d1d9; font-family: monospace; font-size: 11px;
+            padding: 8px; resize: vertical; min-height: 72px;
+        }
+        .ssh-key-block textarea:focus { outline: none; border-color: #58a6ff; }
+        .ssh-key-block .key-row { display:flex; gap:8px; align-items:flex-start; }
+        .ssh-key-block .key-row textarea { flex:1; }
+
+        /* ── sub-badge (subsystem tag in hosts table) ── */
+        .sub-badge {
+            display: inline-block;
+            font-size: 10px;
+            padding: 1px 7px;
+            border-radius: 10px;
+            background: #21262d;
+            color: #8b949e;
+            margin: 1px 2px;
+        }
+
+        /* ── system section ── */
+        .sys-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        /* ── inline host input ── */
+        .host-input {
+            padding: 5px 8px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+        }
+        .host-input:focus { border-color: #58a6ff; }
+        .host-input.name-inp { width: 140px; }
+        .host-input.addr-inp { width: 260px; }
+
+        /* ── containers table ── */
+        .ct-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ct-table th, .ct-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #21262d;
+        }
+        .ct-table th { color: #8b949e; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+        .ct-table tr:hover td { background: #161b22; }
+
+        .ct-status {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+        .ct-status.running  { background: #56d364; box-shadow: 0 0 4px #56d364; }
+        .ct-status.exited   { background: #f47067; }
+        .ct-status.paused   { background: #e3b341; }
+        .ct-status.created  { background: #8b949e; }
+        .ct-status.restarting { background: #58a6ff; }
+
+        .status-cell { display: flex; align-items: center; gap: 7px; }
+
+        .ct-name { font-family: monospace; font-size: 12px; color: #c9d1d9; }
+        .ct-image { font-family: monospace; font-size: 11px; color: #8b949e; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* підрядки компонентів підсистеми */
+        .sub-ct-row td {
+            padding: 4px 10px 4px 28px;
+            border-bottom: none;
+            background: #0d1117;
+            font-size: 12px;
+        }
+        .sub-ct-row:last-of-type td { border-bottom: 1px solid #21262d; }
+        .sub-ct-row td:first-child { color: #8b949e; font-family: monospace; }
+        .sub-ct-arrow { color: #30363d; margin-right: 6px; user-select: none; }
+
+        /* недоступна дія — бліда примарна кнопка */
+        .btn-na {
+            background: none;
+            border: 1px solid #30363d;
+            color: #6e7681;
+            cursor: default;
+            pointer-events: none;
+            opacity: 0.55;
+        }
+
+        .rebuild-log {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #8b949e;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 380px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px solid #30363d;
+            margin: 28px 0;
+        }
+
+        .sys-refresh {
+            font-size: 12px;
+            color: #8b949e;
+            cursor: pointer;
+            padding: 4px 10px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: none;
+            transition: border-color .15s, color .15s;
+        }
+        .sys-refresh:hover { border-color: #58a6ff; color: #58a6ff; }
+
+        .loading-row td { text-align: center; color: #8b949e; padding: 20px; }
+
+        /* ── app cards ── */
+        .app-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            margin-top: 8px;
+        }
+        .app-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 18px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .app-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .app-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+        .app-card-desc {
+            font-size: 12px;
+            color: #8b949e;
+            line-height: 1.5;
+        }
+        .app-card-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+        .app-card-actions { display: flex; gap: 8px; }
+
+        .app-dot {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: #8b949e;
+            transition: background .3s, box-shadow .3s;
+        }
+        .app-dot.running  { background: #56d364; box-shadow: 0 0 5px #56d364; }
+        .app-dot.stopped  { background: #f47067; }
+        .app-dot.paused   { background: #e3b341; }
+        .app-dot.loading  { background: #58a6ff; }
     </style>
 </head>
 <body>
@@ -153,33 +387,131 @@
     </div>
 </header>
 
-<main>
-    <h1>Управління користувачами</h1>
+<!-- ── Tab bar ── -->
+<div class="tabs">
+    <button class="tab-btn active" id="tab-users-btn"  onclick="switchTab('users')">Користувачі</button>
+    <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
+    <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
+</div>
 
-    <div class="toolbar">
-        <button class="btn btn-green" onclick="openCreate()">+ Додати</button>
+<main>
+
+    <!-- ══════════════════════════════ USERS TAB ══════════════════════════════ -->
+    <div class="tab-panel active" id="tab-users">
+        <h1>Управління користувачами</h1>
+        <div class="toolbar">
+            <button class="btn btn-green" onclick="openCreate()">+ Додати</button>
+        </div>
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>Логін</th>
+                    <th>Ім'я</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+        </table>
     </div>
 
-    <table id="usersTable">
-        <thead>
-            <tr>
-                <th>Логін</th>
-                <th>Ім'я</th>
-                <th>Роль</th>
-                <th>Статус</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody id="usersBody"></tbody>
-    </table>
+    <!-- ══════════════════════════════ APPS TAB ════════════════════════════════ -->
+    <div class="tab-panel" id="tab-apps">
+        <h1>Застосунки</h1>
+        <table class="ct-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Стан</th>
+                    <th>Опис</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:600;color:#e6edf3">🔁 Симулятор</td>
+                    <td>
+                        <div class="status-cell">
+                            <span class="app-dot loading" id="simDot"></span>
+                            <span id="simStatusText">…</span>
+                        </div>
+                    </td>
+                    <td style="color:#8b949e;font-size:12px">Генерує тестові значення. Зупинення — пауза контейнера.</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-green btn-na" id="simStartBtn" onclick="simStart()" disabled>▶ Запустити</button>
+                            <button class="btn btn-red btn-na"   id="simStopBtn"  onclick="simStop()"  disabled>⏸ Зупинити</button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ══════════════════════════════ SYSTEM TAB ═════════════════════════════ -->
+    <div class="tab-panel" id="tab-system">
+        <div class="sys-toolbar">
+            <h1 style="margin:0">Система</h1>
+            <button class="sys-refresh" id="sysRefreshBtn" onclick="loadSystem()">↻ Оновити</button>
+        </div>
+
+        <!-- sub-tabs -->
+        <div class="sub-tabs">
+            <button class="sub-tab-btn active" id="sub-nodes-btn"    onclick="switchSub('nodes')">Вузли</button>
+            <button class="sub-tab-btn"        id="sub-composer-btn" onclick="switchSub('composer')">Композитор</button>
+        </div>
+
+        <!-- ── Вузли ── -->
+        <div class="sub-panel active" id="sub-nodes">
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <h2 style="margin:0">Вузли</h2>
+                <button class="btn btn-gray" onclick="openSshKeys()">🔑 SSH ключі</button>
+            </div>
+            <table class="ct-table">
+                <thead>
+                    <tr>
+                        <th>Назва</th>
+                        <th>Uptime</th>
+                        <th>Підсистеми</th>
+                        <th>Portainer</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="hostsBody"></tbody>
+            </table>
+        </div>
+
+        <!-- ── Композитор ── -->
+        <div class="sub-panel" id="sub-composer">
+
+            <!-- Підсистеми -->
+            <h2 style="margin-bottom:14px">Підсистеми</h2>
+            <table class="ct-table" style="margin-bottom:4px">
+                <thead>
+                    <tr>
+                        <th>Назва</th>
+                        <th>Шлях</th>
+                        <th>Контейнери</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="subsBody">
+                    <tr class="loading-row"><td colspan="4">Завантаження…</td></tr>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
 </main>
 
-<!-- ── Create / Edit modal ── -->
+<!-- ── Create / Edit user modal ── -->
 <div class="overlay" id="editOverlay">
     <div class="modal">
         <h2 id="modalTitle">Новий користувач</h2>
         <div class="modal-error" id="modalError"></div>
-
         <div class="field" id="fieldUsername">
             <label>Логін</label>
             <input id="fUsername" type="text" autocomplete="off">
@@ -207,7 +539,6 @@
                 <option value="0">Ні</option>
             </select>
         </div>
-
         <div class="modal-footer">
             <button class="btn btn-gray"  onclick="closeModal()">Скасувати</button>
             <button class="btn btn-green" id="modalSaveBtn" onclick="saveUser()">Зберегти</button>
@@ -215,7 +546,7 @@
     </div>
 </div>
 
-<!-- ── Confirm delete modal ── -->
+<!-- ── Confirm delete user modal ── -->
 <div class="overlay" id="confirmOverlay">
     <div class="modal">
         <h2>Видалити користувача</h2>
@@ -227,14 +558,107 @@
     </div>
 </div>
 
+
+
+<!-- ── Subsystem action log modal ── -->
+<div class="overlay" id="subLogOverlay">
+    <div class="modal" style="width:560px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h2 id="subLogTitle" style="margin:0">…</h2>
+            <span id="subLogStatus" style="font-size:12px;color:#8b949e"></span>
+        </div>
+        <div id="subLog" class="rebuild-log"></div>
+        <div class="modal-footer">
+            <button class="btn btn-gray" id="subLogCloseBtn" onclick="closeSubLog()">Закрити</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Host action confirm modal ── -->
+<div class="overlay" id="hostConfirmOverlay">
+    <div class="modal">
+        <h2 id="hostConfirmTitle">Підтвердження</h2>
+        <p class="confirm-msg" id="hostConfirmMsg"></p>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="closeHostConfirm()">Скасувати</button>
+            <button class="btn btn-red"  id="hostConfirmOk">Виконати</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Host settings modal ── -->
+<div class="overlay" id="hostSettingsOverlay">
+    <div class="modal">
+        <h2 id="hostSettingsTitle">Налаштування вузла</h2>
+        <div class="modal-error" id="hostSettingsError"></div>
+        <div class="field">
+            <label>Portainer URL</label>
+            <input id="hsAddr" type="text" placeholder="http://192.168.1.x:9000">
+        </div>
+        <hr style="border-color:#30363d;margin:12px 0">
+        <p style="font-size:12px;color:#8b949e;margin:0 0 10px">Команди управління (виконуються через SSH для віддалених хостів)</p>
+        <div class="field">
+            <label>Перезавантаження</label>
+            <input id="hsReboot" type="text" placeholder="shutdown -r now">
+        </div>
+        <div class="field">
+            <label>Вимкнення</label>
+            <input id="hsShutdown" type="text" placeholder="shutdown -h now">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-gray"  onclick="closeHostSettings()">Скасувати</button>
+            <button class="btn btn-green" onclick="saveHostSettings()">Зберегти</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── SSH keys modal ── -->
+<div class="overlay" id="sshKeysOverlay">
+    <div class="modal" style="width:540px">
+        <h2>🔑 SSH ключі</h2>
+        <p style="color:#8b949e;font-size:12px;margin:0 0 16px">
+            Приватний ключ для SSH-доступу до кожного вузла. Зберігається в infrabox.json.
+        </p>
+        <div id="sshKeysList"></div>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="closeSshKeys()">Закрити</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
-// ── init ──────────────────────────────────────────────────────────────────────
-document.getElementById("headerUser").textContent = authUser().display_name || authUser().role;
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById("headerUser").textContent =
+    authUser().display_name || authUser().role;
 
-let _users = [];
-let _editUsername = null;   // null = create, string = edit
-let _deleteUsername = null;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById(`tab-${name}`).classList.add("active");
+    document.getElementById(`tab-${name}-btn`).classList.add("active");
+    if (name === "system") { loadHostsFromConfig(); loadSystem(); loadSubs(); }
+    if (name === "apps")   loadApps();
+}
+
+function switchSub(name) {
+    document.querySelectorAll(".sub-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById(`sub-${name}`).classList.add("active");
+    document.getElementById(`sub-${name}-btn`).classList.add("active");
+    if (name === "composer") { loadSubs(); loadSystem(); }
+    if (name === "nodes")    loadHostsFromConfig();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic API helpers
+// ─────────────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
     const res = await fetch(path, {
         method,
@@ -245,18 +669,36 @@ async function api(method, path, body) {
     return res;
 }
 
-// ── load users ────────────────────────────────────────────────────────────────
-async function loadUsers() {
-    const res = await api("GET", "/auth/users");
-    if (!res.ok) return;
-    _users = await res.json();
-    renderTable();
+async function admApi(method, path) {
+    try {
+        const res = await fetch(`/adm/api${path}`, {
+            method,
+            headers: authHeaders(),
+        });
+        if (res.status === 401) { authLogout(); return null; }
+        return res;
+    } catch (e) {
+        return null;   // network error / host unreachable
+    }
 }
 
-function renderTable() {
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────────────────────────────────────
+let _users = [];
+let _editUsername = null;
+let _deleteUsername = null;
+
+async function loadUsers() {
+    const res = await api("GET", "/auth/users");
+    if (!res || !res.ok) return;
+    _users = await res.json();
+    renderUsersTable();
+}
+
+function renderUsersTable() {
     const tbody = document.getElementById("usersBody");
     tbody.innerHTML = "";
-
     for (const u of _users) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -266,16 +708,14 @@ function renderTable() {
             <td class="${u.active === "1" ? "active-yes" : "active-no"}">${u.active === "1" ? "активний" : "вимкнений"}</td>
             <td>
                 <div class="actions">
-                    <button class="btn btn-blue"  onclick="openEdit('${u.username}')">Редагувати</button>
-                    <button class="btn btn-red"   onclick="openDelete('${u.username}')">Видалити</button>
+                    <button class="btn btn-blue" onclick="openEdit('${u.username}')">Редагувати</button>
+                    <button class="btn btn-red"  onclick="openDelete('${u.username}')">Видалити</button>
                 </div>
-            </td>
-        `;
+            </td>`;
         tbody.appendChild(tr);
     }
 }
 
-// ── create ────────────────────────────────────────────────────────────────────
 function openCreate() {
     _editUsername = null;
     document.getElementById("modalTitle").textContent = "Новий користувач";
@@ -291,7 +731,6 @@ function openCreate() {
     setTimeout(() => document.getElementById("fUsername").focus(), 50);
 }
 
-// ── edit ──────────────────────────────────────────────────────────────────────
 function openEdit(username) {
     const u = _users.find(x => x.username === username);
     if (!u) return;
@@ -313,106 +752,553 @@ function closeModal() {
     document.getElementById("editOverlay").classList.remove("open");
 }
 
-// ── save ──────────────────────────────────────────────────────────────────────
 async function saveUser() {
     const btn = document.getElementById("modalSaveBtn");
     btn.disabled = true;
 
     if (_editUsername === null) {
-        // create
-        const username = document.getElementById("fUsername").value.trim();
-        const password = document.getElementById("fPassword").value;
+        const username     = document.getElementById("fUsername").value.trim();
+        const password     = document.getElementById("fPassword").value;
         const display_name = document.getElementById("fDisplayName").value.trim();
-        const role = document.getElementById("fRole").value;
-
+        const role         = document.getElementById("fRole").value;
         if (!username || !password || !display_name) {
             showModalError("Заповніть усі поля"); btn.disabled = false; return;
         }
-
         const res = await api("POST", "/auth/users", { username, password, display_name, role });
-        if (res.ok) {
-            closeModal();
-            await loadUsers();
-        } else {
+        if (res && res.ok) { closeModal(); await loadUsers(); }
+        else {
             const err = await res.json().catch(() => ({}));
             showModalError(err.detail || "Помилка");
         }
     } else {
-        // edit
         const body = {};
-        const password = document.getElementById("fPassword").value;
+        const password     = document.getElementById("fPassword").value;
         const display_name = document.getElementById("fDisplayName").value.trim();
-        const role = document.getElementById("fRole").value;
-        const active = document.getElementById("fActive").value;
-
-        if (password)      body.password     = password;
-        if (display_name)  body.display_name = display_name;
-        body.role   = role;
-        body.active = active;
-
+        if (password)     body.password     = password;
+        if (display_name) body.display_name = display_name;
+        body.role   = document.getElementById("fRole").value;
+        body.active = document.getElementById("fActive").value;
         const res = await api("PUT", `/auth/users/${_editUsername}`, body);
-        if (res.ok) {
-            closeModal();
-            await loadUsers();
-        } else {
+        if (res && res.ok) { closeModal(); await loadUsers(); }
+        else {
             const err = await res.json().catch(() => ({}));
             showModalError(err.detail || "Помилка");
         }
     }
-
     btn.disabled = false;
 }
 
-// ── delete ────────────────────────────────────────────────────────────────────
 function openDelete(username) {
     _deleteUsername = username;
     document.getElementById("confirmMsg").textContent =
         `Видалити користувача «${username}»? Цю дію не можна скасувати.`;
     document.getElementById("confirmOverlay").classList.add("open");
 }
-
 function closeConfirm() {
     document.getElementById("confirmOverlay").classList.remove("open");
     _deleteUsername = null;
 }
-
 async function confirmDelete() {
     if (!_deleteUsername) return;
     const res = await api("DELETE", `/auth/users/${_deleteUsername}`);
     closeConfirm();
-    if (res.ok) await loadUsers();
+    if (res && res.ok) await loadUsers();
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
 function showModalError(msg) {
     const el = document.getElementById("modalError");
-    el.textContent = msg;
-    el.style.display = "block";
+    el.textContent = msg; el.style.display = "block";
 }
 function clearModalError() {
     const el = document.getElementById("modalError");
-    el.textContent = "";
-    el.style.display = "none";
+    el.textContent = ""; el.style.display = "none";
 }
 
-// Закриття оверлею кліком на фон
-document.getElementById("editOverlay").addEventListener("click", e => {
-    if (e.target === e.currentTarget) closeModal();
-});
-document.getElementById("confirmOverlay").addEventListener("click", e => {
-    if (e.target === e.currentTarget) closeConfirm();
+// ─────────────────────────────────────────────────────────────────────────────
+// APPS
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadApps() {
+    simSetLoading();
+    try {
+        const res = await fetch("/api/pub/simulator", { headers: authHeaders() });
+        if (!res || !res.ok) { simSetStatus("unknown"); return; }
+        const data = await res.json();
+        simSetStatus(data.status);
+    } catch { simSetStatus("unknown"); }
+}
+
+function simSetLoading() {
+    const dot  = document.getElementById("simDot");
+    const txt  = document.getElementById("simStatusText");
+    const sBtn = document.getElementById("simStartBtn");
+    const xBtn = document.getElementById("simStopBtn");
+    dot.className = "app-dot loading";
+    txt.textContent = "…";
+    sBtn.disabled = true;
+    xBtn.disabled = true;
+}
+
+function simSetStatus(status) {
+    const dot  = document.getElementById("simDot");
+    const txt  = document.getElementById("simStatusText");
+    const sBtn = document.getElementById("simStartBtn");
+    const xBtn = document.getElementById("simStopBtn");
+    const labels = { running: "працює", paused: "на паузі", exited: "зупинений",
+                     created: "створений", unknown: "недоступний" };
+    const dotMap = { running: "running", paused: "paused",
+                     exited: "stopped", created: "stopped", unknown: "stopped" };
+    dot.className = `app-dot ${dotMap[status] || "stopped"}`;
+    txt.textContent = labels[status] || status;
+    const canStart = status !== "running";
+    const canStop  = status === "running";
+    sBtn.disabled = !canStart;
+    sBtn.className = canStart ? "btn btn-green" : "btn btn-green btn-na";
+    xBtn.disabled = !canStop;
+    xBtn.className = canStop  ? "btn btn-red"   : "btn btn-red btn-na";
+}
+
+async function simStart() {
+    simSetLoading();
+    try {
+        const res = await fetch("/api/pub/simulator/start",
+            { method: "POST", headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        simSetStatus(data.status || "unknown");
+    } catch { simSetStatus("unknown"); }
+}
+
+async function simStop() {
+    simSetLoading();
+    try {
+        const res = await fetch("/api/pub/simulator/stop",
+            { method: "POST", headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        simSetStatus(data.status || "unknown");
+    } catch { simSetStatus("unknown"); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOST CONTROL (local host via adm API)
+// ─────────────────────────────────────────────────────────────────────────────
+let _hostAction = null;
+function hostReboot() {
+    _hostAction = "reboot";
+    document.getElementById("hostConfirmTitle").textContent = "Перезавантаження вузла";
+    document.getElementById("hostConfirmMsg").textContent =
+        "Перезавантажити хост? Всі контейнери зупиняться і стартують після ребуту.";
+    document.getElementById("hostConfirmOk").className = "btn btn-blue";
+    document.getElementById("hostConfirmOverlay").classList.add("open");
+}
+function hostShutdown() {
+    _hostAction = "shutdown";
+    document.getElementById("hostConfirmTitle").textContent = "Вимкнення вузла";
+    document.getElementById("hostConfirmMsg").textContent =
+        "Вимкнути хост? Система буде повністю знеструмлена до ручного увімкнення.";
+    document.getElementById("hostConfirmOk").className = "btn btn-red";
+    document.getElementById("hostConfirmOverlay").classList.add("open");
+}
+function closeHostConfirm() {
+    document.getElementById("hostConfirmOverlay").classList.remove("open");
+    _hostAction = null;
+}
+document.getElementById("hostConfirmOk").addEventListener("click", async () => {
+    if (!_hostAction) return;
+    closeHostConfirm();
+    await admApi("POST", `/host/${_hostAction}`);
 });
 
-// Enter у формі
+// ─────────────────────────────────────────────────────────────────────────────
+// VУЗЛИ (nodes)  —  config read-only + localStorage custom
+// ─────────────────────────────────────────────────────────────────────────────
+const HOST_SETTINGS_KEY = "infrabox_host_settings";  // { [hostId]: { addr?, reboot?, shutdown? } }
+
+let _cfgHosts      = [];
+let _cfgSubsByHost = {};
+let _localStatus   = null;
+
+function _loadHostSettings() {
+    try { return JSON.parse(localStorage.getItem(HOST_SETTINGS_KEY) || "{}"); }
+    catch { return {}; }
+}
+function _getHostSetting(id, key) {
+    return (_loadHostSettings()[id] || {})[key] || "";
+}
+function _saveHostSetting(id, patch) {
+    const all = _loadHostSettings();
+    all[id] = { ...(all[id] || {}), ...patch };
+    localStorage.setItem(HOST_SETTINGS_KEY, JSON.stringify(all));
+}
+
+async function loadHostsFromConfig() {
+    const res = await admApi("GET", "/config");
+    if (res && res.ok) {
+        const cfg = await res.json();
+        const saved = _loadHostSettings();
+        _cfgHosts = (cfg.hosts || []).map(h => {
+            const over = saved[`cfg_${h.id}`] || {};
+            return {
+                id: `cfg_${h.id}`, cfgId: h.id,
+                name: h.name,
+                addrDefault: h.portainer || `http://${h.addr}:9000`,
+                addr: over.addr || h.portainer || `http://${h.addr}:9000`,
+                addr_raw: h.addr,
+                sshKey: h.ssh_key || "",
+            };
+        });
+        _cfgSubsByHost = {};
+        for (const sub of (cfg.subsystems || [])) {
+            const hid = sub.host;
+            if (!_cfgSubsByHost[hid]) _cfgSubsByHost[hid] = [];
+            _cfgSubsByHost[hid].push(sub.name);
+        }
+    }
+    const sr = await admApi("GET", "/host/status");
+    if (sr && sr.ok) _localStatus = await sr.json();
+    renderHostsTable();
+}
+
+function renderHostsTable() {
+    const tbody = document.getElementById("hostsBody");
+    tbody.innerHTML = "";
+
+    if (!_cfgHosts.length) {
+        tbody.innerHTML = `<tr class="loading-row"><td colspan="5" style="color:#8b949e">Немає хостів у infrabox.json</td></tr>`;
+        return;
+    }
+
+    for (const h of _cfgHosts) {
+        const isLocal = _localStatus && (
+            _localStatus.hostname === h.name ||
+            _localStatus.hostname === h.cfgId ||
+            _localStatus.hostname === h.addr_raw
+        );
+        const uptime   = isLocal ? (_localStatus.uptime || "—") : `<span style="color:#484f58">—</span>`;
+        const subList  = _cfgSubsByHost[h.cfgId] || [];
+        const subsHtml = subList.length
+            ? subList.map(s => `<span class="sub-badge">${_esc(s)}</span>`).join("")
+            : `<span style="color:#484f58">—</span>`;
+        const rebootBtn = isLocal
+            ? `<button class="btn btn-blue" onclick="hostReboot()" title="Перезавантажити">↺</button>`
+            : `<button class="btn btn-blue btn-na" title="Потрібен SSH" disabled>↺</button>`;
+        const shutBtn = isLocal
+            ? `<button class="btn btn-red" onclick="hostShutdown()" title="Вимкнути">⏻</button>`
+            : `<button class="btn btn-red btn-na" title="Потрібен SSH" disabled>⏻</button>`;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td style="color:#e6edf3;font-weight:600">${_esc(h.name)}</td>
+            <td style="font-family:monospace;font-size:12px;color:#8b949e">${uptime}</td>
+            <td>${subsHtml}</td>
+            <td style="font-family:monospace;font-size:12px;color:#8b949e">${_esc(h.addr)}</td>
+            <td>
+                <div class="actions">
+                    <a class="btn btn-blue" href="${_esc(h.addr)}" target="_blank" title="Portainer">🐳</a>
+                    ${rebootBtn}
+                    ${shutBtn}
+                    <button class="btn btn-gray" onclick="openHostSettings('${h.id}')" title="Налаштування">⚙</button>
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+// ── Host settings modal ───────────────────────────────────────────────────────
+let _hostSettingsId = null;
+
+function openHostSettings(id) {
+    const h = _cfgHosts.find(x => x.id === id);
+    if (!h) return;
+    _hostSettingsId = id;
+    document.getElementById("hostSettingsTitle").textContent = `⚙ ${h.name}`;
+    document.getElementById("hostSettingsError").textContent = "";
+    document.getElementById("hsAddr").value     = _getHostSetting(id, "addr") || h.addrDefault;
+    document.getElementById("hsReboot").value   = _getHostSetting(id, "reboot");
+    document.getElementById("hsShutdown").value = _getHostSetting(id, "shutdown");
+    document.getElementById("hostSettingsOverlay").classList.add("open");
+}
+
+function closeHostSettings() {
+    document.getElementById("hostSettingsOverlay").classList.remove("open");
+    _hostSettingsId = null;
+}
+
+function saveHostSettings() {
+    const id       = _hostSettingsId;
+    const addr     = document.getElementById("hsAddr").value.trim();
+    const reboot   = document.getElementById("hsReboot").value.trim();
+    const shutdown = document.getElementById("hsShutdown").value.trim();
+    _saveHostSetting(id, { addr: addr || undefined, reboot, shutdown });
+    // apply addr override to in-memory host
+    const h = _cfgHosts.find(x => x.id === id);
+    if (h) h.addr = addr || h.addrDefault;
+    closeHostSettings();
+    renderHostsTable();
+}
+
+function openSshKeys() {
+    const list = document.getElementById("sshKeysList");
+    list.innerHTML = "";
+    if (!_cfgHosts.length) {
+        list.innerHTML = `<p style="color:#8b949e">Немає хостів у infrabox.json</p>`;
+    } else {
+        for (const h of _cfgHosts) {
+            const block = document.createElement("div");
+            block.className = "ssh-key-block";
+            block.innerHTML = `
+                <label>${_esc(h.name)} <span style="color:#484f58">(${_esc(h.addr_raw || h.cfgId)})</span></label>
+                <div class="key-row">
+                    <textarea id="sshKey_${h.cfgId}" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----">${_esc(h.sshKey || "")}</textarea>
+                    <button class="btn btn-green" onclick="saveSshKey('${h.cfgId}')">Зберегти</button>
+                </div>`;
+            list.appendChild(block);
+        }
+    }
+    document.getElementById("sshKeysOverlay").classList.add("open");
+}
+
+function closeSshKeys() {
+    document.getElementById("sshKeysOverlay").classList.remove("open");
+}
+
+async function saveSshKey(cfgId) {
+    const key = document.getElementById(`sshKey_${cfgId}`)?.value || "";
+    const res = await admApi("PATCH", `/config/hosts/${cfgId}/ssh_key`, { key });
+    if (res && res.ok) {
+        const h = _cfgHosts.find(x => x.cfgId === cfgId);
+        if (h) h.sshKey = key.trim();
+    }
+}
+
+function _esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+let _containers = [];
+
+async function loadSystem() {
+    const res = await admApi("GET", "/containers");
+    if (!res || !res.ok) return;
+    _containers = await res.json();
+    renderSubs();   // оновити підрядки зі статусами
+}
+
+// ── Підсистеми ────────────────────────────────────────────────────────────────
+let _subs = [];
+
+async function loadSubs() {
+    const res = await admApi("GET", "/subsystems");
+    if (!res || !res.ok) {
+        document.getElementById("subsBody").innerHTML =
+            `<tr class="loading-row"><td colspan="4" style="color:#f47067">⚠ Помилка завантаження</td></tr>`;
+        return;
+    }
+    _subs = await res.json();
+    renderSubs();
+}
+
+function renderSubs() {
+    const tbody = document.getElementById("subsBody");
+    tbody.innerHTML = "";
+
+    if (!_subs.length) {
+        tbody.innerHTML = `<tr class="loading-row"><td colspan="4" style="color:#8b949e">Немає підсистем у infrabox.json</td></tr>`;
+        return;
+    }
+
+    for (const s of _subs) {
+        const ctrs    = _containers.filter(c => c.workdir === s.workdir);
+        const total   = ctrs.length  || s.total   || 0;
+        const running = ctrs.filter(c => c.status === "running").length || s.running || 0;
+        const allRun  = total > 0 && running === total;
+        const allStop = running === 0;
+        const statusColor = allRun ? "#56d364" : allStop ? "#f47067" : "#e3b341";
+
+        const canStart = !allRun;
+        const canStop  = running > 0;
+        const canDown  = total > 0;
+
+        const tr = document.createElement("tr");
+        tr.id = `sub-row-${s.id}`;
+        tr.innerHTML = `
+            <td style="font-weight:600;color:#e6edf3">${_esc(s.name)}</td>
+            <td style="font-family:monospace;font-size:11px;color:#8b949e;max-width:240px;
+                       overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                title="${_esc(s.workdir)}">${_esc(s.workdir)}</td>
+            <td>
+                <span style="color:${statusColor};font-weight:600">${running}</span>
+                <span style="color:#8b949e"> / ${total}</span>
+            </td>
+            <td>
+                <div class="actions">
+                    ${_ctBtn(canStart, "btn-green",  "Старт",   `subAction('${s.id}','start')`, "▶")}
+                    ${_ctBtn(canStop,  "btn-gray",   "Стоп",    `subAction('${s.id}','stop')`,  "■")}
+                    ${_ctBtn(true,     "btn-orange", "Rebuild", `subBuild('${s.id}')`,           "⚙")}
+                    ${_ctBtn(canDown,  "btn-red",    "Down",    `subDown('${s.id}')`,            "↓")}
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+
+        for (const c of ctrs) {
+            const sc  = statusClass(c.status);
+            const ctr = document.createElement("tr");
+            ctr.className = "sub-ct-row";
+            ctr.innerHTML = `
+                <td><span class="sub-ct-arrow">└</span>${_esc(c.name)}</td>
+                <td style="color:#8b949e">${_esc(c.image)}</td>
+                <td>
+                    <div class="status-cell">
+                        <span class="ct-status ${sc}"></span>
+                        <span style="color:#8b949e">${c.status}</span>
+                    </div>
+                </td>
+                <td></td>`;
+            tbody.appendChild(ctr);
+        }
+    }
+}
+
+async function subAction(id, action) {
+    const res = await admApi("POST", `/subsystems/${id}/${action}`);
+    if (res && res.ok) {
+        setTimeout(loadSubs, 600);
+    } else if (res) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Помилка: ${err.detail || res.status}`);
+    }
+}
+
+let _buildAbort = null;
+
+async function subBuild(id) {
+    const s = _subs.find(x => x.id === id);
+    const logEl    = document.getElementById("subLog");
+    const titleEl  = document.getElementById("subLogTitle");
+    const statusEl = document.getElementById("subLogStatus");
+    const closeBtn = document.getElementById("subLogCloseBtn");
+
+    titleEl.textContent  = `⚙ Rebuild: ${s?.name || id}`;
+    statusEl.textContent = "виконується…";
+    statusEl.style.color = "#58a6ff";
+    logEl.textContent    = "";
+    closeBtn.disabled    = true;
+    document.getElementById("subLogOverlay").classList.add("open");
+
+    if (_buildAbort) _buildAbort.abort();
+    _buildAbort = new AbortController();
+
+    try {
+        const res = await fetch(`/adm/api/subsystems/${id}/build/stream`, {
+            method:  "POST",
+            headers: { ...authHeaders() },
+            signal:  _buildAbort.signal,
+        });
+
+        if (!res.ok) {
+            const err = await res.text().catch(() => res.status);
+            logEl.textContent = `ПОМИЛКА: ${err}`;
+            statusEl.textContent = "помилка";
+            statusEl.style.color = "#f47067";
+            return;
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let exitCode  = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            // detect [EXIT N] marker
+            const match = chunk.match(/\[EXIT (\d+)\]/);
+            if (match) exitCode = parseInt(match[1]);
+            logEl.textContent += chunk;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        if (exitCode === 0 || exitCode === null) {
+            statusEl.textContent = "готово ✓";
+            statusEl.style.color = "#56d364";
+            setTimeout(loadSubs, 800);
+        } else {
+            statusEl.textContent = `помилка (exit ${exitCode})`;
+            statusEl.style.color = "#f47067";
+        }
+    } catch (e) {
+        if (e.name !== "AbortError") {
+            logEl.textContent += `\n[помилка з'єднання: ${e.message}]`;
+            statusEl.textContent = "помилка";
+            statusEl.style.color = "#f47067";
+        }
+    } finally {
+        closeBtn.disabled = false;
+        _buildAbort = null;
+    }
+}
+
+async function subDown(id) {
+    const s = _subs.find(x => x.id === id);
+    if (!confirm(`Down "${s?.name}"? Контейнери будуть видалені (дані в volumes збережуться).`)) return;
+    document.getElementById("subLogTitle").textContent = `Down: ${s?.name || id}`;
+    document.getElementById("subLog").textContent = "Виконується…";
+    document.getElementById("subLogOverlay").classList.add("open");
+
+    const res = await admApi("POST", `/subsystems/${id}/down`);
+    if (!res) { document.getElementById("subLog").textContent = "Немає відповіді від ADM"; return; }
+    const data = await res.json().catch(() => ({}));
+    document.getElementById("subLog").textContent =
+        res.ok ? (data.out || "(порожній вивід)") : `ПОМИЛКА:\n${data.detail || res.status}`;
+    if (res.ok) setTimeout(loadSubs, 600);
+}
+
+function closeSubLog() {
+    document.getElementById("subLogOverlay").classList.remove("open");
+}
+
+function statusClass(s) {
+    if (s === "running")    return "running";
+    if (s === "exited")     return "exited";
+    if (s === "paused")     return "paused";
+    if (s === "created")    return "created";
+    if (s === "restarting") return "restarting";
+    return "created";
+}
+
+function _ctBtn(avail, cls, title, onclick, label) {
+    if (avail)
+        return `<button class="btn ${cls}" title="${title}" onclick="${onclick}">${label}</button>`;
+    return `<button class="btn btn-na" title="${title} (недоступно)">${label}</button>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Overlay close helpers
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById("editOverlay").addEventListener("click",
+    e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById("confirmOverlay").addEventListener("click",
+    e => { if (e.target === e.currentTarget) closeConfirm(); });
+document.getElementById("hostConfirmOverlay").addEventListener("click",
+    e => { if (e.target === e.currentTarget) closeHostConfirm(); });
+document.getElementById("subLogOverlay").addEventListener("click",
+    e => { if (e.target === e.currentTarget) closeSubLog(); });
+
 document.getElementById("editOverlay").addEventListener("keydown", e => {
     if (e.key === "Enter") saveUser();
     if (e.key === "Escape") closeModal();
 });
-document.getElementById("confirmOverlay").addEventListener("keydown", e => {
-    if (e.key === "Escape") closeConfirm();
-});
+document.getElementById("confirmOverlay").addEventListener("keydown",
+    e => { if (e.key === "Escape") closeConfirm(); });
+document.getElementById("hostConfirmOverlay").addEventListener("keydown",
+    e => { if (e.key === "Escape") closeHostConfirm(); });
+document.getElementById("subLogOverlay").addEventListener("keydown",
+    e => { if (e.key === "Escape") closeSubLog(); });
 
-// ── start ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Start
+// ─────────────────────────────────────────────────────────────────────────────
 loadUsers();
 </script>
 </body>

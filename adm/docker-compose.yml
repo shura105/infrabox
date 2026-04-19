@@ -1,0 +1,22 @@
+services:
+
+  adm:
+    build: ../ui/adm
+    container_name: infrabox-adm
+    restart: unless-stopped
+    pid: "host"
+    networks:
+      - infrabox-net
+    environment:
+      HOSTNAME: infrabox-adm
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /home/shura/infrabox:/home/shura/infrabox:ro
+      - /etc/hostname:/host_hostname:ro
+      - ./data:/app/data
+      - ../infrabox.json:/app/config/infrabox.json
+
+networks:
+  infrabox-net:
+    external: true

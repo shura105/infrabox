@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1776598364467,
+    "name": "Core",
+    "workdir": "/home/shura/infrabox/core"
+  },
+  {
+    "id": 1776598364468,
+    "name": "UI",
+    "workdir": "/home/shura/infrabox/ui"
+  },
+  {
+    "id": 1776598364469,
+    "name": "Arch",
+    "workdir": "/home/shura/infrabox/arch"
+  }
+]

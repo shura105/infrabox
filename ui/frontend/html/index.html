@@ -405,15 +405,6 @@
                         <a class="sdrop-item" href="/dashboard">
                             <span class="sdrop-icon">📊</span> Всі параметри
                         </a>
-                        <label class="toggle-wrap" @click.stop>
-                            <span class="sdrop-icon">🤖</span>
-                            Симулятор
-                            <div class="toggle" style="margin-left:auto">
-                                <input type="checkbox" :checked="simRunning" @change="toggleSimulator()">
-                                <div class="toggle-track"></div>
-                                <div class="toggle-thumb"></div>
-                            </div>
-                        </label>
                     </div>
                 </template>
 
@@ -621,7 +612,7 @@ function app() {
         menuOpen:    false,
         menuPage:    'main',
         userMenuOpen: false,
-        simRunning:  null,
+
         viewScale:   1,
         lastUpdate:  '',
         _ws:         null,
@@ -630,7 +621,7 @@ function app() {
             this._startClock();
             this._connectWS();
             await this._loadProject();
-            this._loadSimStatus();
+
             this.$nextTick(() => this._updateScale());
             window.addEventListener('resize', () => this._updateScale());
             window.addEventListener('beforeunload', () => {
@@ -855,21 +846,6 @@ function app() {
             if (!href) return;
             if (this._ws) { this._ws.onclose = null; this._ws.close(); }
             window.location.assign(href);
-        },
-        async _loadSimStatus() {
-            try {
-                const r = await fetch('/api/pub/simulator');
-                const d = await r.json();
-                this.simRunning = d.status === 'running';
-            } catch {}
-        },
-        async toggleSimulator() {
-            const action = this.simRunning ? 'stop' : 'start';
-            try {
-                const r = await fetch(`/api/pub/simulator/${action}`, { method: 'POST' });
-                const d = await r.json();
-                if (d.ok) this.simRunning = (action === 'start');
-            } catch {}
         },
         iboxDotColor(el)    { return this._qColor(this.ptQuality(el.point_id), '#56d364'); },
         iboxBorderColor(el) {

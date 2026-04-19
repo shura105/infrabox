@@ -1,0 +1,43 @@
+{
+  "screens": [
+    {
+      "id": "root",
+      "title": "Головний екран",
+      "parent": null,
+      "x": 160,
+      "y": 100
+    },
+    {
+      "id": "home",
+      "title": "my_home",
+      "parent": "root",
+      "x": 160,
+      "y": 220
+    }
+  ],
+  "decos": [
+    {
+      "id": "deco_1776449983366",
+      "type": "group",
+      "x": 120,
+      "y": 40,
+      "w": 240,
+      "h": 260,
+      "fill": "rgba(30,40,60,0.5)",
+      "borderColor": "#334",
+      "borderWidth": 2,
+      "radius": 8
+    },
+    {
+      "id": "deco_1776450009964",
+      "type": "label",
+      "x": 160,
+      "y": 41,
+      "w": 160,
+      "h": 32,
+      "text": "Домашня автоматика",
+      "fontSize": 14,
+      "color": "#d6d6d6"
+    }
+  ]
+}
