@@ -41,11 +41,13 @@
         if (payload.display_name) localStorage.setItem(NAME_KEY, payload.display_name);
     } catch { logout(); return; }
 
-    // ── перевірка ролі ────────────────────────────────────────────────────────
+    // ── перевірка ролі (ієрархія: admin > operator) ──────────────────────────
+    const ROLE_RANK = { admin: 99, operator: 10 };
     const _required = window.REQUIRED_ROLE;
-    if (_required && role() !== _required) {
-        window.location.replace("/");
-        return;
+    if (_required) {
+        const userRank = ROLE_RANK[role()] ?? 0;
+        const needRank = ROLE_RANK[_required] ?? 0;
+        if (userRank < needRank) { window.location.replace("/"); return; }
     }
 
     // ── публічне API ──────────────────────────────────────────────────────────
