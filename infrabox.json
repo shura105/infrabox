@@ -9,8 +9,9 @@
       "name": "homeServ2",
       "role": "primary",
       "portainer": "http://homeServ2.local:9000",
-      "ssh_key": "",
-      "addr": "homeServ2.local"
+      "ssh_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACCgVpb9A2t5WdBvG4ECelU6i7SzpQ/M2tpFqZpu3smYdQAAAJC/kmGRv5Jh\nkQAAAAtzc2gtZWQyNTUxOQAAACCgVpb9A2t5WdBvG4ECelU6i7SzpQ/M2tpFqZpu3smYdQ\nAAAEDMoLUMohcP7JmXZkf/FUALojXVJY7n8YmjkEfn8nBLhaBWlv0Da3lZ0G8bgQJ6VTqL\ntLOlD8za2kWpmm7eyZh1AAAADGluZnJhYm94LWFkbQE=\n-----END OPENSSH PRIVATE KEY-----",
+      "addr": "homeServ2.local",
+      "user": "shura"
     }
   ],
   "subsystems": [

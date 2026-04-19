@@ -3,11 +3,12 @@ services:
   redis:
     image: redis:7
     container_name: infrabox-redis
-    command: >
-      redis-server --save "" --appendonly no --logfile ""
+    command: redis-server --appendonly yes --appendfsync everysec --logfile ""
     restart: unless-stopped
     networks:
       - infrabox-net
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -124,6 +125,9 @@ services:
       - ./service/config/points.json:/app/config/points.json:ro
       - ../log:/app/log
 
+
+volumes:
+  redis-data:
 
 networks:
   infrabox-net:

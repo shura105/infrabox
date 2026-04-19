@@ -614,11 +614,25 @@
 
 <!-- ── SSH keys modal ── -->
 <div class="overlay" id="sshKeysOverlay">
-    <div class="modal" style="width:540px">
+    <div class="modal" style="width:580px">
         <h2>🔑 SSH ключі</h2>
-        <p style="color:#8b949e;font-size:12px;margin:0 0 16px">
-            Приватний ключ для SSH-доступу до кожного вузла. Зберігається в infrabox.json.
-        </p>
+
+        <details style="margin-bottom:16px">
+            <summary style="color:#58a6ff;font-size:12px;cursor:pointer;user-select:none">
+                📋 Як згенерувати ключ на хості
+            </summary>
+            <pre style="margin-top:10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;
+                        padding:10px 12px;font-size:11px;color:#8b949e;white-space:pre;overflow-x:auto;line-height:1.6"># 1. Підключитись до хосту і згенерувати ключ:
+ssh-keygen -t ed25519 -f ~/.ssh/infrabox_id -C "infrabox-adm" -N ""
+
+# 2. Дозволити вхід за цим ключем:
+cat ~/.ssh/infrabox_id.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+
+# 3. Вивести приватний ключ (вставити в поле нижче):
+cat ~/.ssh/infrabox_id</pre>
+        </details>
+
         <div id="sshKeysList"></div>
         <div class="modal-footer">
             <button class="btn btn-gray" onclick="closeSshKeys()">Закрити</button>
@@ -669,12 +683,14 @@ async function api(method, path, body) {
     return res;
 }
 
-async function admApi(method, path) {
+async function admApi(method, path, body) {
     try {
-        const res = await fetch(`/adm/api${path}`, {
+        const opts = {
             method,
-            headers: authHeaders(),
-        });
+            headers: { ...authHeaders(), ...(body ? { "Content-Type": "application/json" } : {}) },
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(`/adm/api${path}`, opts);
         if (res.status === 401) { authLogout(); return null; }
         return res;
     } catch (e) {
@@ -878,34 +894,66 @@ async function simStop() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HOST CONTROL (local host via adm API)
+// Generic styled confirm (reuses hostConfirmOverlay)
 // ─────────────────────────────────────────────────────────────────────────────
-let _hostAction = null;
-function hostReboot() {
-    _hostAction = "reboot";
-    document.getElementById("hostConfirmTitle").textContent = "Перезавантаження вузла";
-    document.getElementById("hostConfirmMsg").textContent =
-        "Перезавантажити хост? Всі контейнери зупиняться і стартують після ребуту.";
-    document.getElementById("hostConfirmOk").className = "btn btn-blue";
+let _confirmOkCb = null;
+
+function _openConfirm(title, msg, btnClass, cb) {
+    _confirmOkCb = cb;
+    document.getElementById("hostConfirmTitle").textContent = title;
+    document.getElementById("hostConfirmMsg").textContent   = msg;
+    document.getElementById("hostConfirmOk").className      = `btn ${btnClass}`;
     document.getElementById("hostConfirmOverlay").classList.add("open");
 }
-function hostShutdown() {
-    _hostAction = "shutdown";
-    document.getElementById("hostConfirmTitle").textContent = "Вимкнення вузла";
-    document.getElementById("hostConfirmMsg").textContent =
-        "Вимкнути хост? Система буде повністю знеструмлена до ручного увімкнення.";
-    document.getElementById("hostConfirmOk").className = "btn btn-red";
-    document.getElementById("hostConfirmOverlay").classList.add("open");
-}
+
 function closeHostConfirm() {
     document.getElementById("hostConfirmOverlay").classList.remove("open");
-    _hostAction = null;
+    _confirmOkCb = null;
 }
-document.getElementById("hostConfirmOk").addEventListener("click", async () => {
-    if (!_hostAction) return;
+
+document.getElementById("hostConfirmOk").addEventListener("click", () => {
+    const cb = _confirmOkCb;
     closeHostConfirm();
-    await admApi("POST", `/host/${_hostAction}`);
+    if (cb) cb();
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOST CONTROL
+// ─────────────────────────────────────────────────────────────────────────────
+function hostReboot() {
+    _openConfirm(
+        "Перезавантаження вузла",
+        "Перезавантажити хост? Всі контейнери зупиняться і стартують після ребуту.",
+        "btn-blue",
+        () => _execHostPower("reboot"),
+    );
+}
+function hostShutdown() {
+    _openConfirm(
+        "Вимкнення вузла",
+        "Вимкнути хост? Система буде повністю знеструмлена до ручного увімкнення.",
+        "btn-red",
+        () => _execHostPower("shutdown"),
+    );
+}
+
+async function _execHostPower(action) {
+    const labels = { reboot: "Перезавантаження", shutdown: "Вимкнення" };
+    _openSubLog(`⚡ ${labels[action] || action}`, false);
+    const res  = await admApi("POST", `/host/${action}`);
+    const data = res ? await res.json().catch(() => ({})) : null;
+    if (res && res.ok) {
+        _subLogDone(
+            "команду прийнято", "#56d364",
+            action === "reboot"
+                ? "Хост отримав команду перезавантаження.\nСистема зупинить контейнери і перезапуститься."
+                : "Хост отримав команду вимкнення.\nСистема зупинить контейнери і вимкнеться.",
+        );
+    } else {
+        _subLogDone("помилка", "#f47067",
+            `ПОМИЛКА: ${data?.detail || (res?.status ?? "немає відповіді")}`);
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VУЗЛИ (nodes)  —  config read-only + localStorage custom
@@ -943,6 +991,7 @@ async function loadHostsFromConfig() {
                 addr: over.addr || h.portainer || `http://${h.addr}:9000`,
                 addr_raw: h.addr,
                 sshKey: h.ssh_key || "",
+                sshUser: h.user || "",
             };
         });
         _cfgSubsByHost = {};
@@ -1045,11 +1094,24 @@ function openSshKeys() {
             const block = document.createElement("div");
             block.className = "ssh-key-block";
             block.innerHTML = `
-                <label>${_esc(h.name)} <span style="color:#484f58">(${_esc(h.addr_raw || h.cfgId)})</span></label>
-                <div class="key-row">
-                    <textarea id="sshKey_${h.cfgId}" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----">${_esc(h.sshKey || "")}</textarea>
-                    <button class="btn btn-green" onclick="saveSshKey('${h.cfgId}')">Зберегти</button>
-                </div>`;
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px">
+                    <label style="font-size:13px;font-weight:600;color:#e6edf3;margin:0">
+                        ${_esc(h.name)}
+                        <span style="color:#484f58;font-weight:400;font-size:11px">(${_esc(h.addr_raw || h.cfgId)})</span>
+                    </label>
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                        <input id="sshUser_${h.cfgId}" type="text"
+                               value="${_esc(h.sshUser || '')}" placeholder="user"
+                               style="width:90px;padding:4px 7px;background:#0d1117;border:1px solid #30363d;
+                                      border-radius:6px;color:#c9d1d9;font-size:12px;outline:none">
+                        <button class="btn btn-blue"  onclick="testSshKey('${h.cfgId}')">Перевірити</button>
+                        <button class="btn btn-green" onclick="saveSshKey('${h.cfgId}')">Зберегти</button>
+                    </div>
+                </div>
+                <div id="sshTestResult_${h.cfgId}" style="font-size:11px;min-height:16px;margin-bottom:4px"></div>
+                <textarea id="sshKey_${h.cfgId}"
+                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+                          style="width:100%;min-height:80px">${_esc(h.sshKey || "")}</textarea>`;
             list.appendChild(block);
         }
     }
@@ -1060,12 +1122,33 @@ function closeSshKeys() {
     document.getElementById("sshKeysOverlay").classList.remove("open");
 }
 
+async function testSshKey(cfgId) {
+    const key     = document.getElementById(`sshKey_${cfgId}`)?.value || "";
+    const user    = document.getElementById(`sshUser_${cfgId}`)?.value || "";
+    const resultEl = document.getElementById(`sshTestResult_${cfgId}`);
+    resultEl.textContent = "перевірка…";
+    resultEl.style.color = "#8b949e";
+    const res = await admApi("POST", `/config/hosts/${cfgId}/ssh_test`, { key, user });
+    if (!res) { resultEl.textContent = "✗ немає відповіді"; resultEl.style.color = "#f47067"; return; }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+        resultEl.textContent = `✓ з'єднання успішне (${data.msg || ""})`;
+        resultEl.style.color = "#56d364";
+    } else {
+        resultEl.textContent = `✗ ${data.detail || res.status}`;
+        resultEl.style.color = "#f47067";
+    }
+}
+
 async function saveSshKey(cfgId) {
-    const key = document.getElementById(`sshKey_${cfgId}`)?.value || "";
-    const res = await admApi("PATCH", `/config/hosts/${cfgId}/ssh_key`, { key });
+    const key  = document.getElementById(`sshKey_${cfgId}`)?.value || "";
+    const user = document.getElementById(`sshUser_${cfgId}`)?.value || "";
+    const res  = await admApi("PATCH", `/config/hosts/${cfgId}/ssh_key`, { key, user });
     if (res && res.ok) {
         const h = _cfgHosts.find(x => x.cfgId === cfgId);
-        if (h) h.sshKey = key.trim();
+        if (h) { h.sshKey = key.trim(); h.sshUser = user.trim(); }
+        const resultEl = document.getElementById(`sshTestResult_${cfgId}`);
+        if (resultEl) { resultEl.textContent = "збережено"; resultEl.style.color = "#56d364"; }
     }
 }
 
@@ -1116,7 +1199,7 @@ function renderSubs() {
         const allStop = running === 0;
         const statusColor = allRun ? "#56d364" : allStop ? "#f47067" : "#e3b341";
 
-        const canStart = !allRun;
+        const canStart = !allRun && total > 0;
         const canStop  = running > 0;
         const canDown  = total > 0;
 
@@ -1160,13 +1243,40 @@ function renderSubs() {
     }
 }
 
+// ── subLog helpers ────────────────────────────────────────────────────────────
+function _openSubLog(title, allowClose = true) {
+    document.getElementById("subLogTitle").textContent  = title;
+    document.getElementById("subLogStatus").textContent = "виконується…";
+    document.getElementById("subLogStatus").style.color = "#58a6ff";
+    document.getElementById("subLog").textContent       = "";
+    const btn = document.getElementById("subLogCloseBtn");
+    btn.textContent = allowClose ? "Закрити" : "⏹ Скасувати";
+    btn.disabled    = false;
+    document.getElementById("subLogOverlay").classList.add("open");
+}
+
+function _subLogDone(statusText, color, logText) {
+    document.getElementById("subLogStatus").textContent = statusText;
+    document.getElementById("subLogStatus").style.color = color;
+    if (logText !== undefined) document.getElementById("subLog").textContent = logText;
+    const btn = document.getElementById("subLogCloseBtn");
+    btn.textContent = "Закрити";
+    btn.disabled    = false;
+}
+
 async function subAction(id, action) {
-    const res = await admApi("POST", `/subsystems/${id}/${action}`);
+    const s      = _subs.find(x => x.id === id);
+    const labels = { start: "▶ Старт", stop: "■ Стоп" };
+    _openSubLog(`${labels[action] || action}: ${s?.name || id}`);
+
+    const res  = await admApi("POST", `/subsystems/${id}/${action}`);
+    const data = res ? await res.json().catch(() => ({})) : null;
     if (res && res.ok) {
-        setTimeout(loadSubs, 600);
-    } else if (res) {
-        const err = await res.json().catch(() => ({}));
-        alert(`Помилка: ${err.detail || res.status}`);
+        _subLogDone("готово ✓", "#56d364", data?.out || "");
+        setTimeout(() => { loadSubs(); loadSystem(); }, 600);
+    } else {
+        _subLogDone("помилка", "#f47067",
+            `ПОМИЛКА: ${data?.detail || (res?.status ?? "немає відповіді")}`);
     }
 }
 
@@ -1179,12 +1289,7 @@ async function subBuild(id) {
     const statusEl = document.getElementById("subLogStatus");
     const closeBtn = document.getElementById("subLogCloseBtn");
 
-    titleEl.textContent  = `⚙ Rebuild: ${s?.name || id}`;
-    statusEl.textContent = "виконується…";
-    statusEl.style.color = "#58a6ff";
-    logEl.textContent    = "";
-    closeBtn.disabled    = true;
-    document.getElementById("subLogOverlay").classList.add("open");
+    _openSubLog(`⚙ Rebuild: ${s?.name || id}`, false);
 
     if (_buildAbort) _buildAbort.abort();
     _buildAbort = new AbortController();
@@ -1220,42 +1325,47 @@ async function subBuild(id) {
         }
 
         if (exitCode === 0 || exitCode === null) {
-            statusEl.textContent = "готово ✓";
-            statusEl.style.color = "#56d364";
-            setTimeout(loadSubs, 800);
+            _subLogDone("готово ✓", "#56d364");
+            setTimeout(() => { loadSubs(); loadSystem(); }, 800);
         } else {
-            statusEl.textContent = `помилка (exit ${exitCode})`;
-            statusEl.style.color = "#f47067";
+            _subLogDone(`помилка (exit ${exitCode})`, "#f47067");
         }
     } catch (e) {
         if (e.name !== "AbortError") {
             logEl.textContent += `\n[помилка з'єднання: ${e.message}]`;
-            statusEl.textContent = "помилка";
-            statusEl.style.color = "#f47067";
+            _subLogDone("помилка", "#f47067");
         }
     } finally {
-        closeBtn.disabled = false;
         _buildAbort = null;
     }
 }
 
 async function subDown(id) {
     const s = _subs.find(x => x.id === id);
-    if (!confirm(`Down "${s?.name}"? Контейнери будуть видалені (дані в volumes збережуться).`)) return;
-    document.getElementById("subLogTitle").textContent = `Down: ${s?.name || id}`;
-    document.getElementById("subLog").textContent = "Виконується…";
-    document.getElementById("subLogOverlay").classList.add("open");
-
-    const res = await admApi("POST", `/subsystems/${id}/down`);
-    if (!res) { document.getElementById("subLog").textContent = "Немає відповіді від ADM"; return; }
-    const data = await res.json().catch(() => ({}));
-    document.getElementById("subLog").textContent =
-        res.ok ? (data.out || "(порожній вивід)") : `ПОМИЛКА:\n${data.detail || res.status}`;
-    if (res.ok) setTimeout(loadSubs, 600);
+    _openConfirm(
+        `Down: ${s?.name || id}`,
+        `Зупинити і видалити контейнери підсистеми «${s?.name}»? Дані у volumes збережуться.`,
+        "btn-red",
+        async () => {
+            _openSubLog(`↓ Down: ${s?.name || id}`);
+            const res  = await admApi("POST", `/subsystems/${id}/down`);
+            const data = res ? await res.json().catch(() => ({})) : null;
+            if (res && res.ok) {
+                _subLogDone("готово ✓", "#56d364", data?.out || "(порожній вивід)");
+                setTimeout(() => { loadSubs(); loadSystem(); }, 600);
+            } else {
+                _subLogDone("помилка", "#f47067",
+                    `ПОМИЛКА:\n${data?.detail || (res?.status ?? "немає відповіді")}`);
+            }
+        },
+    );
 }
 
 function closeSubLog() {
+    if (_buildAbort) { _buildAbort.abort(); _buildAbort = null; }
     document.getElementById("subLogOverlay").classList.remove("open");
+    loadSubs();
+    loadSystem();
 }
 
 function statusClass(s) {

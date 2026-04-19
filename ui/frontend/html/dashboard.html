@@ -1,78 +1,249 @@
 <!DOCTYPE html>
-<html>
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Infrabox</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Dashboard</title>
+    <script>window.REQUIRED_ROLE = "operator";</script>
+    <script src="/auth.js"></script>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: system-ui, sans-serif;
+            font-size: 14px;
         }
 
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        header .logo { font-size: 16px; font-weight: 600; color: #58a6ff; }
+        header .user { color: #8b949e; font-size: 13px; }
+        header button {
+            background: none;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        header button:hover { border-color: #58a6ff; color: #58a6ff; }
+
+        main { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        h1 { font-size: 18px; color: #e6edf3; }
+
+        .filter-input {
+            padding: 5px 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+            width: 220px;
+        }
+        .filter-input:focus { border-color: #58a6ff; }
+
+        table { width: 100%; border-collapse: collapse; }
         th, td {
-            padding: 6px;
-            border: 1px solid #444;
-        }
-
-        /* 🔥 ФІКСОВАНА ШИРИНА VALUE */
-        td.value {
-            width: 10ch;              /* ≈ 10 символів */
-            font-family: monospace;   /* однакова ширина символів */
-            text-align: right;        /* як у приладах */
-        }
-
-        /* юніти компактно */
-        td.unit {
-            width: 5ch;
+            padding: 10px 12px;
             text-align: left;
+            border-bottom: 1px solid #21262d;
         }
+        th {
+            color: #8b949e;
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        tr:hover td { background: #161b22; }
+
+        .value-cell {
+            font-family: monospace;
+            font-size: 14px;
+            text-align: right;
+            color: #e6edf3;
+            white-space: nowrap;
+        }
+        .unit-cell  { color: #8b949e; font-size: 12px; white-space: nowrap; }
+        .obj-cell   { color: #8b949e; font-size: 12px; font-family: monospace; }
+        .sys-cell   { color: #484f58; font-size: 11px; }
+        .name-cell  { color: #c9d1d9; }
+
+        .q-cell { display: flex; align-items: center; gap: 6px; }
+
+        .q-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .q-good  { background: #56d364; box-shadow: 0 0 4px #56d364; }
+        .q-warn  { background: #e3b341; }
+        .q-alarm { background: #f47067; box-shadow: 0 0 6px #f47067; animation: pulse .9s infinite; }
+        .q-bad   { background: #484f58; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+        .badge {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-good  { background: #1a3a1a; color: #56d364; }
+        .badge-warn  { background: #3a2a00; color: #e3b341; }
+        .badge-alarm { background: #3d1c1c; color: #f47067; }
+        .badge-bad   { background: #21262d; color: #8b949e; }
+
+        .conn-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .conn-ok  { background: #1a3a1a; color: #56d364; }
+        .conn-err { background: #3d1c1c; color: #f47067; }
+
+        .last-update { font-size: 12px; color: #484f58; }
+
+        .loading-row td { text-align: center; color: #8b949e; padding: 30px; }
     </style>
 </head>
 <body>
-<!-- прибрати
-<h2>Схема</h2>
-<div id="scheme"></div> -->
 
-<h2>Всі точки</h2>
-<table id="pointsTable" border="1" cellspacing="0" cellpadding="5">
-    <thead>
-        <tr>
-            <th>Object</th>
-            <th>System</th>
-            <th>Name</th>
-            <th style="width:120px">Value</th>
-            <th>Unit</th>
-            <th>Quality</th>
-        </tr>
-    </thead>
-    <tbody id="pointsBody"></tbody>
-</table>
+<header>
+    <div class="logo">⚙ Infrabox</div>
+    <div style="display:flex;align-items:center;gap:16px">
+        <span id="connStatus" class="conn-badge conn-err">…</span>
+        <span class="user" id="headerUser"></span>
+        <button onclick="window.location.href='/'">← Головна</button>
+        <button onclick="authLogout()">Вийти</button>
+    </div>
+</header>
 
-<style>
-    #pointsTable td {
-        font-size: 24px;
-        padding: 8px;
-    }
+<main>
+    <div class="toolbar">
+        <h1>Всі точки</h1>
+        <div style="display:flex;align-items:center;gap:12px">
+            <input class="filter-input" id="filterInput" placeholder="Пошук…" oninput="renderTable()">
+            <span class="last-update" id="lastUpdate">—</span>
+        </div>
+    </div>
 
-    #pointsTable td:nth-child(4) {
-        text-align: right;
-        font-family: monospace;
-    }
-</style>
+    <table>
+        <thead>
+            <tr>
+                <th>Об'єкт / Система</th>
+                <th>Точка</th>
+                <th style="text-align:right">Значення</th>
+                <th>Одиниця</th>
+                <th>Стан</th>
+            </tr>
+        </thead>
+        <tbody id="pointsBody">
+            <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
+        </tbody>
+    </table>
+</main>
 
-<script>window.REQUIRED_ROLE = "admin";</script>
-<script src="/auth.js"></script>
-<script src="app.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const btn = document.createElement("button");
-        btn.textContent = "Вийти";
-        btn.style.cssText = "position:fixed;top:10px;right:10px;padding:6px 14px;background:#21262d;border:1px solid #444;border-radius:6px;color:#c9d1d9;cursor:pointer;font-size:13px;";
-        btn.onclick = () => authLogout();
-        document.body.appendChild(btn);
-    });
-</script>
+document.getElementById("headerUser").textContent =
+    authUser().display_name || authUser().role;
 
+let _points = [];
+
+const Q_MAP = {
+    GOOD:  { dot: "q-good",  badge: "badge-good",  label: "GOOD"  },
+    WARN:  { dot: "q-warn",  badge: "badge-warn",  label: "WARN"  },
+    ALARM: { dot: "q-alarm", badge: "badge-alarm", label: "ALARM" },
+};
+function qInfo(q) {
+    return Q_MAP[q] || { dot: "q-bad", badge: "badge-bad", label: q || "—" };
+}
+
+function esc(s) {
+    return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function renderTable() {
+    const filter = document.getElementById("filterInput").value.toLowerCase();
+    const tbody  = document.getElementById("pointsBody");
+    const rows   = filter
+        ? _points.filter(p =>
+            `${p.object} ${p.system} ${p.pointname} ${p.value} ${p.unit}`
+                .toLowerCase().includes(filter))
+        : _points;
+
+    if (!rows.length) {
+        tbody.innerHTML =
+            `<tr class="loading-row"><td colspan="5" style="color:#8b949e">Немає даних</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(p => {
+        const q = qInfo(p.quality);
+        return `<tr>
+            <td>
+                <span class="obj-cell">${esc(p.object)}</span>
+                <span class="sys-cell"> / ${esc(p.system)}</span>
+            </td>
+            <td class="name-cell">${esc(p.pointname)}</td>
+            <td class="value-cell">${esc(p.value)}</td>
+            <td class="unit-cell">${esc(p.unit)}</td>
+            <td>
+                <div class="q-cell">
+                    <span class="q-dot ${q.dot}"></span>
+                    <span class="badge ${q.badge}">${q.label}</span>
+                </div>
+            </td>
+        </tr>`;
+    }).join("");
+}
+
+function setConn(ok) {
+    const el = document.getElementById("connStatus");
+    el.textContent = ok ? "online" : "offline";
+    el.className   = `conn-badge ${ok ? "conn-ok" : "conn-err"}`;
+}
+
+async function loadPoints() {
+    try {
+        const res = await fetch("/api/points", { headers: authHeaders() });
+        if (!res.ok) { setConn(false); return; }
+        const data = await res.json();
+        _points    = data.points || [];
+        setConn(true);
+        renderTable();
+        document.getElementById("lastUpdate").textContent =
+            "оновлено " + new Date().toLocaleTimeString("uk-UA");
+    } catch {
+        setConn(false);
+    }
+}
+
+loadPoints();
+setInterval(loadPoints, 2000);
+</script>
 </body>
 </html>
