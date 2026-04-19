@@ -32,6 +32,8 @@
         /* ── left panel (elements mode) ── */
         .palette{width:154px;flex-shrink:0;background:#161b22;border-right:1px solid #30363d;padding:10px 8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto}
         .pal-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;padding:0 2px}
+        .pal-group{display:flex;flex-direction:column;gap:4px}
+        .pal-group+.pal-group{margin-top:8px}
         .pal-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#1c2128;border:1px solid #30363d;border-radius:6px;cursor:grab;user-select:none;transition:background .12s,border-color .12s}
         .pal-item:hover{background:#21262d;border-color:#58a6ff;color:#58a6ff}
         .pal-item:active{cursor:grabbing;opacity:.7}
@@ -365,11 +367,15 @@
 
             <!-- palette -->
             <div class="palette">
-                <div class="pal-title">Елементи</div>
-                <template x-for="item in palette" :key="item.type">
-                    <div class="pal-item" draggable="true" @dragstart="palDrag($event,item.type)">
-                        <span class="pal-icon" x-text="item.icon"></span>
-                        <span x-text="item.label"></span>
+                <template x-for="group in paletteGroups" :key="group.group">
+                    <div class="pal-group">
+                        <div class="pal-title" x-text="group.group"></div>
+                        <template x-for="item in group.items" :key="item.type">
+                            <div class="pal-item" draggable="true" @dragstart="palDrag($event,item.type)">
+                                <span class="pal-icon" x-text="item.icon"></span>
+                                <span x-text="item.label"></span>
+                            </div>
+                        </template>
                     </div>
                 </template>
             </div>
@@ -806,17 +812,32 @@ function app() {
         _rdrag: null,  // resize: { deco, handle, startX, startY, startW, startH }
         _groupChildren: [],  // nodes+decos inside dragged group
 
-        palette: [
-            { type:"label",        icon:"T",  label:"Мітка" },
-            { type:"value",        icon:"⌗",  label:"Значення" },
-            { type:"nav_btn",      icon:"→",  label:"Навігація" },
-            { type:"indicator",    icon:"●",  label:"Індикатор" },
-            { type:"rect",         icon:"▭",  label:"Прямокутник" },
-            { type:"ibox_screen",  icon:"⬡",  label:"Підсистема" },
-            { type:"ibox_link",    icon:"⇗",  label:"Веб-лінк" },
-            { type:"level_v",      icon:"⥮",  label:"Рівень ↕" },
-            { type:"level_h",      icon:"⥬",  label:"Рівень ↔" },
-            { type:"gauge",        icon:"⟳",  label:"Прилад" },
+        paletteGroups: [
+            {
+                group: "Вузли системи",
+                items: [
+                    { type:"ibox_screen", icon:"⬡", label:"Підсистема" },
+                    { type:"ibox_link",   icon:"⇗", label:"Веб-лінк" },
+                ]
+            },
+            {
+                group: "Малювання",
+                items: [
+                    { type:"rect",    icon:"▭", label:"Прямокутник" },
+                    { type:"label",   icon:"T", label:"Мітка" },
+                    { type:"nav_btn", icon:"→", label:"Навігація" },
+                ]
+            },
+            {
+                group: "Активні елементи",
+                items: [
+                    { type:"value",     icon:"⌗", label:"Значення" },
+                    { type:"indicator", icon:"●", label:"Індикатор" },
+                    { type:"level_v",   icon:"⥮", label:"Рівень ↕" },
+                    { type:"level_h",   icon:"⥬", label:"Рівень ↔" },
+                    { type:"gauge",     icon:"⟳", label:"Прилад" },
+                ]
+            },
         ],
 
         defaults: {
