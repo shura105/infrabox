@@ -402,10 +402,11 @@
                                                       border-radius:${el.radius}px;
                                                       opacity:${el.opacity??0.75}`"></div>
                                         <!-- текст поверх, повна непрозорість -->
-                                        <div :style="`position:absolute;top:5px;left:${el.borderWidth+6}px;
+                                        <div :style="`position:absolute;top:5px;
+                                                      left:${el.borderWidth+6}px;right:${el.borderWidth+6}px;
                                                       font-size:${el.fontSize||12}px;color:${el.color||'#8b949e'};
                                                       font-weight:500;white-space:nowrap;overflow:hidden;
-                                                      text-overflow:ellipsis;max-width:calc(100% - 16px)`"
+                                                      text-overflow:ellipsis;text-align:${el.textAlign||'left'}`"
                                              x-text="el.title||'Група'"></div>
                                     </div>
                                 </template>
@@ -622,6 +623,13 @@
                             <div>
                                 <div class="pr"><label>Назва групи</label><input type="text" x-model="selEl.title"></div>
                                 <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="32"></div>
+                                <div class="pr"><label>Вирівнювання</label>
+                                    <select x-model="selEl.textAlign">
+                                        <option value="left">Ліво</option>
+                                        <option value="center">Центр</option>
+                                        <option value="right">Право</option>
+                                    </select>
+                                </div>
                                 <div class="pr"><label>Колір підпису</label><input type="color" x-model="selEl.color"></div>
                                 <div class="pr-sep"></div>
                                 <div class="pr"><label>Заливка</label><input type="color" x-model="selEl.fill"></div>
@@ -994,7 +1002,7 @@ function app() {
                            colorWarn:"#f0ad4e",   borderColorWarn:"#c47d00",
                            colorAlarm:"#f47067",  borderColorAlarm:"#b03030",
                            colorUncert:"#8b949e", borderColorUncert:"#555e68" },
-            group_box:   { w:320, h:220, fill:"#1c2536", borderColor:"#3d5a8a", borderWidth:2, radius:8, opacity:0.75, title:"Група", fontSize:12, color:"#8b949e" },
+            group_box:   { w:320, h:220, fill:"#1c2536", borderColor:"#3d5a8a", borderWidth:2, radius:8, opacity:0.75, title:"Група", fontSize:12, color:"#8b949e", textAlign:"left" },
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
