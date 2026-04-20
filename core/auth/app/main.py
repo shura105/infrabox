@@ -1,8 +1,10 @@
+import json
+
 import jwt
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models import LoginRequest, TokenResponse, UserCreate, UserUpdate, UserPublic
+from app.models import LoginRequest, TokenResponse, UserCreate, UserUpdate, UserPublic, PermissionsUpdate
 from app.security import hash_password, verify_password, create_token, decode_token, VALID_ROLES
 from app.redis_client import redis_client
 
@@ -11,6 +13,13 @@ bearer = HTTPBearer()
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
+def _parse_perms(raw: str) -> dict:
+    try:
+        return json.loads(raw) if raw else {}
+    except Exception:
+        return {}
+
 
 async def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
@@ -55,14 +64,14 @@ async def health():
 async def login(req: LoginRequest):
     user = await redis_client.get_user(req.username)
 
-    # same error message regardless of what's wrong — no info leak
     if not user or user.get("active") != "1":
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not verify_password(req.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_token(req.username, user["role"], user["display_name"])
+    perms = _parse_perms(user.get("permissions", ""))
+    token = create_token(req.username, user["role"], user["display_name"], perms)
     return TokenResponse(
         access_token=token,
         role=user["role"],
@@ -72,10 +81,14 @@ async def login(req: LoginRequest):
 
 @app.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
+    # always fetch fresh permissions from Redis (take effect without re-login on backend)
+    db_user = await redis_client.get_user(user["sub"])
+    perms = _parse_perms(db_user.get("permissions", "")) if db_user else {}
     return {
         "username":     user["sub"],
         "role":         user["role"],
         "display_name": user["display_name"],
+        "permissions":  perms,
     }
 
 
@@ -90,6 +103,7 @@ async def list_users(_: dict = Depends(require_admin)):
             role=u["role"],
             display_name=u["display_name"],
             active=u.get("active", "1"),
+            permissions=_parse_perms(u.get("permissions", "")) or None,
         )
         for u in users
     ]
@@ -134,6 +148,25 @@ async def update_user(
 
     if updates:
         await redis_client.set_user(username, updates)
+    return {"ok": True}
+
+
+@app.patch("/auth/users/{username}/permissions")
+async def set_permissions(
+    username: str,
+    req: PermissionsUpdate,
+    _: dict = Depends(require_admin),
+):
+    if not await redis_client.get_user(username):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    perms: dict = {}
+    if req.pages is not None:
+        perms["pages"] = req.pages
+    if req.objects is not None:
+        perms["objects"] = req.objects
+
+    await redis_client.set_user(username, {"permissions": json.dumps(perms)})
     return {"ok": True}
 
 

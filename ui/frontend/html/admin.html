@@ -400,6 +400,7 @@
 <!-- ── Tab bar ── -->
 <div class="tabs">
     <button class="tab-btn active" id="tab-users-btn"  onclick="switchTab('users')">Користувачі</button>
+    <button class="tab-btn"        id="tab-perms-btn"  onclick="switchTab('perms')">Права доступу</button>
     <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
     <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
 </div>
@@ -515,7 +516,58 @@
         </div>
     </div>
 
+
+    <!-- ══════════════════════════════ PERMS TAB ════════════════════════════════ -->
+    <div class="tab-panel" id="tab-perms">
+        <h1>Права доступу</h1>
+        <p style="color:#8b949e;font-size:13px;margin:8px 0 20px">
+            Адміністратори мають повний доступ. Для інших ролей можна обмежити сторінки та об'єкти.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Користувач</th>
+                    <th>Роль</th>
+                    <th>Сторінки</th>
+                    <th>Об'єкти</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="permsBody">
+                <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
 </main>
+
+<!-- ══════════════════════════ PERMS MODAL ════════════════════════════════ -->
+<div class="overlay" id="permsOverlay">
+    <div class="modal" style="min-width:420px;max-width:520px">
+        <h2 id="permsModalTitle" style="font-size:15px;color:#e6edf3;margin-bottom:18px"></h2>
+
+        <div style="margin-bottom:18px">
+            <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Сторінки</div>
+            <div id="permsPages" style="display:flex;flex-direction:column;gap:7px"></div>
+        </div>
+
+        <div style="margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Об'єкти</div>
+                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;cursor:pointer">
+                    <input type="checkbox" id="permsAllObjects" onchange="toggleAllObjects(this.checked)">
+                    Всі об'єкти
+                </label>
+            </div>
+            <div id="permsObjects" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-gray" onclick="closePermsModal()">Скасувати</button>
+            <button class="btn btn-green" onclick="savePerms()">Зберегти</button>
+        </div>
+    </div>
+</div>
 
 <!-- ── Create / Edit user modal ── -->
 <div class="overlay" id="editOverlay">
@@ -669,6 +721,7 @@ function switchTab(name) {
     document.getElementById(`tab-${name}-btn`).classList.add("active");
     if (name === "system") { loadHostsFromConfig(); loadSystem(); loadSubs(); }
     if (name === "apps")   loadApps();
+    if (name === "perms")  { loadUsers().then(loadPerms); }
 }
 
 function switchSub(name) {
@@ -1439,6 +1492,124 @@ document.getElementById("hostConfirmOverlay").addEventListener("keydown",
     e => { if (e.key === "Escape") closeHostConfirm(); });
 document.getElementById("subLogOverlay").addEventListener("keydown",
     e => { if (e.key === "Escape") closeSubLog(); });
+document.addEventListener("keydown",
+    e => { if (e.key === "Escape") closePermsModal(); });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Permissions tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PERM_PAGES = [
+    { slug: "dashboard", label: "Dashboard" },
+];
+
+let _permsUser     = null;   // username being edited
+let _permsObjects  = [];     // all available objects from API
+
+async function loadPerms() {
+    const [usersRes, objRes] = await Promise.all([
+        api("GET", "/auth/users"),
+        api("GET", "/api/objects"),
+    ]);
+    if (!usersRes || !usersRes.ok) return;
+    const users   = await usersRes.json();
+    _permsObjects = objRes && objRes.ok ? (await objRes.json()).objects || [] : [];
+
+    const tbody = document.getElementById("permsBody");
+    tbody.innerHTML = "";
+
+    for (const u of users) {
+        const isAdmin = u.role === "admin";
+        const p       = u.permissions || {};
+
+        const pagesLabel = isAdmin ? "—"
+            : (!p.pages ? "всі" : (p.pages.length ? p.pages.join(", ") : "жодної"));
+        const objLabel = isAdmin ? "—"
+            : (!p.objects || p.objects[0] === "*" ? "всі"
+                : (p.objects.length ? p.objects.join(", ") : "жоден"));
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td style="font-family:monospace;font-size:13px;color:#e6edf3">${_esc(u.username)}</td>
+            <td><span class="badge badge-${u.role}">${u.role}</span></td>
+            <td style="font-size:12px;color:#8b949e">${_esc(pagesLabel)}</td>
+            <td style="font-size:12px;color:#8b949e">${_esc(objLabel)}</td>
+            <td>
+                ${isAdmin ? "" : `<button class="btn btn-blue" onclick="openPermsModal('${_esc(u.username)}')">Налаштувати</button>`}
+            </td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+function openPermsModal(username) {
+    _permsUser = username;
+    const u = _users.find(x => x.username === username);
+    const p = (u && u.permissions) || {};
+
+    document.getElementById("permsModalTitle").textContent = `Права: ${username}`;
+
+    // pages
+    const pagesDiv = document.getElementById("permsPages");
+    pagesDiv.innerHTML = "";
+    for (const pg of PERM_PAGES) {
+        const checked = !p.pages || p.pages.includes(pg.slug);
+        pagesDiv.innerHTML += `
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#c9d1d9">
+                <input type="checkbox" data-page="${_esc(pg.slug)}" ${checked ? "checked" : ""}>
+                ${_esc(pg.label)}
+            </label>`;
+    }
+
+    // all objects checkbox
+    const allObj = !p.objects || p.objects[0] === "*";
+    document.getElementById("permsAllObjects").checked = allObj;
+
+    // individual objects
+    const objDiv = document.getElementById("permsObjects");
+    objDiv.innerHTML = "";
+    for (const obj of _permsObjects) {
+        const checked = allObj || (p.objects || []).includes(obj);
+        objDiv.innerHTML += `
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#c9d1d9;
+                           background:#21262d;border:1px solid #30363d;border-radius:4px;padding:3px 8px">
+                <input type="checkbox" data-obj="${_esc(obj)}" ${checked ? "checked" : ""} ${allObj ? "disabled" : ""}>
+                ${_esc(obj)}
+            </label>`;
+    }
+
+    document.getElementById("permsOverlay").classList.add("open");
+}
+
+function toggleAllObjects(allChecked) {
+    document.querySelectorAll("#permsObjects input[data-obj]").forEach(cb => {
+        cb.checked  = allChecked;
+        cb.disabled = allChecked;
+    });
+}
+
+function closePermsModal() {
+    document.getElementById("permsOverlay").classList.remove("open");
+    _permsUser = null;
+}
+
+async function savePerms() {
+    if (!_permsUser) return;
+
+    const pages = [...document.querySelectorAll("#permsPages input[data-page]")]
+        .filter(cb => cb.checked).map(cb => cb.dataset.page);
+
+    const allObj = document.getElementById("permsAllObjects").checked;
+    const objects = allObj ? ["*"]
+        : [...document.querySelectorAll("#permsObjects input[data-obj]")]
+            .filter(cb => cb.checked).map(cb => cb.dataset.obj);
+
+    const res = await api("PATCH", `/auth/users/${_permsUser}/permissions`,
+        { pages, objects });
+    if (res && res.ok) {
+        closePermsModal();
+        await loadPerms();
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Start

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel
 
 
@@ -28,8 +28,14 @@ class UserUpdate(BaseModel):
     active:       Optional[str] = None  # "1" | "0"
 
 
+class PermissionsUpdate(BaseModel):
+    pages:   Optional[list[str]] = None   # slugs; None = no restriction
+    objects: Optional[list[str]] = None   # object names; None or ["*"] = all
+
+
 class UserPublic(BaseModel):
     username:     str
     role:         str
     display_name: str
     active:       str
+    permissions:  Optional[dict[str, Any]] = None
