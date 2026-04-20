@@ -394,11 +394,14 @@
                                  :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;${el.type==='group_box'&&sel!==el.id?'z-index:2;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
                                 <template x-if="el.type==='group_box'">
-                                    <div :style="`position:absolute;inset:0;
-                                                  background:${el.fill};
-                                                  border:${el.borderWidth}px solid ${el.borderColor};
-                                                  border-radius:${el.radius}px;
-                                                  opacity:${el.opacity??0.75}`">
+                                    <div style="position:absolute;inset:0">
+                                        <!-- фон окремо, щоб opacity не впливала на текст -->
+                                        <div :style="`position:absolute;inset:0;
+                                                      background:${el.fill};
+                                                      border:${el.borderWidth}px solid ${el.borderColor};
+                                                      border-radius:${el.radius}px;
+                                                      opacity:${el.opacity??0.75}`"></div>
+                                        <!-- текст поверх, повна непрозорість -->
                                         <div :style="`position:absolute;top:5px;left:${el.borderWidth+6}px;
                                                       font-size:${el.fontSize||12}px;color:${el.color||'#8b949e'};
                                                       font-weight:500;white-space:nowrap;overflow:hidden;
