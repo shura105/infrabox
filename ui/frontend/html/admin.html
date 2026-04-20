@@ -105,17 +105,27 @@
 
         .badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
+            padding: 1px 6px;
+            border-radius: 4px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 500;
+            letter-spacing: .3px;
         }
-        .badge-admin       { background: #1c3a5e; color: #58a6ff; }
-        .badge-operator    { background: #1a3a1a; color: #56d364; }
-        .badge-constructor { background: #3a2a1a; color: #e3b341; }
+        .badge-admin       { background: #1c3a5e; color: #58a6ff; border: 1px solid #1f4a7a; }
+        .badge-operator    { background: #1a3a1a; color: #56d364; border: 1px solid #1e4a1e; }
+        .badge-constructor { background: #3a2a1a; color: #e3b341; border: 1px solid #4a3a1a; }
 
-        .active-yes { color: #56d364; }
-        .active-no  { color: #f47067; }
+        .active-dot {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .active-yes .active-dot { background: #56d364; }
+        .active-no  .active-dot { background: #484f58; }
+        .active-yes { color: #8b949e; font-size: 12px; }
+        .active-no  { color: #484f58; font-size: 12px; }
 
         td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -717,11 +727,12 @@ function renderUsersTable() {
     tbody.innerHTML = "";
     for (const u of _users) {
         const tr = document.createElement("tr");
+        const isActive = u.active === "1";
         tr.innerHTML = `
-            <td><code>${u.username}</code></td>
-            <td>${u.display_name}</td>
+            <td style="font-family:monospace;font-size:13px;color:#e6edf3">${u.username}</td>
+            <td style="color:#c9d1d9">${u.display_name}</td>
             <td><span class="badge badge-${u.role}">${u.role}</span></td>
-            <td class="${u.active === "1" ? "active-yes" : "active-no"}">${u.active === "1" ? "активний" : "вимкнений"}</td>
+            <td class="${isActive ? "active-yes" : "active-no"}"><span class="active-dot"></span>${isActive ? "активний" : "вимкнений"}</td>
             <td>
                 <div class="actions">
                     <button class="btn btn-blue" onclick="openEdit('${u.username}')">Редагувати</button>
