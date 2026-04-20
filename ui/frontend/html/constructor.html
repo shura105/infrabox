@@ -391,8 +391,21 @@
                          @click.self="selectEl(null)">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;${el.type==='group_box'&&sel!==el.id?'z-index:2;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
+                                <template x-if="el.type==='group_box'">
+                                    <div :style="`position:absolute;inset:0;
+                                                  background:${el.fill};
+                                                  border:${el.borderWidth}px solid ${el.borderColor};
+                                                  border-radius:${el.radius}px;
+                                                  opacity:${el.opacity??0.75}`">
+                                        <div :style="`position:absolute;top:5px;left:${el.borderWidth+6}px;
+                                                      font-size:${el.fontSize||12}px;color:${el.color||'#8b949e'};
+                                                      font-weight:500;white-space:nowrap;overflow:hidden;
+                                                      text-overflow:ellipsis;max-width:calc(100% - 16px)`"
+                                             x-text="el.title||'Група'"></div>
+                                    </div>
+                                </template>
                                 <template x-if="el.type==='label'">
                                     <div class="r-label"
                                          :style="`font-size:${el.fontSize*fScale()}px;color:${el.color};font-weight:${el.bold?'bold':'normal'};
@@ -600,6 +613,23 @@
                                 <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="200"></div>
                                 <div class="pr"><label>Прозорість</label><input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05"
                                     style="flex:1"> <span style="width:30px;text-align:right;flex-shrink:0" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='group_box'">
+                            <div>
+                                <div class="pr"><label>Назва групи</label><input type="text" x-model="selEl.title"></div>
+                                <div class="pr"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="32"></div>
+                                <div class="pr"><label>Колір підпису</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr-sep"></div>
+                                <div class="pr"><label>Заливка</label><input type="color" x-model="selEl.fill"></div>
+                                <div class="pr"><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                                <div class="pr"><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
+                                <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="100"></div>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??0.75)*100)+'%'"></span>
+                                </div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='ellipse'">
@@ -916,7 +946,8 @@ function app() {
         _ddrag: null,
         _doff:  { x:0, y:0 },
         _rdrag: null,  // resize: { deco, handle, startX, startY, startW, startH }
-        _groupChildren: [],  // nodes+decos inside dragged group
+        _groupChildren: [],  // nodes+decos inside dragged group (structure)
+        _groupEls: [],       // elements inside dragged group_box (elements mode)
 
         paletteGroups: [
             {
@@ -928,7 +959,8 @@ function app() {
             {
                 group: "Малювання",
                 items: [
-                    { type:"rect",     icon:"▭", label:"Прямокутник" },
+                    { type:"group_box", icon:"⬚", label:"Група" },
+                    { type:"rect",      icon:"▭", label:"Прямокутник" },
                     { type:"ellipse",  icon:"◯", label:"Еліпс / Коло" },
                     { type:"line",     icon:"╱", label:"Лінія" },
                     { type:"arrow",    icon:"→", label:"Стрілка" },
@@ -959,6 +991,7 @@ function app() {
                            colorWarn:"#f0ad4e",   borderColorWarn:"#c47d00",
                            colorAlarm:"#f47067",  borderColorAlarm:"#b03030",
                            colorUncert:"#8b949e", borderColorUncert:"#555e68" },
+            group_box:   { w:320, h:220, fill:"#1c2536", borderColor:"#3d5a8a", borderWidth:2, radius:8, opacity:0.75, title:"Група", fontSize:12, color:"#8b949e" },
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
@@ -1472,10 +1505,24 @@ updateScale() {
         down(e, el) {
             this.selectEl(el.id);
             this._drag = el;
+            if (el.type === 'group_box') {
+                this._groupEls = this.els
+                    .filter(c => c.id !== el.id && this._elInsideGroup(c, el))
+                    .map(c => ({ el: c, dx: c.x - el.x, dy: c.y - el.y }));
+            } else {
+                this._groupEls = [];
+            }
             const cv = document.getElementById("cv");
             const r  = cv.getBoundingClientRect();
             this._off.x = (e.clientX-r.left)/this._scale/this.sc.width  - el.x;
             this._off.y = (e.clientY-r.top) /this._scale/this.sc.height - el.y;
+        },
+
+        _elInsideGroup(el, grp) {
+            return el.x         >= grp.x &&
+                   el.y         >= grp.y &&
+                   el.x + el.w  <= grp.x + grp.w &&
+                   el.y + el.h  <= grp.y + grp.h;
         },
 
         // shared mousemove/mouseup
@@ -1525,12 +1572,21 @@ updateScale() {
                 const el = this._drag;
                 const xpx = this.snap((e.clientX-r.left)/this._scale, this.sc.grid);
                 const ypx = this.snap((e.clientY-r.top) /this._scale, this.sc.grid);
+                const ox = el.x, oy = el.y;
                 el.x = Math.max(0, Math.min(xpx/this.sc.width  - this._off.x, (this.sc.width  - el.w)/this.sc.width));
                 el.y = Math.max(0, Math.min(ypx/this.sc.height - this._off.y, (this.sc.height - el.h)/this.sc.height));
+                // move group_box children
+                if (this._groupEls.length) {
+                    const ddx = el.x - ox, ddy = el.y - oy;
+                    for (const c of this._groupEls) {
+                        c.el.x = Math.max(0, c.el.x + ddx);
+                        c.el.y = Math.max(0, c.el.y + ddy);
+                    }
+                }
             }
         },
 
-        onUp() { this._drag=null; this._ndrag=null; this._ddrag=null; this._rdrag=null; this._groupChildren=[]; },
+        onUp() { this._drag=null; this._ndrag=null; this._ddrag=null; this._rdrag=null; this._groupChildren=[]; this._groupEls=[]; },
 
         delEl() {
             if (!this.sel) return;
@@ -1594,7 +1650,7 @@ updateScale() {
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
-                     ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник",
+                     group_box:"Група", ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад" }[t]??t;
         },
