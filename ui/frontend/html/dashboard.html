@@ -152,6 +152,7 @@
     <table>
         <thead>
             <tr>
+                <th style="width:40px;text-align:right">ID</th>
                 <th>Об'єкт / Система</th>
                 <th>Точка</th>
                 <th style="text-align:right">Значення</th>
@@ -160,7 +161,7 @@
             </tr>
         </thead>
         <tbody id="pointsBody">
-            <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
+            <tr class="loading-row"><td colspan="6">Завантаження…</td></tr>
         </tbody>
     </table>
 </main>
@@ -191,19 +192,20 @@ function renderTable() {
     const tbody  = document.getElementById("pointsBody");
     const rows   = filter
         ? _points.filter(p =>
-            `${p.object} ${p.system} ${p.pointname} ${p.value} ${p.unit}`
+            `${p.id} ${p.object} ${p.system} ${p.pointname} ${p.value} ${p.unit}`
                 .toLowerCase().includes(filter))
         : _points;
 
     if (!rows.length) {
         tbody.innerHTML =
-            `<tr class="loading-row"><td colspan="5" style="color:#8b949e">Немає даних</td></tr>`;
+            `<tr class="loading-row"><td colspan="6" style="color:#8b949e">Немає даних</td></tr>`;
         return;
     }
 
     tbody.innerHTML = rows.map(p => {
         const q = qInfo(p.quality);
         return `<tr>
+            <td class="sys-cell" style="text-align:right">${esc(p.id)}</td>
             <td>
                 <span class="obj-cell">${esc(p.object)}</span>
                 <span class="sys-cell"> / ${esc(p.system)}</span>
