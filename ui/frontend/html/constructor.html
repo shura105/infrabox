@@ -86,6 +86,7 @@
         .r-level-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);pointer-events:none;z-index:1}
         .r-gauge{position:absolute;inset:0;overflow:hidden}
         .r-rect{position:absolute;inset:0}
+        .r-shape{position:absolute;inset:0;overflow:visible}
         .r-ibox{position:absolute;inset:0;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;border:2px solid rgba(255,255,255,.12);transition:border-color .3s}
         .r-ibox-bg{flex:1;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:rgba(0,0,0,.2)}
         .r-ibox-foot{padding:3px 8px;background:rgba(0,0,0,.55);display:flex;align-items:center;gap:6px;flex-shrink:0}
@@ -418,6 +419,15 @@
                                     <div class="r-rect"
                                          :style="`background:${el.fill};border:${el.borderWidth}px solid ${el.borderColor};border-radius:${el.radius}px;opacity:${el.opacity??1};`"></div>
                                 </template>
+                                <template x-if="el.type==='ellipse'">
+                                    <div class="r-shape" x-html="cEllipseSVGHtml(el)"></div>
+                                </template>
+                                <template x-if="el.type==='line'">
+                                    <div class="r-shape" x-html="cLineSVGHtml(el)"></div>
+                                </template>
+                                <template x-if="el.type==='triangle'">
+                                    <div class="r-shape" x-html="cTriangleSVGHtml(el)"></div>
+                                </template>
                                 <template x-if="el.type==='ibox_screen'">
                                     <div class="r-ibox" :style="`border-width:${el.borderWidth??2}px`">
                                         <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(88,166,255,.07)'"></div>
@@ -587,6 +597,68 @@
                                 <div class="pr"><label>Скруглення (px)</label><input type="number" x-model.number="selEl.radius" min="0" max="200"></div>
                                 <div class="pr"><label>Прозорість</label><input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05"
                                     style="flex:1"> <span style="width:30px;text-align:right;flex-shrink:0" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span></div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='ellipse'">
+                            <div>
+                                <div class="pr"><label>Заливка</label><input type="color" x-model="selEl.fill"></div>
+                                <div class="pr"><label>Колір обводки</label><input type="color" x-model="selEl.strokeColor"></div>
+                                <div class="pr"><label>Товщина обводки</label><input type="number" x-model.number="selEl.strokeWidth" min="0" max="20"></div>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='line'">
+                            <div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:8px">Початок і кінець (0–100%)</div>
+                                <div class="pr2">
+                                    <div><label>X1 %</label><input type="number" x-model.number="selEl.x1" min="0" max="100"></div>
+                                    <div><label>Y1 %</label><input type="number" x-model.number="selEl.y1" min="0" max="100"></div>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>X2 %</label><input type="number" x-model.number="selEl.x2" min="0" max="100"></div>
+                                    <div><label>Y2 %</label><input type="number" x-model.number="selEl.y2" min="0" max="100"></div>
+                                </div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="20"></div>
+                                <div class="pr-inline">
+                                    <input type="checkbox" x-model="selEl.dashed" id="lineDash">
+                                    <label for="lineDash">Пунктир</label>
+                                </div>
+                                <template x-if="selEl.dashed">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label><input type="number" x-model.number="selEl.dashLen" min="1" max="50"></div>
+                                        <div><label>Пропуск</label><input type="number" x-model.number="selEl.dashGap" min="1" max="50"></div>
+                                    </div>
+                                </template>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='triangle'">
+                            <div>
+                                <div class="pr"><label>Напрям</label>
+                                    <select x-model="selEl.direction">
+                                        <option value="up">▲ Вгору</option>
+                                        <option value="down">▼ Вниз</option>
+                                        <option value="right">▶ Вправо</option>
+                                        <option value="left">◀ Вліво</option>
+                                    </select>
+                                </div>
+                                <div class="pr"><label>Заливка</label><input type="color" x-model="selEl.fill"></div>
+                                <div class="pr"><label>Колір обводки</label><input type="color" x-model="selEl.strokeColor"></div>
+                                <div class="pr"><label>Товщина обводки</label><input type="number" x-model.number="selEl.strokeWidth" min="0" max="20"></div>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
+                                </div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='ibox_screen'">
@@ -822,9 +894,12 @@ function app() {
             {
                 group: "Малювання",
                 items: [
-                    { type:"rect",    icon:"▭", label:"Прямокутник" },
-                    { type:"label",   icon:"T", label:"Мітка" },
-                    { type:"nav_btn", icon:"→", label:"Навігація" },
+                    { type:"rect",     icon:"▭", label:"Прямокутник" },
+                    { type:"ellipse",  icon:"◯", label:"Еліпс / Коло" },
+                    { type:"line",     icon:"╱", label:"Лінія" },
+                    { type:"triangle", icon:"△", label:"Трикутник" },
+                    { type:"label",    icon:"T", label:"Мітка" },
+                    { type:"nav_btn",  icon:"→", label:"Навігація" },
                 ]
             },
             {
@@ -850,6 +925,9 @@ function app() {
                            colorAlarm:"#f47067",  borderColorAlarm:"#b03030",
                            colorUncert:"#8b949e", borderColorUncert:"#555e68" },
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
+            ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
+            line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
+            triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
@@ -986,6 +1064,50 @@ function app() {
         },
         cGaugeSVGHtml(el) {
             return this._gaugeSVGHtml(el, el.min + (el.max - el.min) * 0.6);
+        },
+
+        // ── shape SVG helpers ──────────────────────────────────────────────────
+        cEllipseSVGHtml(el) {
+            const sw = el.strokeWidth || 0;
+            const half = sw / 2;
+            const rx = 50 - half, ry = 50 - half;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                         width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="50" cy="50" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
+                         fill="${el.fill||'transparent'}"
+                         stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
+                         opacity="${el.opacity??1}"/>
+            </svg>`;
+        },
+        cLineSVGHtml(el) {
+            const sw = el.strokeWidth || 2;
+            const x1 = el.x1 ?? 0, y1 = el.y1 ?? 0;
+            const x2 = el.x2 ?? 100, y2 = el.y2 ?? 100;
+            const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                         width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+                      stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
+                      stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/>
+            </svg>`;
+        },
+        cTriangleSVGHtml(el) {
+            const sw = el.strokeWidth || 0;
+            const h  = sw / 2;
+            const pts = {
+                up:    `50,${h}         ${100-h},${100-h} ${h},${100-h}`,
+                down:  `${h},${h}       ${100-h},${h}     50,${100-h}`,
+                right: `${h},${h}       ${100-h},50        ${h},${100-h}`,
+                left:  `${100-h},${h}   ${h},50            ${100-h},${100-h}`,
+            }[el.direction||'up'] || `50,0 100,100 0,100`;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                         width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="${pts}"
+                         fill="${el.fill||'#1e2130'}"
+                         stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
+                         stroke-linejoin="round"
+                         opacity="${el.opacity??1}"/>
+            </svg>`;
         },
 
         // ── level helpers ──────────────────────────────────────────────────────
@@ -1411,6 +1533,7 @@ updateScale() {
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
+                     ellipse:"Еліпс / Коло", line:"Лінія", triangle:"Трикутник",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад" }[t]??t;
         },
