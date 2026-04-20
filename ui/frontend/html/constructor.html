@@ -425,6 +425,9 @@
                                 <template x-if="el.type==='line'">
                                     <div class="r-shape" x-html="cLineSVGHtml(el)"></div>
                                 </template>
+                                <template x-if="el.type==='arrow'">
+                                    <div class="r-shape" x-html="cArrowSVGHtml(el)"></div>
+                                </template>
                                 <template x-if="el.type==='triangle'">
                                     <div class="r-shape" x-html="cTriangleSVGHtml(el)"></div>
                                 </template>
@@ -627,6 +630,37 @@
                                 <div class="pr-inline">
                                     <input type="checkbox" x-model="selEl.dashed" id="lineDash">
                                     <label for="lineDash">Пунктир</label>
+                                </div>
+                                <template x-if="selEl.dashed">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label><input type="number" x-model.number="selEl.dashLen" min="1" max="50"></div>
+                                        <div><label>Пропуск</label><input type="number" x-model.number="selEl.dashGap" min="1" max="50"></div>
+                                    </div>
+                                </template>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='arrow'">
+                            <div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:8px">Початок і кінець (0–100%)</div>
+                                <div class="pr2">
+                                    <div><label>X1 %</label><input type="number" x-model.number="selEl.x1" min="0" max="100"></div>
+                                    <div><label>Y1 %</label><input type="number" x-model.number="selEl.y1" min="0" max="100"></div>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>X2 %</label><input type="number" x-model.number="selEl.x2" min="0" max="100"></div>
+                                    <div><label>Y2 %</label><input type="number" x-model.number="selEl.y2" min="0" max="100"></div>
+                                </div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="20"></div>
+                                <div class="pr"><label>Розмір наконечника</label><input type="number" x-model.number="selEl.arrowSize" min="4" max="40"></div>
+                                <div class="pr-inline">
+                                    <input type="checkbox" x-model="selEl.dashed" id="arrowDash">
+                                    <label for="arrowDash">Пунктир</label>
                                 </div>
                                 <template x-if="selEl.dashed">
                                     <div class="pr2">
@@ -897,6 +931,7 @@ function app() {
                     { type:"rect",     icon:"▭", label:"Прямокутник" },
                     { type:"ellipse",  icon:"◯", label:"Еліпс / Коло" },
                     { type:"line",     icon:"╱", label:"Лінія" },
+                    { type:"arrow",    icon:"→", label:"Стрілка" },
                     { type:"triangle", icon:"△", label:"Трикутник" },
                     { type:"label",    icon:"T", label:"Мітка" },
                     { type:"nav_btn",  icon:"→", label:"Навігація" },
@@ -927,6 +962,7 @@ function app() {
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
+            arrow:       { w:160, h:60,  x1:0, y1:50, x2:100, y2:50, color:"#58a6ff", strokeWidth:2, arrowSize:12, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
@@ -1089,6 +1125,31 @@ function app() {
                 <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
                       stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
                       stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/>
+            </svg>`;
+        },
+        cArrowSVGHtml(el) {
+            const sw  = el.strokeWidth || 2;
+            const x1  = el.x1 ?? 0,   y1 = el.y1 ?? 50;
+            const x2  = el.x2 ?? 100, y2 = el.y2 ?? 50;
+            const col = el.color || '#58a6ff';
+            const aLen = el.arrowSize || 12;
+            const aW   = aLen * 0.45;
+            const dx   = x2 - x1, dy = y2 - y1;
+            const len  = Math.sqrt(dx*dx + dy*dy);
+            if (len < 1) return `<svg viewBox="0 0 100 100" width="100%" height="100%"></svg>`;
+            const nx = dx/len, ny = dy/len;
+            // line ends just before arrowhead base
+            const bx = x2 - aLen*nx, by = y2 - aLen*ny;
+            const p1 = `${(bx + aW*ny).toFixed(1)},${(by - aW*nx).toFixed(1)}`;
+            const p2 = `${(bx - aW*ny).toFixed(1)},${(by + aW*nx).toFixed(1)}`;
+            const tip = `${x2.toFixed(1)},${y2.toFixed(1)}`;
+            const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                         width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                <line x1="${x1}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"
+                      stroke="${col}" stroke-width="${sw}" stroke-linecap="round" ${dash}
+                      opacity="${el.opacity??1}"/>
+                <polygon points="${p1} ${tip} ${p2}" fill="${col}" opacity="${el.opacity??1}"/>
             </svg>`;
         },
         cTriangleSVGHtml(el) {
@@ -1533,7 +1594,7 @@ updateScale() {
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
-                     ellipse:"Еліпс / Коло", line:"Лінія", triangle:"Трикутник",
+                     ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад" }[t]??t;
         },
