@@ -368,6 +368,11 @@
                 <!-- головна сторінка меню -->
                 <template x-if="menuPage==='main'">
                     <div>
+                        <div class="sdrop-item" @click="menuPage='device'">
+                            <span class="sdrop-icon">🖥</span> Пристрій відображення
+                            <span style="margin-left:auto;color:var(--accent);font-size:12px;font-weight:600" x-text="'#'+deviceType"></span>
+                            <span style="color:var(--text-dim);font-size:12px;margin-left:4px">›</span>
+                        </div>
                         <div class="sdrop-item" @click="menuPage='settings'">
                             <span class="sdrop-icon">⚙</span> Налаштування
                             <span style="margin-left:auto;color:var(--text-dim);font-size:12px">›</span>
@@ -393,6 +398,25 @@
                         <a class="sdrop-item" href="/docs">
                             <span class="sdrop-icon">📄</span> Документація
                         </a>
+                    </div>
+                </template>
+
+                <!-- пристрій відображення -->
+                <template x-if="menuPage==='device'">
+                    <div>
+                        <div class="sdrop-item" @click="menuPage='main'" style="color:var(--text-dim)">
+                            <span class="sdrop-icon" style="font-size:13px">‹</span> Назад
+                        </div>
+                        <div class="sdrop-sep"></div>
+                        <template x-if="deviceTypes.length === 0">
+                            <div style="padding:10px 14px;font-size:12px;color:var(--text-dim)">Немає даних</div>
+                        </template>
+                        <template x-for="dt in deviceTypes" :key="dt">
+                            <div class="sdrop-item" @click="setDeviceType(dt)">
+                                <span class="sdrop-icon" :style="deviceType===dt?'color:var(--accent)':''" x-text="deviceType===dt?'●':'○'"></span>
+                                <span x-text="'Пристрій #'+dt"></span>
+                            </div>
+                        </template>
                     </div>
                 </template>
 
@@ -651,6 +675,7 @@ function app() {
         menuOpen:    false,
         menuPage:    'main',
         userMenuOpen: false,
+        deviceType:  parseInt(localStorage.getItem('ib-device-type') || '1'),
 
         viewScale:   1,
         lastUpdate:  '',
@@ -683,9 +708,29 @@ function app() {
             try {
                 const r = await fetch('/api/pub/project');
                 if (r.ok) this.project = await r.json();
-                await this.loadScreen('root');
+                const startId = this._rootForDevice(this.deviceType) || 'root';
+                await this.loadScreen(startId);
             } catch(e) { console.error(e); }
             this.loading = false;
+        },
+
+        _rootForDevice(dt) {
+            return this.project.screens.find(s => !s.parent && (s.deviceType||1) === dt)?.id || null;
+        },
+
+        get deviceTypes() {
+            const s = new Set(this.project.screens.map(s => s.deviceType || 1));
+            return [...s].sort((a,b) => a-b);
+        },
+
+        setDeviceType(dt) {
+            this.deviceType = dt;
+            localStorage.setItem('ib-device-type', String(dt));
+            this.history = [];
+            const startId = this._rootForDevice(dt);
+            if (startId) this.loadScreen(startId);
+            this.menuOpen = false;
+            this.menuPage = 'main';
         },
 
         getScreenPath(id) {
@@ -710,11 +755,13 @@ function app() {
             if (!targetId) return;
             const target = this.project.screens.find(s => s.id === targetId);
             if (!target) return;
-            // block cross-type navigation
+            // block cross-type and cross-device navigation
             const cur = this.project.screens.find(s => s.id === this.screenId);
-            const curType = cur?.screenType || 'pc';
-            const tgtType = target.screenType || 'pc';
-            if (curType !== tgtType) return;
+            const curType   = cur?.screenType   || 'pc';
+            const tgtType   = target.screenType  || 'pc';
+            const curDevice = cur?.deviceType    || 1;
+            const tgtDevice = target.deviceType  || 1;
+            if (curType !== tgtType || curDevice !== tgtDevice) return;
             this.history.push(this.screenId);
             await this.loadScreen(targetId);
         },

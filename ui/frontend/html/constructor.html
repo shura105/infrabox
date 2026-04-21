@@ -282,7 +282,10 @@
                                           :style="`background:${screenTypeCfg(node).bg};color:${screenColor(node)}`"
                                           x-text="screenTypeCfg(node).prefix"></span>
                                 </div>
-                                <div class="snode-id" x-text="node.id"></div>
+                                <div class="snode-id">
+                                    <span x-text="node.id"></span>
+                                    <span style="color:#484f58"> · D<span x-text="node.deviceType||1"></span></span>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -315,7 +318,12 @@
                             <div><label>Тип</label>
                                 <input type="text" :value="screenTypeCfg(selNode).label" disabled style="color:#8b949e"></div>
                             <div><label>Номер</label>
-                                <input type="text" :value="(selNode.id||'').replace(/^[A-Za-z]+/,'')" disabled style="color:#8b949e"></div>
+                                <input type="text" :value="selNode.screenNum ?? (selNode.id||'').replace(/^[A-Za-z]+/,'')" disabled style="color:#8b949e"></div>
+                        </div>
+                        <div class="pr"><label>Пристрій відображення</label>
+                            <input type="number" min="1" max="99"
+                                :value="selNode.deviceType||1"
+                                @change="project.screens.find(s=>s.id===selNodeId).deviceType = +$event.target.value">
                         </div>
                         <div class="pr"><label>Батьківський екран</label>
                             <select @change="setNodeParent($event.target.value)">
@@ -933,6 +941,9 @@
                 </template>
             </select>
         </div>
+        <div class="pr"><label>Пристрій відображення (номер)</label>
+            <input type="number" id="newDevType" x-model.number="_createDevType" min="1" max="99" placeholder="1">
+        </div>
         <div class="modal-foot">
             <button class="btn" @click="createModal.open=false">Скасувати</button>
             <button class="btn" @click="createScreen">Створити</button>
@@ -981,6 +992,7 @@ function app() {
         createModal: { open:false },
         deleteModal:  { open:false, node:null },
         _createType: 'pc',
+        _createDevType: 1,
 
         SCREEN_TYPES: {
             pc:     { prefix:'P', label:'PC',     color:'#58a6ff', dimColor:'#2d5a8e', bg:'#1a2533' },
@@ -1316,6 +1328,20 @@ function app() {
                     this.decos   = p.decos   ?? [];
                     this.project = { screens: p.screens ?? [] };
                 }
+                // auto-assign screenNum and deviceType to existing screens
+                const counters = {};
+                this.project.screens.forEach(s => {
+                    if (!s.screenNum) {
+                        const m = s.id.match(/^[A-Za-z](\d+)$/);
+                        if (m) { s.screenNum = parseInt(m[1]); }
+                        else {
+                            const t = s.screenType || 'pc';
+                            counters[t] = (counters[t] || 0) + 1;
+                            s.screenNum = counters[t];
+                        }
+                    }
+                    if (!s.deviceType) s.deviceType = 1;
+                });
                 this.setStatus("Проект завантажено");
             } catch(e) { this.setStatus("Помилка: "+e.message, false); }
         },
@@ -1385,7 +1411,10 @@ function app() {
                 y = 40;
             }
 
-            this.project.screens.push({ id, title, parent, x, y, screenType: this._createType });
+            const m = id.match(/^[A-Za-z](\d+)$/);
+            const screenNum = m ? parseInt(m[1]) : (this.project.screens.filter(s=>(s.screenType||'pc')===this._createType).length);
+            const deviceType = this._createDevType || 1;
+            this.project.screens.push({ id, title, parent, x, y, screenType: this._createType, screenNum, deviceType });
             this.createModal.open = false;
             this.selNodeId = id;
 
