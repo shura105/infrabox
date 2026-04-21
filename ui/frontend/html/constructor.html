@@ -311,8 +311,12 @@
                                 @input="project.screens.find(s=>s.id===selNodeId).title = $event.target.value"></div>
                         <div class="pr"><label>ID</label>
                             <input type="text" :value="selNode.id" disabled style="color:#8b949e"></div>
-                        <div class="pr"><label>Тип</label>
-                            <input type="text" :value="screenTypeCfg(selNode).label" disabled style="color:#8b949e"></div>
+                        <div class="pr2">
+                            <div><label>Тип</label>
+                                <input type="text" :value="screenTypeCfg(selNode).label" disabled style="color:#8b949e"></div>
+                            <div><label>Номер</label>
+                                <input type="text" :value="(selNode.id||'').replace(/^[A-Za-z]+/,'')" disabled style="color:#8b949e"></div>
+                        </div>
                         <div class="pr"><label>Батьківський екран</label>
                             <select @change="setNodeParent($event.target.value)">
                                 <option value="" :selected="!selNode.parent">— корінь —</option>
