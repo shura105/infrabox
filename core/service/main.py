@@ -305,6 +305,7 @@ def main():
             # --- STATS ---
             r.set("system:buffer_size", len(updates))
             r.set("system:passed_deadband", passed)
+            r.set("heartbeat:infrabox-core", int(time.time()), ex=5)
 
         except Exception as e:
             log.error(f"Unexpected error in main loop: {e}")

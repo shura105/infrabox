@@ -1,4 +1,6 @@
+import asyncio
 import json
+import time
 
 import jwt
 from fastapi import FastAPI, HTTPException, Depends
@@ -38,10 +40,20 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 
 # ─── lifecycle ───────────────────────────────────────────────────────────────
 
+async def _heartbeat_loop():
+    while True:
+        try:
+            await redis_client.redis.set("heartbeat:infrabox-auth", int(time.time()), ex=5)
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+
+
 @app.on_event("startup")
 async def startup():
     await redis_client.connect()
     print("✅ Redis connected")
+    asyncio.create_task(_heartbeat_loop())
 
     if not await redis_client.any_user_exists():
         await redis_client.set_user("admin", {

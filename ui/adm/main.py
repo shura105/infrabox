@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import os
@@ -6,15 +7,38 @@ import shlex
 import socket
 import subprocess
 import tempfile
+import time
 
 import docker as docker_sdk
+import redis.asyncio as aioredis
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+REDIS_HOST = os.environ.get("REDIS_HOST", "infrabox-redis")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+
+
+async def _heartbeat_loop():
+    r = None
+    while True:
+        try:
+            if r is None:
+                r = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+            await r.set("heartbeat:infrabox-adm", int(time.time()), ex=5)
+        except Exception:
+            r = None
+        await asyncio.sleep(1)
+
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(_heartbeat_loop())
 
 SELF        = os.environ.get("HOSTNAME", "infrabox-adm")
 CONFIG_FILE = pathlib.Path("/app/config/infrabox.json")

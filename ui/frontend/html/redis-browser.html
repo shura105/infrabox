@@ -201,12 +201,13 @@ let _data = null;
 let _typeFilter = null;
 
 const GROUPS = [
-    { id: "points",  label: "Параметри",     prefix: "point:",  icon: "📊" },
-    { id: "users",   label: "Користувачі",  prefix: "user:",   icon: "👤" },
-    { id: "system",  label: "Система",      prefix: "system:", icon: "⚙" },
-    { id: "other",   label: "Інше",         prefix: null,      icon: "📦" },
+    { id: "heartbeat", label: "Хартбіт",     prefix: "heartbeat:", icon: "💓" },
+    { id: "points",    label: "Параметри",   prefix: "point:",     icon: "📊" },
+    { id: "users",     label: "Користувачі", prefix: "user:",      icon: "👤" },
+    { id: "system",    label: "Система",     prefix: "system:",    icon: "⚙" },
+    { id: "other",     label: "Інше",        prefix: null,         icon: "📦" },
 ];
-const _groupOpen = { points: false, users: false, system: false, other: false };
+const _groupOpen = { heartbeat: true, points: false, users: false, system: false, other: false };
 
 async function load() {
     const btn = document.getElementById("refreshBtn");
@@ -330,6 +331,8 @@ function toggleGroup(id) {
 }
 
 function renderKey(k) {
+    if (k.key.startsWith("heartbeat:")) return renderHeartbeatKey(k);
+
     const badge = `<span class="type-badge type-${k.type || 'other'}">${k.type}</span>`;
     const countLabel = countStr(k);
     const body = renderValue(k);
@@ -342,6 +345,30 @@ function renderKey(k) {
             <span class="key-count">${countLabel}</span>
         </div>
         <div class="key-body">${body}</div>
+    </div>`;
+}
+
+function renderHeartbeatKey(k) {
+    const name = k.key.replace("heartbeat:", "");
+    const ts   = parseInt(k.value) || 0;
+    const age  = ts ? Math.round(Date.now() / 1000 - ts) : 999;
+    const alive = age <= 5;
+    const dot  = alive
+        ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;
+                background:#56d364;box-shadow:0 0 5px #56d364;flex-shrink:0"></span>`
+        : `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;
+                background:#f47067;flex-shrink:0"></span>`;
+    const timeStr = ts
+        ? new Date(ts * 1000).toLocaleTimeString("uk-UA", {hour:"2-digit",minute:"2-digit",second:"2-digit"})
+        : "—";
+    const ageStr = alive ? `${age}s тому` : `офлайн (${age}s)`;
+    return `<div class="key-item" style="border-color:${alive?'#1e4a1e':'#4a1e1e'}">
+        <div class="key-header" style="cursor:default">
+            ${dot}
+            <span class="key-name" style="color:${alive?'#e6edf3':'#8b949e'}">${esc(name)}</span>
+            <span class="key-count" style="color:${alive?'#56d364':'#f47067'}">${ageStr}</span>
+            <span class="key-count" style="margin-left:8px">${timeStr}</span>
+        </div>
     </div>`;
 }
 

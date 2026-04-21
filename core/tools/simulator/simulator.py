@@ -3,12 +3,28 @@ import time
 import random
 import os
 import logging
+import threading
 from logging.handlers import RotatingFileHandler
 import paho.mqtt.client as mqtt
+import redis as redis_lib
 
 CONFIG_PATH = os.environ.get("POINTS_PATH", "/app/points.json")
-MQTT_HOST = os.environ.get("MQTT_HOST", "infrabox-mosquitto-sim")
-MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
+MQTT_HOST   = os.environ.get("MQTT_HOST",   "infrabox-mosquitto-sim")
+MQTT_PORT   = int(os.environ.get("MQTT_PORT", 1883))
+REDIS_HOST  = os.environ.get("REDIS_HOST",  "infrabox-redis")
+REDIS_PORT  = int(os.environ.get("REDIS_PORT", 6379))
+
+
+def _heartbeat_thread():
+    r = None
+    while True:
+        try:
+            if r is None:
+                r = redis_lib.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+            r.set("heartbeat:infrabox-simulator", int(time.time()), ex=5)
+        except Exception:
+            r = None
+        time.sleep(1)
 
 SPIKE_INTERVAL = 15
 SPIKE_DURATION = 5
@@ -72,6 +88,7 @@ def spike_value(p, level):
 def main():
     log = setup_logger()
     log.info(f"Simulator started → {MQTT_HOST}:{MQTT_PORT}")
+    threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
     points = load_points()
     log.info(f"Loaded {len(points)} points")

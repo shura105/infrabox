@@ -95,6 +95,8 @@ services:
       MQTT_HOST: infrabox-mosquitto-sim
       MQTT_PORT: 1883
       POINTS_PATH: /app/config/points.json
+      REDIS_HOST: infrabox-redis
+      REDIS_PORT: 6379
       TZ: Europe/Kyiv
     networks:
       - infrabox-net
@@ -114,6 +116,8 @@ services:
       MQTT_PORT: 1883
       OBJECT: home
       DROP: homeServ-1
+      REDIS_HOST: infrabox-redis
+      REDIS_PORT: 6379
       TZ: Europe/Kyiv
     networks:
       - infrabox-net

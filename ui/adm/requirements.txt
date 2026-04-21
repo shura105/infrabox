@@ -2,3 +2,4 @@ fastapi
 uvicorn
 docker
 pyyaml
+redis[asyncio]
