@@ -20,13 +20,39 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "infrabox-redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 
 
+# containers that cannot write their own heartbeat (no Python runtime)
+_PROXY_CONTAINERS = [
+    "infrabox-redis",
+    "infrabox-mosquitto-real",
+    "infrabox-mosquitto-sim",
+    "infrabox-web",
+    "infrabox-arch-ui",
+    "portainer",
+]
+
+
 def _heartbeat_thread():
     r = None
+    docker_client = None
     while True:
         try:
             if r is None:
                 r = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-            r.set("heartbeat:infrabox-adm", int(time.time()), ex=5)
+            ts = int(time.time())
+            # own heartbeat
+            r.set("heartbeat:infrabox-adm", ts, ex=5)
+            # proxy heartbeats for third-party containers via Docker API
+            try:
+                if docker_client is None:
+                    docker_client = docker_sdk.from_env()
+                running = {c.name for c in docker_client.containers.list(sparse=True)}
+                pipe = r.pipeline()
+                for name in _PROXY_CONTAINERS:
+                    if name in running:
+                        pipe.set(f"heartbeat:{name}", ts, ex=5)
+                pipe.execute()
+            except Exception:
+                docker_client = None
         except Exception:
             r = None
         time.sleep(1)

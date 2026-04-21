@@ -349,5 +349,35 @@
   { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-arch-backend",
     "id": 207, "unit": "", "min": 0, "max": 1,
     "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-redis",
+    "id": 208, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-mosquitto-real",
+    "id": 209, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-mosquitto-sim",
+    "id": 210, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-web",
+    "id": 211, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-arch-ui",
+    "id": 212, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "portainer",
+    "id": 213, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
     "deadband": 0, "interval": 1, "onArchive": 0, "archive_interval": 0, "archive_on_change": 0 }
 ]

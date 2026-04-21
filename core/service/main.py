@@ -309,14 +309,20 @@ def main():
 
             # --- HEARTBEAT POINTS ---
             _HB_POINTS = {
-                "infrabox-core":           200,
-                "infrabox-auth":           201,
-                "infrabox-backend":        202,
-                "infrabox-adm":            203,
-                "infrabox-simulator":      204,
-                "infrabox-selfdiagnostic": 205,
-                "infrabox-arch":           206,
-                "infrabox-arch-backend":   207,
+                "infrabox-core":            200,
+                "infrabox-auth":            201,
+                "infrabox-backend":         202,
+                "infrabox-adm":             203,
+                "infrabox-simulator":       204,
+                "infrabox-selfdiagnostic":  205,
+                "infrabox-arch":            206,
+                "infrabox-arch-backend":    207,
+                "infrabox-redis":           208,
+                "infrabox-mosquitto-real":  209,
+                "infrabox-mosquitto-sim":   210,
+                "infrabox-web":             211,
+                "infrabox-arch-ui":         212,
+                "portainer":               213,
             }
             now_ms = int(time.time() * 1000)
             hb_pipe = r.pipeline()
