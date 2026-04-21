@@ -225,18 +225,13 @@
                               background-size:${sgrid.step}px ${sgrid.step}px;`"
                      @click.self="selNodeId=null;selDecoId=null">
 
-                    <!-- SVG lines -->
+                    <!-- SVG for deco arrows -->
                     <svg :width="CANVAS_W" :height="CANVAS_H">
                         <defs>
-                            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                                <path d="M0,0 L0,6 L8,3 z" fill="#556"/>
-                            </marker>
                             <marker id="arr-deco" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
                                 <path d="M0,0 L0,6 L8,3 z" fill="#58a6ff"/>
                             </marker>
                         </defs>
-                        <!-- hierarchy lines -->
-                        <g x-html="svgLinesHtml"></g>
                     </svg>
 
                     <!-- deco elements (groups behind nodes, labels/arrows above) -->
@@ -394,22 +389,15 @@
                             <div><label>Тип</label>
                                 <input type="text" :value="screenTypeCfg(selNode).label" disabled style="color:#8b949e"></div>
                             <div><label>Номер</label>
-                                <input type="text" :value="selNode.screenNum ?? (selNode.id||'').replace(/^[A-Za-z]+/,'')" disabled style="color:#8b949e"></div>
+                                <input type="number" min="1" max="999"
+                                    :value="selNode.screenNum"
+                                    @change="project.screens.find(s=>s.id===selNodeId).screenNum = +$event.target.value">
+                            </div>
                         </div>
                         <div class="pr"><label>Пристрій відображення</label>
                             <input type="number" min="1" max="99"
                                 :value="selNode.deviceType||1"
                                 @change="project.screens.find(s=>s.id===selNodeId).deviceType = +$event.target.value">
-                        </div>
-                        <div class="pr"><label>Батьківський екран</label>
-                            <select @change="setNodeParent($event.target.value)">
-                                <option value="" :selected="!selNode.parent">— корінь —</option>
-                                <template x-for="s in sameTypeScreens(screenType(selNode)).filter(s=>s.id!==selNodeId)" :key="s.id">
-                                    <option :value="s.id"
-                                            :selected="selNode.parent === s.id"
-                                            x-text="s.title+' ('+s.id+')'"></option>
-                                </template>
-                            </select>
                         </div>
                         <div class="pr-sep"></div>
                         <button class="btn btn-red" style="width:100%" @click="confirmDeleteNode()">🗑 Видалити екран</button>
@@ -1009,14 +997,6 @@
         </div>
         <div class="pr"><label>Назва</label>
             <input type="text" id="newTitle" placeholder="Нова сторінка"></div>
-        <div class="pr"><label>Батьківський екран</label>
-            <select id="newParent">
-                <option value="">— корінь —</option>
-                <template x-for="s in sameTypeScreens(_createType)" :key="s.id">
-                    <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
-                </template>
-            </select>
-        </div>
         <div class="pr"><label>Пристрій відображення (номер)</label>
             <input type="number" id="newDevType" x-model.number="_createDevType" min="1" max="99" placeholder="1">
         </div>
@@ -1209,13 +1189,6 @@ function app() {
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
 
         nodeById(id) { return this.project.screens.find(s => s.id === id); },
-        get svgLinesHtml() {
-            return this.project.screens
-                .filter(n => n.parent && this.nodeById(n.parent))
-                .map(n => { const p = this.nodeById(n.parent);
-                    return `<line x1="${(p.x||0)+80}" y1="${(p.y||0)+56}" x2="${(n.x||0)+80}" y2="${(n.y||0)}" stroke="#334" stroke-width="2" marker-end="url(#arr)"/>`;
-                }).join('');
-        },
 
         structPalette: [
             { type:"group",  icon:"▭", label:"Група" },
@@ -1249,10 +1222,6 @@ function app() {
 
         setStatus(msg, ok=true) { this.status = { msg, ok }; },
 
-        setNodeParent(parentId) {
-            const s = this.project.screens.find(s => s.id === this.selNodeId);
-            if (s) s.parent = parentId || null;
-        },
         setElTarget(target) {
             if (this._selIdx >= 0 && this._selIdx < this.els.length)
                 this.els[this._selIdx].target = target;
@@ -1478,38 +1447,25 @@ function app() {
         openCreate(type = 'pc') {
             this._createType = type;
             document.getElementById("newTitle").value = "";
-            const sel = document.getElementById("newParent");
-            if (sel) sel.value = this.selNodeId || "";
             document.getElementById("createErr").style.display = "none";
             this.createModal.open = true;
             this.$nextTick(() => document.getElementById("newTitle").focus());
         },
 
         async createScreen() {
-            const id     = this.nextId(this._createType);
-            const title  = document.getElementById("newTitle").value.trim() || id;
-            const parent = document.getElementById("newParent").value || null;
-            const err    = document.getElementById("createErr");
+            const id    = this.nextId(this._createType);
+            const title = document.getElementById("newTitle").value.trim() || id;
+            const err   = document.getElementById("createErr");
 
-            // авто-позиція: поряд з батьком або за замовчуванням
-            let x = 40, y = 40;
-            if (parent) {
-                const p = this.nodeById(parent);
-                if (p) {
-                    const children = this.project.screens.filter(s=>s.parent===parent);
-                    x = (p.x||0) + children.length * 200;
-                    y = (p.y||0) + 120;
-                }
-            } else {
-                const roots = this.project.screens.filter(s=>!s.parent);
-                x = roots.length * 200 + 40;
-                y = 40;
-            }
+            // авто-позиція: просто по кількості екранів
+            const count = this.project.screens.length;
+            const x = (count % 10) * 200 + 40;
+            const y = Math.floor(count / 10) * 120 + 40;
 
             const m = id.match(/^[A-Za-z](\d+)$/);
-            const screenNum = m ? parseInt(m[1]) : (this.project.screens.filter(s=>(s.screenType||'pc')===this._createType).length);
+            const screenNum  = m ? parseInt(m[1]) : (this.project.screens.filter(s=>(s.screenType||'pc')===this._createType).length + 1);
             const deviceType = this._createDevType || 1;
-            this.project.screens.push({ id, title, parent, x, y, screenType: this._createType, screenNum, deviceType });
+            this.project.screens.push({ id, title, x, y, screenType: this._createType, screenNum, deviceType });
             this.createModal.open = false;
             this.selNodeId = id;
 
@@ -1541,7 +1497,6 @@ function app() {
             try {
                 await this.apiDelete(`/api/screens/${this.getScreenPath(node.id)}`).catch(()=>{});
                 this.project.screens = this.project.screens.filter(s=>s.id!==node.id);
-                this.project.screens.forEach(s=>{ if(s.parent===node.id) s.parent=null; });
                 delete this.screenCache[node.id];
                 await this.saveProject();
                 if (this.selNodeId===node.id) this.selNodeId=null;

@@ -715,7 +715,11 @@ function app() {
         },
 
         _rootForDevice(dt) {
-            return this.project.screens.find(s => !s.parent && (s.deviceType||1) === dt)?.id || null;
+            // find lowest screenNum for this device type
+            const matches = this.project.screens.filter(s => (s.deviceType||1) === dt);
+            if (!matches.length) return null;
+            matches.sort((a,b) => (a.screenNum||0) - (b.screenNum||0));
+            return matches[0].id;
         },
 
         get deviceTypes() {
