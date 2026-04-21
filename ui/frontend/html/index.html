@@ -723,7 +723,12 @@ function app() {
         },
 
         get deviceTypes() {
-            const s = new Set(this.project.screens.map(s => s.deviceType || 1));
+            const curType = this.project.screens.find(s => s.id === this.screenId)?.screenType || 'pc';
+            const s = new Set(
+                this.project.screens
+                    .filter(s => (s.screenType || 'pc') === curType)
+                    .map(s => s.deviceType || 1)
+            );
             return [...s].sort((a,b) => a-b);
         },
 
