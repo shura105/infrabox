@@ -1,24 +1,24 @@
-import asyncio
 import logging
 import os
+import threading
 import time
 import uvicorn
-import redis.asyncio as aioredis
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "infrabox-redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 
 
-async def _heartbeat_loop():
+def _heartbeat_thread():
+    import redis as redis_sync
     r = None
     while True:
         try:
             if r is None:
-                r = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-            await r.set("heartbeat:infrabox-arch-backend", int(time.time()), ex=5)
+                r = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+            r.set("heartbeat:infrabox-arch-backend", int(time.time()), ex=5)
         except Exception:
             r = None
-        await asyncio.sleep(1)
+        time.sleep(1)
 
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -37,7 +37,7 @@ app = FastAPI(title="Infrabox Arch Backend")
 
 @app.on_event("startup")
 async def startup():
-    asyncio.create_task(_heartbeat_loop())
+    threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
 app.add_middleware(
     CORSMiddleware,

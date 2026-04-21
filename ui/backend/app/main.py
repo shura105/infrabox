@@ -1,4 +1,4 @@
-import asyncio
+import threading
 import time
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -14,13 +14,21 @@ app.include_router(ws_router)
 app.include_router(simulator_router)
 
 
-async def _heartbeat_loop():
+def _heartbeat_thread():
+    import redis as redis_sync, os
+    r = None
     while True:
         try:
-            await redis_client.redis.set("heartbeat:infrabox-backend", int(time.time()), ex=5)
+            if r is None:
+                r = redis_sync.Redis(
+                    host=os.environ.get("REDIS_HOST", "infrabox-redis"),
+                    port=int(os.environ.get("REDIS_PORT", 6379)),
+                    decode_responses=True
+                )
+            r.set("heartbeat:infrabox-backend", int(time.time()), ex=5)
         except Exception:
-            pass
-        await asyncio.sleep(1)
+            r = None
+        time.sleep(1)
 
 
 @app.on_event("startup")
@@ -37,7 +45,7 @@ async def startup():
     except Exception as e:
         print("❌ Redis error:", e)
 
-    asyncio.create_task(_heartbeat_loop())
+    threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
 
 @app.get("/api/health")
