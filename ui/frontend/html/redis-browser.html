@@ -32,23 +32,17 @@
         main { flex: 1; max-width: 1100px; margin: 0 auto; padding: 24px 16px; width: 100%; }
 
         /* ── stats bar ── */
-        .stats-bar {
-            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
-        }
-        .stat-chip {
-            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-            padding: 10px 16px; display: flex; flex-direction: column; gap: 2px;
-            min-width: 100px;
-        }
-        .stat-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; }
-        .stat-value { font-size: 22px; font-weight: 700; color: #e6edf3; font-family: monospace; }
+        .stats-bar { margin-bottom: 6px; }
+        .total-label { font-size: 12px; color: #8b949e; }
+        .total-label b { color: #e6edf3; font-family: monospace; }
 
         /* ── toolbar ── */
         .toolbar {
             display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+            margin-bottom: 14px; gap: 8px; flex-wrap: wrap;
         }
-        .toolbar-left { display: flex; align-items: center; gap: 10px; }
+        .toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .toolbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .search-inp {
             padding: 5px 10px; background: #0d1117; border: 1px solid #30363d;
             border-radius: 6px; color: #c9d1d9; font-size: 13px; outline: none;
@@ -57,7 +51,7 @@
         .search-inp:focus { border-color: #58a6ff; }
         .ts-label { font-size: 11px; color: #484f58; }
 
-        /* ── type badges ── */
+        /* ── type badges / filter chips ── */
         .type-badge {
             display: inline-block; padding: 1px 6px; border-radius: 4px;
             font-size: 10px; font-weight: 700; letter-spacing: .3px;
@@ -69,6 +63,17 @@
         .type-set    { background: #3a1c3a; color: #d2a8ff; border: 1px solid #4a2a4a; }
         .type-zset   { background: #3a2200; color: #ffa657; border: 1px solid #4a3200; }
         .type-other  { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
+
+        .type-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 6px; cursor: pointer;
+            border: 1px solid #30363d; background: #161b22;
+            font-size: 12px; color: #8b949e; transition: background .12s, border-color .12s;
+            user-select: none;
+        }
+        .type-chip:hover { background: #1c2128; }
+        .type-chip.active { border-color: #58a6ff; background: #1c2840; color: #e6edf3; }
+        .type-chip .chip-count { font-family: monospace; font-size: 11px; }
 
         /* ── keys list ── */
         .key-list { display: flex; flex-direction: column; gap: 6px; }
@@ -146,8 +151,6 @@
 <header>
     <div class="logo">⚙ Infrabox — Redis</div>
     <div class="hdr-right">
-        <span class="ts-label" id="tsLabel"></span>
-        <button class="btn btn-blue" id="refreshBtn" onclick="load()">↻ Оновити</button>
         <a class="btn" href="/admin">← Адмінка</a>
         <button class="btn" onclick="authLogout()">Вийти</button>
     </div>
@@ -161,7 +164,11 @@
         <div class="toolbar-left">
             <input class="search-inp" id="searchInp" placeholder="Фільтр по ключу…"
                    oninput="render()" autocomplete="off">
-            <div id="filterBadges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            <div id="filterChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div class="toolbar-right">
+            <span class="ts-label" id="tsLabel"></span>
+            <button class="btn btn-blue" id="refreshBtn" onclick="load()">↻ Оновити</button>
         </div>
     </div>
 
@@ -215,27 +222,27 @@ function renderStats() {
     for (const k of _data.keys) counts[k.type] = (counts[k.type] || 0) + 1;
     const order = ["hash", "string", "list", "set", "zset"];
 
-    let html = `<div class="stat-chip">
-        <div class="stat-label">Всього ключів</div>
-        <div class="stat-value">${_data.total}</div>
-    </div>`;
-    for (const t of order) {
-        if (!counts[t]) continue;
-        html += `<div class="stat-chip" style="cursor:pointer" onclick="toggleFilter('${t}')" id="chip-${t}">
-            <div class="stat-label"><span class="type-badge type-${t}">${t}</span></div>
-            <div class="stat-value">${counts[t]}</div>
-        </div>`;
-    }
-    document.getElementById("statsBar").innerHTML = html;
+    // total count above toolbar
+    document.getElementById("statsBar").innerHTML =
+        `<div class="total-label">Ключів: <b>${_data.total}</b></div>`;
+
+    // type filter chips inside toolbar
+    const chips = document.getElementById("filterChips");
+    chips.innerHTML = order
+        .filter(t => counts[t])
+        .map(t => `
+            <div class="type-chip" id="chip-${t}" onclick="toggleFilter('${t}')">
+                <span class="type-badge type-${t}">${t}</span>
+                <span class="chip-count">${counts[t]}</span>
+            </div>`)
+        .join("");
 }
 
 function renderFilters() {
-    // chips handle filtering via onclick; just highlight active
     for (const t of ["hash","string","list","set","zset"]) {
         const chip = document.getElementById(`chip-${t}`);
         if (!chip) continue;
-        chip.style.borderColor = _typeFilter === t ? "#58a6ff" : "#30363d";
-        chip.style.background  = _typeFilter === t ? "#1c2840" : "#161b22";
+        chip.classList.toggle("active", _typeFilter === t);
     }
 }
 
