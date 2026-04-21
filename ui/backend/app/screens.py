@@ -15,7 +15,7 @@ router = APIRouter()
 
 def _validate_path(path: str) -> None:
     for seg in path.split("/"):
-        if not seg or not re.match(r"^[a-z0-9_-]+$", seg):
+        if not seg or not re.match(r"^[a-zA-Z0-9_-]+$", seg):
             raise HTTPException(status_code=400, detail=f"Invalid path segment: '{seg}'")
 
 
