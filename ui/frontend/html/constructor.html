@@ -25,6 +25,23 @@
         .btn:disabled{opacity:.4;cursor:default}
         .btn-red{background:#3d1c1c;border-color:#6e2c2c;color:#f47067}
         .btn-red:hover{background:#4a2020}
+        .btn-active{background:#1c2a3a;border-color:#2d5a8e;color:#58a6ff}
+
+        /* ── screen table ── */
+        .sc-table{border-collapse:collapse;min-width:100%;font-size:13px}
+        .sc-table th{padding:7px 12px;text-align:center;border:1px solid #21262d;
+                     font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;
+                     background:#0d1117;white-space:nowrap}
+        .sc-table td{padding:5px 6px;border:1px solid #21262d;vertical-align:top;min-width:130px}
+        .sc-table td.num-col{text-align:center;color:#8b949e;font-weight:700;font-size:14px;
+                             background:#0d1117;width:40px;white-space:nowrap}
+        .sc-cell{padding:6px 9px;border-radius:5px;border:1px solid #30363d;background:#161b22;
+                 cursor:pointer;transition:border-color .15s,background .12s}
+        .sc-cell:hover{background:#1c2128}
+        .sc-cell.sc-cell-sel{background:#1c2128}
+        .sc-cell-title{font-size:13px;font-weight:600;color:#e6edf3;white-space:nowrap;
+                       overflow:hidden;text-overflow:ellipsis}
+        .sc-cell-id{font-size:11px;color:#8b949e;font-family:monospace;margin-top:1px}
         .btn-pc{background:#1c2a3a;border-color:#2d5a8e;color:#58a6ff}.btn-pc:hover{background:#1e3045}
         .btn-rnd{background:#1a2e1a;border-color:#2d6e2d;color:#56d364}.btn-rnd:hover{background:#1e3a1e}
         .btn-mob{background:#2e2a1a;border-color:#6e5a2d;color:#e3b341}.btn-mob:hover{background:#3a341e}
@@ -141,6 +158,11 @@
     <template x-if="mode === 'structure'">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="tb-sep"></div>
+            <button class="btn" :class="structView==='table'?'btn-active':''"
+                    @click="structView = structView==='table'?'canvas':'table'">
+                <span x-text="structView==='table'?'◫ Граф':'⊞ Таблиця'"></span>
+            </button>
+            <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
         </div>
     </template>
@@ -192,9 +214,9 @@
                        style="width:100%;padding:4px 7px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:13px;outline:none">
             </div>
 
-            <!-- structure canvas -->
-            <div class="struct-area" id="structArea" @dragover.prevent @drop.prevent="decoDrop"
-                 @wheel.prevent="sZoom($event)">
+            <!-- structure canvas (graph view) -->
+            <div x-show="structView==='canvas'" class="struct-area" id="structArea"
+                 @dragover.prevent @drop.prevent="decoDrop" @wheel.prevent="sZoom($event)">
                 <div class="struct-canvas" id="structCanvas"
                      :style="`width:${CANVAS_W}px;height:${CANVAS_H}px;
                               transform:scale(${_sScale});transform-origin:top left;
@@ -291,6 +313,60 @@
                     </template>
 
                 </div>
+            </div>
+
+            <!-- structure table (table view) -->
+            <div x-show="structView==='table'"
+                 style="flex:1;overflow:auto;padding:20px;background:#0a0e14">
+                <template x-if="project.screens.length === 0">
+                    <div style="color:#8b949e;font-size:13px">Немає екранів</div>
+                </template>
+                <template x-if="project.screens.length > 0">
+                    <table class="sc-table">
+                        <thead>
+                            <!-- row 1: type group headers -->
+                            <tr>
+                                <th rowspan="2" style="width:44px">№</th>
+                                <template x-for="st in screenTypeList" :key="'h1-'+st.key">
+                                    <th :colspan="allDeviceTypes.length"
+                                        :style="`color:${st.color};border-bottom:2px solid ${st.color}`"
+                                        x-text="st.label"></th>
+                                </template>
+                            </tr>
+                            <!-- row 2: device sub-headers -->
+                            <tr>
+                                <template x-for="st in screenTypeList" :key="'h2-'+st.key">
+                                    <template x-for="dt in allDeviceTypes" :key="'h2-'+st.key+'-'+dt">
+                                        <th style="color:#484f58;font-weight:500"
+                                            x-text="'D'+dt"></th>
+                                    </template>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="num in allScreenNums" :key="'row-'+num">
+                                <tr>
+                                    <td class="num-col" x-text="num"></td>
+                                    <template x-for="st in screenTypeList" :key="'td-'+num+'-'+st.key">
+                                        <template x-for="dt in allDeviceTypes" :key="'td-'+num+'-'+st.key+'-'+dt">
+                                            <td>
+                                                <div x-show="!!tableCell(num,st.key,dt)"
+                                                     class="sc-cell"
+                                                     :class="{'sc-cell-sel': selNodeId===tableCell(num,st.key,dt)?.id}"
+                                                     :style="selNodeId===tableCell(num,st.key,dt)?.id ? `border-color:${st.color}` : ''"
+                                                     @click.stop="selNodeId=tableCell(num,st.key,dt)?.id"
+                                                     @dblclick.stop="openElements(tableCell(num,st.key,dt)?.id)">
+                                                    <div class="sc-cell-title" x-text="tableCell(num,st.key,dt)?.title||''"></div>
+                                                    <div class="sc-cell-id" x-text="tableCell(num,st.key,dt)?.id||''"></div>
+                                                </div>
+                                            </td>
+                                        </template>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
             </div>
 
             <!-- node/deco props -->
@@ -993,6 +1069,7 @@ function app() {
         deleteModal:  { open:false, node:null },
         _createType: 'pc',
         _createDevType: 1,
+        structView: 'canvas',   // 'canvas' | 'table'
 
         SCREEN_TYPES: {
             pc:     { prefix:'P', label:'PC',     color:'#58a6ff', dimColor:'#2d5a8e', bg:'#1a2533' },
@@ -1091,6 +1168,24 @@ function app() {
         screenType(s)    { return s?.screenType || 'pc'; },
         screenTypeCfg(s) { return this.SCREEN_TYPES[this.screenType(s)] || this.SCREEN_TYPES.pc; },
         screenColor(s)   { return this.screenTypeCfg(s).color; },
+        get screenTypeList() {
+            return Object.entries(this.SCREEN_TYPES).map(([key, v]) => ({ key, ...v }));
+        },
+        get allScreenNums() {
+            const s = new Set(this.project.screens.map(s => s.screenNum).filter(n => n > 0));
+            return [...s].sort((a, b) => a - b);
+        },
+        get allDeviceTypes() {
+            const s = new Set(this.project.screens.map(s => s.deviceType || 1));
+            return [...s].sort((a, b) => a - b);
+        },
+        tableCell(screenNum, sType, deviceType) {
+            return this.project.screens.find(s =>
+                s.screenNum === screenNum &&
+                (s.screenType || 'pc') === sType &&
+                (s.deviceType || 1) === deviceType
+            ) || null;
+        },
         nextId(type) {
             const cfg = this.SCREEN_TYPES[type];
             if (!cfg) return 'X1';
