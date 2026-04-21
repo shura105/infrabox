@@ -309,5 +309,45 @@
     "onArchive": 1,
     "archive_interval": 0,
     "archive_on_change": 1
-  }
+  },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-core",
+    "id": 200, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-auth",
+    "id": 201, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-backend",
+    "id": 202, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-adm",
+    "id": 203, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-simulator",
+    "id": 204, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-selfdiagnostic",
+    "id": 205, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-arch",
+    "id": 206, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 },
+
+  { "object": "home", "drop": "infrabox", "system": "heartbeat", "pointname": "infrabox-arch-backend",
+    "id": 207, "unit": "", "min": 0, "max": 1,
+    "warn_min": 0.5, "warn_max": 1, "alarm_min": 0.5, "alarm_max": 1,
+    "deadband": 0, "interval": 1, "onArchive": 1, "archive_interval": 0, "archive_on_change": 1 }
 ]

@@ -307,6 +307,39 @@ def main():
             r.set("system:passed_deadband", passed)
             r.set("heartbeat:infrabox-core", int(time.time()), ex=5)
 
+            # --- HEARTBEAT POINTS ---
+            _HB_POINTS = {
+                "infrabox-core":           200,
+                "infrabox-auth":           201,
+                "infrabox-backend":        202,
+                "infrabox-adm":            203,
+                "infrabox-simulator":      204,
+                "infrabox-selfdiagnostic": 205,
+                "infrabox-arch":           206,
+                "infrabox-arch-backend":   207,
+            }
+            now_ms = int(time.time() * 1000)
+            hb_pipe = r.pipeline()
+            for svc, pid in _HB_POINTS.items():
+                raw = r.get(f"heartbeat:{svc}")
+                alive = raw is not None
+                value   = "1" if alive else "0"
+                quality = "GOOD" if alive else "ALARM"
+                hb_pipe.hset(f"point:{pid}", mapping={
+                    "value":    value,
+                    "ts":       now_ms,
+                    "quality":  quality,
+                    "object":   "home",
+                    "system":   "heartbeat",
+                    "pointname": svc,
+                    "unit":     "",
+                    "min":      "0",  "max":      "1",
+                    "warn_min": "0.5","warn_max": "1",
+                    "alarm_min":"0.5","alarm_max":"1",
+                })
+                hb_pipe.publish("bus:data", pid)
+            hb_pipe.execute()
+
         except Exception as e:
             log.error(f"Unexpected error in main loop: {e}")
             time.sleep(1)
