@@ -25,3 +25,4 @@ core/redis/data/dump.rdb
 # Sensitive configs
 core/tools/agent/.env
 infrabox-agent/.env
+ui/data/
