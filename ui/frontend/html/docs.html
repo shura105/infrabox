@@ -31,7 +31,6 @@
         html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 14px; }
         body { display: flex; flex-direction: column; min-height: 100vh; }
 
-        /* ── header ── */
         header {
             height: 52px; flex-shrink: 0;
             background: var(--bg2);
@@ -39,17 +38,15 @@
             display: flex; align-items: center; gap: 12px; padding: 0 20px;
             position: sticky; top: 0; z-index: 10;
         }
-        .hdr-logo { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+        .hdr-logo { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 15px; }
         .hdr-sep  { width: 1px; height: 20px; background: var(--border); }
         .hdr-title { color: var(--text-dim); font-size: 13px; }
         .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
         .btn-icon  { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; }
         .btn-icon:hover { background: var(--bg3); color: var(--text); }
 
-        /* ── layout ── */
         .layout { display: flex; flex: 1; min-height: 0; }
 
-        /* ── sidebar ── */
         aside {
             width: 240px; flex-shrink: 0;
             background: var(--bg2);
@@ -68,7 +65,6 @@
         .nav-item:hover { color: var(--text); background: var(--bg3); }
         .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg3); }
 
-        /* ── content ── */
         main { flex: 1; overflow-y: auto; padding: 40px 48px; max-width: 900px; }
 
         section { margin-bottom: 56px; scroll-margin-top: 24px; }
@@ -78,34 +74,40 @@
         ul, ol { padding-left: 20px; margin-bottom: 10px; }
         li { line-height: 1.7; margin-bottom: 3px; }
         code { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 12px; color: #e6db74; }
+        a { color: var(--accent); }
         .note { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; font-size: 13px; color: var(--text-dim); }
         .note strong { color: var(--text); }
+        .warn { border-left-color: #f47067; }
+        .warn strong { color: #f47067; }
 
-        /* ── element cards ── */
         .el-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
-        .el-card {
-            background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-            padding: 14px 16px;
-        }
+        .el-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
         .el-card .el-icon { font-size: 22px; margin-bottom: 8px; }
         .el-card .el-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
         .el-card .el-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+        .el-card .el-tag  { display:inline-block;margin-top:6px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--bg3);color:var(--text-dim); }
+        .el-tag.new { background:#1a2e1a;color:#56d364; }
 
-        /* ── quality badges ── */
         .q-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
         .q-badge { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; }
         .q-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-        /* ── arch diagram ── */
         .arch { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
         .arch-row { display: flex; gap: 8px; }
-        .arch-box {
-            background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-            padding: 10px 14px; font-size: 12px; flex: 1; min-width: 0;
-        }
+        .arch-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12px; flex: 1; min-width: 0; }
         .arch-box .ab-name { font-weight: 600; margin-bottom: 2px; font-size: 13px; }
         .arch-box .ab-port { color: var(--text-dim); font-size: 11px; }
         .arch-arrow { text-align: center; color: var(--text-dim); font-size: 18px; line-height: 1; }
+
+        .type-badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+        .type-badge { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .tb-pc     { background:#1a2533; color:#58a6ff; border:1px solid #2d5a8e; }
+        .tb-render { background:#1a2e1a; color:#56d364; border:1px solid #2d6e2d; }
+        .tb-mobile { background:#2e2a1a; color:#e3b341; border:1px solid #6e5a2d; }
+
+        table.doc-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+        .doc-table th { text-align: left; padding: 7px 12px; background: var(--bg3); border: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+        .doc-table td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -115,7 +117,7 @@
     <div class="hdr-sep"></div>
     <span class="hdr-title">Документація</span>
     <div class="hdr-right">
-        <button class="btn-icon" @click="toggleTheme()" title="Тема">
+        <button class="btn-icon" @click="toggleTheme()">
             <span x-text="theme==='light' ? '🌙' : '☀'"></span>
         </button>
     </div>
@@ -123,16 +125,22 @@
 
 <div class="layout">
 
-    <!-- sidebar -->
     <aside>
         <div class="nav-section">Вступ</div>
-        <a class="nav-item" :class="{active:active==='overview'}" @click="scrollTo('overview')">Огляд системи</a>
-        <a class="nav-item" :class="{active:active==='arch'}"     @click="scrollTo('arch')">Архітектура</a>
+        <a class="nav-item" :class="{active:active==='overview'}"  @click="scrollTo('overview')">Огляд системи</a>
+        <a class="nav-item" :class="{active:active==='arch'}"      @click="scrollTo('arch')">Архітектура</a>
+        <a class="nav-item" :class="{active:active==='routes'}"    @click="scrollTo('routes')">Маршрути</a>
 
-        <div class="nav-section" style="margin-top:10px">Інтерфейс</div>
-        <a class="nav-item" :class="{active:active==='viewer'}"      @click="scrollTo('viewer')">Перегляд екранів</a>
-        <a class="nav-item" :class="{active:active==='constructor'}" @click="scrollTo('constructor')">Конструктор</a>
-        <a class="nav-item" :class="{active:active==='elements'}"    @click="scrollTo('elements')">Типи елементів</a>
+        <div class="nav-section" style="margin-top:10px">Перегляд</div>
+        <a class="nav-item" :class="{active:active==='viewer'}"    @click="scrollTo('viewer')">Перегляд екранів</a>
+        <a class="nav-item" :class="{active:active==='devices'}"   @click="scrollTo('devices')">Пристрої відображення</a>
+
+        <div class="nav-section" style="margin-top:10px">Конструктор</div>
+        <a class="nav-item" :class="{active:active==='constructor'}"    @click="scrollTo('constructor')">Огляд конструктора</a>
+        <a class="nav-item" :class="{active:active==='screen-types'}"   @click="scrollTo('screen-types')">Типи та нумерація екранів</a>
+        <a class="nav-item" :class="{active:active==='struct-view'}"    @click="scrollTo('struct-view')">Структура проекту</a>
+        <a class="nav-item" :class="{active:active==='elements'}"       @click="scrollTo('elements')">Типи елементів</a>
+        <a class="nav-item" :class="{active:active==='drawing'}"        @click="scrollTo('drawing')">Малювання</a>
 
         <div class="nav-section" style="margin-top:10px">Дані</div>
         <a class="nav-item" :class="{active:active==='points'}"    @click="scrollTo('points')">Параметри (точки)</a>
@@ -140,11 +148,11 @@
         <a class="nav-item" :class="{active:active==='simulator'}" @click="scrollTo('simulator')">Симулятор</a>
 
         <div class="nav-section" style="margin-top:10px">Інструменти</div>
-        <a class="nav-item" :class="{active:active==='archiver'}" @click="scrollTo('archiver')">Архіватор</a>
-        <a class="nav-item" :class="{active:active==='admin'}"    @click="scrollTo('admin')">Адміністрування</a>
+        <a class="nav-item" :class="{active:active==='archiver'}"  @click="scrollTo('archiver')">Архіватор</a>
+        <a class="nav-item" :class="{active:active==='admin'}"     @click="scrollTo('admin')">Адміністрування</a>
+        <a class="nav-item" :class="{active:active==='access'}"    @click="scrollTo('access')">Контроль доступу</a>
     </aside>
 
-    <!-- content -->
     <main id="doc-main" @scroll="onScroll()">
 
         <!-- ── Огляд ── -->
@@ -155,31 +163,38 @@
             </p>
             <h3>Основні можливості</h3>
             <ul>
-                <li>Відображення значень параметрів у реальному часі</li>
+                <li>Відображення значень параметрів у реальному часі (WebSocket)</li>
                 <li>Налаштовувані SCADA-екрани з довільним розташуванням елементів</li>
-                <li>Ієрархія екранів із навігацією між ними</li>
-                <li>Кольорова індикація якості сигналу</li>
+                <li>Три типи екранів: PC, Render (пряма передача зображення), Mobile</li>
+                <li>Підтримка кількох фізичних пристроїв відображення на один тип</li>
+                <li>Кольорова індикація якості сигналу (GOOD / WARN / ALARM…)</li>
                 <li>Архівування всіх параметрів із побудовою трендів</li>
                 <li>Симулятор для тестування без реального обладнання</li>
+                <li>Рольова система доступу з правами на рівні сторінок та об'єктів</li>
             </ul>
         </section>
 
         <!-- ── Архітектура ── -->
         <section id="arch">
             <h2>Архітектура</h2>
-            <p>Система розгорнута у Docker-контейнерах та складається з кількох незалежних сервісів.</p>
+            <p>Система розгорнута у Docker-контейнерах і складається з кількох незалежних сервісів.</p>
 
             <div class="arch">
                 <div class="arch-row">
                     <div class="arch-box">
                         <div class="ab-name">🌐 infrabox-web (nginx)</div>
                         <div class="ab-port">:80 → :443 · HTTPS-точка входу</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Роздає статику UI, проксіює API, WebSocket та архіватор.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Роздає статику UI, проксіює API та WebSocket. SSL termination.</p>
                     </div>
                     <div class="arch-box">
                         <div class="ab-name">⚙ infrabox-backend</div>
                         <div class="ab-port">:8090 · FastAPI + uvicorn</div>
                         <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">REST API для екранів та проекту. WebSocket-стрім даних. Керування симулятором.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🔑 infrabox-auth</div>
+                        <div class="ab-port">:8095 · FastAPI</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Авторизація, JWT-токени. Зберігає користувачів та права в Redis.</p>
                     </div>
                 </div>
                 <div class="arch-arrow">↕</div>
@@ -187,7 +202,7 @@
                     <div class="arch-box">
                         <div class="ab-name">🗄 infrabox-redis</div>
                         <div class="ab-port">:6379</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Зберігає поточні значення всіх точок (<code>point:NNN</code>). Pub/Sub для push-оновлень.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Поточні значення точок (<code>point:NNN</code>), дані користувачів. Pub/Sub для push-оновлень.</p>
                     </div>
                     <div class="arch-box">
                         <div class="ab-name">🦟 infrabox-mosquitto-real</div>
@@ -204,167 +219,306 @@
                 <div class="arch-row">
                     <div class="arch-box">
                         <div class="ab-name">📦 infrabox-arch</div>
-                        <div class="ab-port">архіватор</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Записує всі зміни параметрів у файлові томи. UI доступний через <code>/arch/</code>.</p>
+                        <div class="ab-port">архіватор · /arch/</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Безперервний запис всіх параметрів. Побудова трендів.</p>
                     </div>
                     <div class="arch-box">
-                        <div class="ab-name">🔑 infrabox-auth</div>
-                        <div class="ab-port">:8095</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Авторизація. JWT-токени зберігаються в cookie.</p>
+                        <div class="ab-name">🛠 infrabox-adm</div>
+                        <div class="ab-port">:8099 · /adm/api/</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Управління підсистемами Docker (старт / стоп / рестарт / ребілд) через SSH.</p>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <h3>Маршрути nginx</h3>
-            <ul>
-                <li><code>/</code> — головний екран перегляду</li>
-                <li><code>/constructor</code> — конструктор екранів</li>
-                <li><code>/arch/</code> — архіватор</li>
-                <li><code>/api/</code> — backend API</li>
-                <li><code>/ws</code> — WebSocket стрім даних</li>
-                <li><code>/auth/</code> — авторизація</li>
-            </ul>
+        <!-- ── Маршрути ── -->
+        <section id="routes">
+            <h2>Маршрути</h2>
+            <table class="doc-table">
+                <thead><tr><th>URL</th><th>Опис</th><th>Доступ</th></tr></thead>
+                <tbody>
+                    <tr><td><code>/</code></td><td>Головний екран перегляду SCADA</td><td>Оператор+</td></tr>
+                    <tr><td><code>/dashboard</code></td><td>Таблиця всіх параметрів системи</td><td>Оператор+</td></tr>
+                    <tr><td><code>/constructor</code></td><td>Лендінг конструктора — вибір напрямку</td><td>Адмін</td></tr>
+                    <tr><td><code>/constructor-screens</code></td><td>Конструктор структури та екранів</td><td>Адмін</td></tr>
+                    <tr><td><code>/constructor-equipment</code></td><td>Конструктор обладнання (в розробці)</td><td>Адмін</td></tr>
+                    <tr><td><code>/admin</code></td><td>Адміністрування системи та користувачів</td><td>Адмін</td></tr>
+                    <tr><td><code>/arch/</code></td><td>Архіватор трендів</td><td>Всі</td></tr>
+                    <tr><td><code>/login</code></td><td>Сторінка входу</td><td>Всі</td></tr>
+                    <tr><td><code>/api/</code></td><td>Backend REST API</td><td>JWT</td></tr>
+                    <tr><td><code>/ws</code></td><td>WebSocket стрім даних</td><td>—</td></tr>
+                    <tr><td><code>/auth/</code></td><td>API авторизації</td><td>—</td></tr>
+                </tbody>
+            </table>
         </section>
 
         <!-- ── Перегляд ── -->
         <section id="viewer">
             <h2>Перегляд екранів</h2>
-            <p>Головна сторінка (<code>/</code>) відображає SCADA-екрани. При завантаженні автоматично відкривається кореневий екран <code>root</code>.</p>
+            <p>Головна сторінка (<code>/</code>) відображає SCADA-екрани у реальному часі. При завантаженні автоматично відкривається перший екран, що відповідає обраному пристрою відображення.</p>
 
             <h3>Навігація</h3>
             <ul>
-                <li>Кнопки <em>nav_btn</em> та картки <em>Підсистема</em> переходять на інший екран</li>
-                <li>Кнопка <strong>←</strong> в хедері повертає на попередній екран</li>
+                <li>Кнопки <em>Навігація</em> та картки <em>Підсистема</em> переходять на інший екран того ж типу та пристрою</li>
+                <li>Кнопка <strong>←</strong> в хедері повертає на попередній екран (стек навігації)</li>
                 <li>Назва поточного екрану відображається по центру хедера</li>
+                <li>Переходи між екранами <strong>різних типів або різних пристроїв заблоковані</strong></li>
             </ul>
 
-            <h3>Індикатор зв'язку</h3>
-            <p>Правий нижній кут показує статус WebSocket-з'єднання:</p>
+            <h3>Статус з'єднання</h3>
+            <p>Нижній рядок показує стан WebSocket:</p>
             <ul>
-                <li><span style="color:#56d364">●</span> <strong>live</strong> — дані надходять у реальному часі</li>
-                <li><span style="color:#f47067">●</span> <strong>error</strong> — з'єднання перервано, виконується повторне підключення</li>
-                <li><span style="color:#8b949e">●</span> <strong>connecting</strong> — встановлюється з'єднання</li>
+                <li><span style="color:#56d364">●</span> <strong>Live</strong> — дані надходять у реальному часі</li>
+                <li><span style="color:#f0ad4e">●</span> — підключення встановлюється</li>
+                <li><span style="color:#f47067">●</span> — з'єднання перервано, виконується повторне підключення з exponential backoff</li>
             </ul>
-
-            <h3>Меню</h3>
-            <p>Кнопка <strong>☰ Меню</strong> у правій частині хедера відкриває навігаційне меню з доступом до конструктора, адміністрування, налаштувань та документації.</p>
         </section>
 
-        <!-- ── Конструктор ── -->
+        <!-- ── Пристрої ── -->
+        <section id="devices">
+            <h2>Пристрої відображення</h2>
+            <p>Кожен екран у системі прив'язаний до конкретного <strong>пристрою відображення</strong> — числового параметра D1, D2, D3… Це дозволяє мати окремі набори екранів для різних фізичних дисплеїв одного типу.</p>
+
+            <h3>Вибір пристрою</h3>
+            <p>У меню <strong>☰ Меню → Пристрій відображення</strong> відображається список пристроїв, доступних для поточного типу екрана. Вибір зберігається в <code>localStorage</code>.</p>
+
+            <div class="note"><strong>Фільтрація:</strong> меню показує лише ті номери пристроїв, для яких є екрани того ж типу що й поточний (PC/Render/Mobile). Якщо для PC немає екранів D2 — D2 в меню не з'явиться.</div>
+
+            <h3>Початковий екран</h3>
+            <p>При завантаженні або зміні пристрою система завантажує екран з найменшим <code>screenNum</code> серед екранів обраного пристрою.</p>
+        </section>
+
+        <!-- ── Конструктор огляд ── -->
         <section id="constructor">
-            <h2>Конструктор екранів</h2>
-            <p>Сторінка <code>/constructor</code> дозволяє створювати та редагувати SCADA-екрани. Доступна тільки авторизованим адміністраторам.</p>
-
-            <h3>Структура проекту</h3>
-            <p>Ліва панель показує дерево екранів. Кожен екран має унікальний <strong>ID</strong> (латинські літери, цифри, <code>-</code>, <code>_</code>) та може мати батьківський екран для логічної ієрархії. Файли зберігаються плоско: <code>screens/{id}/screen.json</code>.</p>
-
-            <h3>Редагування елементів</h3>
+            <h2>Конструктор — огляд</h2>
+            <p>Сторінка <a href="/constructor">/constructor</a> — лендінг з вибором напрямку конструювання:</p>
             <ul>
-                <li><strong>Додати</strong> — вибрати тип у палітрі, клікнути на полотно</li>
-                <li><strong>Перемістити</strong> — drag&amp;drop по полотну</li>
-                <li><strong>Змінити розмір</strong> — потягнути за кутовий маркер</li>
-                <li><strong>Властивості</strong> — права панель при виділеному елементі</li>
-                <li><strong>Видалити</strong> — кнопка <kbd>Delete</kbd> або кнопка в панелі властивостей</li>
+                <li><strong>Структура і екрани</strong> (<code>/constructor-screens</code>) — побудова структури екранів та редагування їх елементів</li>
+                <li><strong>Обладнання</strong> (<code>/constructor-equipment</code>) — конфігурація обладнання (в розробці)</li>
+            </ul>
+            <p>Доступний тільки авторизованим адміністраторам.</p>
+
+            <h3>Режими роботи конструктора екранів</h3>
+            <ul>
+                <li><strong>Структура</strong> — управління переліком екранів: створення, видалення, розташування на канвасі або в таблиці</li>
+                <li><strong>Елементи</strong> — редагування вмісту конкретного екрана (подвійний клік на екрані в режимі структури)</li>
             </ul>
 
-            <div class="note"><strong>Зберігання:</strong> зміни зберігаються кнопкою <strong>Зберегти</strong>. Автозбереження відсутнє.</div>
+            <div class="note"><strong>Зберігання:</strong> зміни зберігаються кнопкою <strong>💾 Зберегти</strong>. Автозбереження відсутнє.</div>
+        </section>
+
+        <!-- ── Типи екранів ── -->
+        <section id="screen-types">
+            <h2>Типи та нумерація екранів</h2>
+            <p>Кожен екран належить до одного з трьох типів:</p>
+
+            <div class="type-badges">
+                <span class="type-badge tb-pc">P — PC</span>
+                <span class="type-badge tb-render">R — Render</span>
+                <span class="type-badge tb-mobile">M — Mobile</span>
+            </div>
+
+            <table class="doc-table">
+                <thead><tr><th>Тип</th><th>Префікс</th><th>Призначення</th></tr></thead>
+                <tbody>
+                    <tr><td>PC</td><td><code>P</code></td><td>Веб-інтерфейс для комп'ютерних браузерів</td></tr>
+                    <tr><td>Render</td><td><code>R</code></td><td>Пряма передача зображення на дисплей (bitmap по мережі, тільки дельти)</td></tr>
+                    <tr><td>Mobile</td><td><code>M</code></td><td>Компактний інтерфейс для мобільних пристроїв</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Ідентифікатор екрана</h3>
+            <p>ID генерується автоматично при створенні: <code>P1</code>, <code>P2</code>, <code>R1</code>, <code>R12</code>, <code>M1</code>…</p>
+            <p>Окрім ID кожен екран має два числових параметри:</p>
+            <ul>
+                <li><strong>Номер екрана</strong> (<code>screenNum</code>) — логічний номер, визначає рядок у таблиці структури. Редагується у властивостях екрана.</li>
+                <li><strong>Пристрій відображення</strong> (<code>deviceType</code>) — номер фізичного дисплея (D1, D2…). Встановлюється при створенні, редагується у властивостях.</li>
+            </ul>
+
+            <div class="note"><strong>Навігація:</strong> переходи між екранами дозволені лише в рамках одного типу (PC↔PC, R↔R…) <em>і</em> одного пристрою (D1↔D1…).</div>
+        </section>
+
+        <!-- ── Структура проекту ── -->
+        <section id="struct-view">
+            <h2>Структура проекту</h2>
+
+            <h3>Графічний вигляд</h3>
+            <p>Кожен екран відображається як картка з назвою, ID, типом (P/R/M) і номером пристрою. Картки можна вільно перетягувати по канвасу. Декоративні елементи (групи, підписи, стрілки) додаються з лівої палітри drag&amp;drop.</p>
+
+            <h3>Табличний вигляд</h3>
+            <p>Кнопка <strong>⊞ Таблиця</strong> в тулбарі перемикає на матричне представлення:</p>
+            <ul>
+                <li>Рядки — номери екранів (<code>screenNum</code>)</li>
+                <li>Стовпці — тип × пристрій (PC D1, PC D2, Render D1…)</li>
+                <li>Клік на комірці — вибирає екран у панелі властивостей</li>
+                <li>Подвійний клік — відкриває редактор елементів</li>
+            </ul>
+
+            <h3>Файлова структура</h3>
+            <p>Дані екранів зберігаються плоско: <code>data/screens/{ID}/screen.json</code>. Структура проекту (список екранів, позиції) — у <code>data/project.json</code>.</p>
         </section>
 
         <!-- ── Елементи ── -->
         <section id="elements">
             <h2>Типи елементів</h2>
+            <p>Елементи додаються перетяганням з палітри на полотно. Розмір і позиція задаються у відсотках від розмірів екрана.</p>
+
+            <h3>Дані та індикація</h3>
             <div class="el-grid">
                 <div class="el-card">
                     <div class="el-icon">🏷</div>
                     <div class="el-name">Мітка</div>
-                    <div class="el-desc">Статичний текст. Налаштовується шрифт, колір, вирівнювання.</div>
+                    <div class="el-desc">Статичний текст. Шрифт, колір, вирівнювання (ліво/центр/право).</div>
                 </div>
                 <div class="el-card">
                     <div class="el-icon">🔢</div>
                     <div class="el-name">Значення точки</div>
-                    <div class="el-desc">Відображає поточне значення параметра. Колір змінюється залежно від якості.</div>
+                    <div class="el-desc">Поточне значення параметра. Колір змінюється залежно від якості сигналу.</div>
                 </div>
                 <div class="el-card">
                     <div class="el-icon">💡</div>
                     <div class="el-name">Індикатор</div>
-                    <div class="el-desc">Кольоровий індикатор стану. Змінює колір при зміні якості сигналу.</div>
+                    <div class="el-desc">Кругловий індикатор стану. Окремий колір для кожного рівня якості.</div>
                 </div>
                 <div class="el-card">
-                    <div class="el-icon">▬</div>
-                    <div class="el-name">Прямокутник</div>
-                    <div class="el-desc">Декоративний блок. Колір фону, рамка, прозорість.</div>
+                    <div class="el-icon">▓</div>
+                    <div class="el-name">Рівень</div>
+                    <div class="el-desc">Заповнений індикатор рівня — вертикальний або горизонтальний. Прив'язується до точки з min/max.</div>
                 </div>
+                <div class="el-card">
+                    <div class="el-icon">◉</div>
+                    <div class="el-name">Манометр</div>
+                    <div class="el-desc">Аналоговий стрілочний прилад зі зонами ALARM/WARN/GOOD. Підпис і числове значення.</div>
+                </div>
+            </div>
+
+            <h3>Навігація</h3>
+            <div class="el-grid">
                 <div class="el-card">
                     <div class="el-icon">🔘</div>
                     <div class="el-name">Навігація</div>
-                    <div class="el-desc">Кнопка переходу на інший екран системи.</div>
+                    <div class="el-desc">Кнопка переходу на інший екран того ж типу та пристрою.</div>
                 </div>
                 <div class="el-card">
                     <div class="el-icon">⬡</div>
                     <div class="el-name">Підсистема</div>
-                    <div class="el-desc">Картка з SVG-фоном. Прив'язується до параметра — колір рамки відображає якість. Переходить на екран підсистеми.</div>
+                    <div class="el-desc">Картка з SVG-фоном та прив'язкою до параметра. Колір рамки відображає якість. Перехід на цільовий екран.</div>
                 </div>
                 <div class="el-card">
                     <div class="el-icon">⇗</div>
                     <div class="el-name">Веб-лінк</div>
-                    <div class="el-desc">Картка з SVG-фоном. При кліку переходить на вказану URL-адресу.</div>
+                    <div class="el-desc">Картка з SVG-фоном. Відкриває зовнішню URL-адресу.</div>
                 </div>
             </div>
+
+            <h3>Оформлення</h3>
+            <div class="el-grid">
+                <div class="el-card">
+                    <div class="el-icon">▬</div>
+                    <div class="el-name">Прямокутник</div>
+                    <div class="el-desc">Декоративний блок. Колір, рамка, скруглення, прозорість.</div>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">⬚</div>
+                    <div class="el-name">Група</div>
+                    <div class="el-desc">Прямокутник з підписом зверху. Вкладені елементи переміщуються разом. Текст незалежний від прозорості.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Малювання ── -->
+        <section id="drawing">
+            <h2>Примітиви малювання</h2>
+            <p>Геометричні форми з SVG-рендерингом. Розтягуються разом із контейнером.</p>
+
+            <div class="el-grid">
+                <div class="el-card">
+                    <div class="el-icon">〇</div>
+                    <div class="el-name">Еліпс / Коло</div>
+                    <div class="el-desc">Заливка, обводка, прозорість. Стає колом при рівних розмірах.</div>
+                    <div class="el-tag new">New</div>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">╱</div>
+                    <div class="el-name">Лінія</div>
+                    <div class="el-desc">Пряма лінія. Суцільна або пунктирна. Кінцеві точки перетягуються мишкою.</div>
+                    <div class="el-tag new">New</div>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">→</div>
+                    <div class="el-name">Стрілка</div>
+                    <div class="el-desc">Лінія з наконечником. Суцільна або пунктирна. Кінцеві точки перетягуються.</div>
+                    <div class="el-tag new">New</div>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">△</div>
+                    <div class="el-name">Трикутник</div>
+                    <div class="el-desc">Чотири орієнтації: вгору, вниз, ліво, право. Заливка і обводка.</div>
+                    <div class="el-tag new">New</div>
+                </div>
+            </div>
+
+            <h3>Редагування кінцевих точок лінії та стрілки</h3>
+            <p>При виборі елемента типу <em>Лінія</em> або <em>Стрілка</em> з'являються два маркери — <span style="color:#58a6ff">●</span> синій (початок) та <span style="color:#e3b341">●</span> жовтий (кінець). Перетягніть маркер мишкою для зміни позиції точки всередині bounding box елемента.</p>
+
+            <h3>Групування елементів</h3>
+            <p>Елемент <strong>Група</strong> (<code>group_box</code>) охоплює розташовані всередині елементи. При переміщенні групи всі вкладені елементи рухаються разом. Z-index груп нижчий за звичайні елементи, щоб внутрішні елементи залишались інтерактивними.</p>
         </section>
 
         <!-- ── Точки ── -->
         <section id="points">
             <h2>Параметри (точки)</h2>
-            <p>Кожен параметр системи — це <strong>точка</strong> з унікальним числовим ID. Зберігається у Redis як хеш <code>point:NNN</code>.</p>
+            <p>Кожен параметр системи — це <strong>точка</strong> з унікальним числовим ID. Зберігається в Redis як хеш <code>point:NNN</code>.</p>
 
-            <h3>Структура точки</h3>
-            <ul>
-                <li><code>id</code> — числовий ідентифікатор</li>
-                <li><code>object</code> — об'єкт (наприклад, <code>home</code>, <code>boiler</code>)</li>
-                <li><code>system</code> — підсистема (<code>heating</code>, <code>gas</code>, <code>power</code>…)</li>
-                <li><code>pointname</code> — назва параметра (<code>pressure</code>, <code>temperature</code>…)</li>
-                <li><code>value</code> — поточне значення</li>
-                <li><code>unit</code> — одиниці виміру (<code>°C</code>, <code>bar</code>, <code>A</code>…)</li>
-                <li><code>quality</code> — якість сигналу</li>
-                <li><code>ts</code> — Unix timestamp останнього оновлення</li>
-            </ul>
+            <h3>Поля точки</h3>
+            <table class="doc-table">
+                <thead><tr><th>Поле</th><th>Опис</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td>Числовий ідентифікатор</td></tr>
+                    <tr><td><code>object</code></td><td>Об'єкт (<code>home</code>, <code>boiler</code>…)</td></tr>
+                    <tr><td><code>system</code></td><td>Підсистема (<code>heating</code>, <code>gas</code>…)</td></tr>
+                    <tr><td><code>pointname</code></td><td>Назва параметра (<code>pressure</code>, <code>temperature</code>…)</td></tr>
+                    <tr><td><code>value</code></td><td>Поточне значення</td></tr>
+                    <tr><td><code>unit</code></td><td>Одиниці виміру (°C, bar, A…)</td></tr>
+                    <tr><td><code>quality</code></td><td>Якість сигналу</td></tr>
+                    <tr><td><code>ts</code></td><td>Unix timestamp останнього оновлення</td></tr>
+                </tbody>
+            </table>
 
-            <p>Список усіх точок із поточними значеннями доступний на сторінці <a href="/dashboard" style="color:var(--accent)">Всі параметри</a>.</p>
+            <p>Список усіх точок — <a href="/dashboard">Всі параметри</a>. Підтримує фільтрацію за ID, об'єктом, підсистемою, назвою, значенням.</p>
         </section>
 
         <!-- ── Якість ── -->
         <section id="quality">
             <h2>Якість сигналу</h2>
-            <p>Кожна точка має поле <code>quality</code>, яке впливає на колір елементів на екрані.</p>
+            <p>Поле <code>quality</code> точки впливає на колір елементів на екрані.</p>
             <div class="q-grid">
-                <div class="q-badge"><div class="q-dot" style="background:#56d364"></div> GOOD — норма</div>
+                <div class="q-badge"><div class="q-dot" style="background:#56d364;box-shadow:0 0 4px #56d364"></div> GOOD — норма</div>
                 <div class="q-badge"><div class="q-dot" style="background:#f0ad4e"></div> WARN — попередження</div>
-                <div class="q-badge"><div class="q-dot" style="background:#f47067"></div> ALARM — аварія</div>
+                <div class="q-badge"><div class="q-dot" style="background:#f47067;box-shadow:0 0 4px #f47067"></div> ALARM — аварія (миготить)</div>
                 <div class="q-badge"><div class="q-dot" style="background:#8b949e"></div> UNCERT — невизначено</div>
                 <div class="q-badge"><div class="q-dot" style="background:#58a6ff"></div> INIT — ініціалізація</div>
                 <div class="q-badge"><div class="q-dot" style="background:#484f58"></div> NODATA — немає даних</div>
             </div>
-            <p>Елементи <em>Значення точки</em>, <em>Індикатор</em> та <em>Підсистема</em> автоматично змінюють свій колір залежно від якості прив'язаного параметра.</p>
+            <p>Елементи <em>Значення точки</em>, <em>Індикатор</em>, <em>Рівень</em>, <em>Манометр</em> та <em>Підсистема</em> автоматично змінюють колір залежно від якості.</p>
         </section>
 
         <!-- ── Симулятор ── -->
         <section id="simulator">
             <h2>Симулятор</h2>
-            <p>Контейнер <code>infrabox-simulator</code> генерує тестові значення для всіх точок і публікує їх через MQTT. Дозволяє тестувати екрани без підключення реального обладнання.</p>
-
+            <p>Контейнер <code>infrabox-simulator</code> генерує тестові значення для всіх точок і публікує через MQTT. Дозволяє тестувати без реального обладнання.</p>
             <h3>Увімкнення / вимкнення</h3>
-            <p>Керується з головного екрану: <strong>☰ Меню → Налаштування → Симулятор</strong>. Перемикач призупиняє або відновлює контейнер (стан зберігається).</p>
-
-            <div class="note"><strong>Увага:</strong> при увімкненому симуляторі реальні дані можуть перезаписуватись симульованими, якщо обидва джерела публікують одні й ті самі точки.</div>
+            <p>Керується зі сторінки адміністрування: розділ <strong>Підсистеми</strong> → кнопки Старт / Стоп / Рестарт.</p>
+            <div class="note warn"><strong>Увага:</strong> при увімкненому симуляторі реальні дані можуть перезаписуватись симульованими, якщо обидва джерела публікують одні точки.</div>
         </section>
 
         <!-- ── Архіватор ── -->
         <section id="archiver">
             <h2>Архіватор</h2>
-            <p>Контейнер <code>infrabox-arch</code> безперервно записує значення всіх точок у файлові томи. Доступний за адресою <a href="/arch/" style="color:var(--accent)">/arch/</a>.</p>
+            <p>Контейнер <code>infrabox-arch</code> безперервно записує значення всіх точок. Доступний за адресою <a href="/arch/">/arch/</a>.</p>
             <ul>
                 <li>Фільтрація за об'єктом, підсистемою, пошук за назвою</li>
-                <li>Вибір кількох параметрів для порівняння трендів</li>
+                <li>Вибір кількох параметрів для порівняльних трендів</li>
                 <li>Побудова графіків за довільний проміжок часу</li>
             </ul>
         </section>
@@ -372,8 +526,36 @@
         <!-- ── Адміністрування ── -->
         <section id="admin">
             <h2>Адміністрування</h2>
-            <p>Сторінка <a href="/admin" style="color:var(--accent)">/admin</a> доступна після авторизації. Дозволяє управляти обліковими записами користувачів.</p>
-            <div class="note"><strong>Для входу</strong> перейдіть на <a href="/login" style="color:var(--accent)">/login</a>. Після авторизації в хедері з'явиться ім'я користувача, а кнопка <strong>Вийти</strong> завершить сесію.</div>
+            <p>Сторінка <a href="/admin">/admin</a> — тільки для адміністраторів. Вкладки:</p>
+            <ul>
+                <li><strong>Підсистеми</strong> — перегляд стану Docker-контейнерів, старт / стоп / рестарт / ребілд кожної підсистеми</li>
+                <li><strong>Користувачі</strong> — перелік облікових записів, зміна паролів та ролей</li>
+                <li><strong>Права доступу</strong> — матриця дозволів: які сторінки та об'єкти доступні кожному оператору</li>
+            </ul>
+
+            <h3>Ролі</h3>
+            <table class="doc-table">
+                <thead><tr><th>Роль</th><th>Доступ</th></tr></thead>
+                <tbody>
+                    <tr><td><code>admin</code></td><td>Повний доступ до всього: перегляд, конструктор, адмін-панель</td></tr>
+                    <tr><td><code>operator</code></td><td>Перегляд екранів та Dashboard (з урахуванням прав)</td></tr>
+                    <tr><td><code>constructor</code></td><td>Резервна роль для конструктора (нижча за operator)</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ── Контроль доступу ── -->
+        <section id="access">
+            <h2>Контроль доступу</h2>
+            <p>Адміністратор може обмежувати доступ оператора до окремих сторінок та об'єктів даних.</p>
+
+            <h3>Права на сторінки</h3>
+            <p>У розділі <strong>Права доступу</strong> адмін-панелі задається список сторінок (наприклад, <code>dashboard</code>), до яких має доступ конкретний оператор. Якщо список не заданий — оператор бачить всі дозволені сторінки.</p>
+
+            <h3>Фільтрація об'єктів</h3>
+            <p>Поле <code>objects</code> у правах — список об'єктів даних, які оператор може переглядати. API <code>/api/points</code> автоматично фільтрує точки для не-адміністраторів.</p>
+
+            <div class="note"><strong>JWT-токен</strong> містить поточні права. При зміні прав оператору необхідно перезайти, щоб отримати оновлений токен.</div>
         </section>
 
     </main>
@@ -382,12 +564,12 @@
 <script>
 function docs() {
     return {
-        theme:  localStorage.getItem('infrabox-theme') || 'dark',
+        theme:  localStorage.getItem('ib-theme') || 'dark',
         active: 'overview',
 
         toggleTheme() {
             this.theme = this.theme === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('infrabox-theme', this.theme);
+            localStorage.setItem('ib-theme', this.theme);
         },
 
         scrollTo(id) {
