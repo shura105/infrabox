@@ -207,7 +207,7 @@ const GROUPS = [
     { id: "system",    label: "Система",     prefix: "system:",    icon: "⚙" },
     { id: "other",     label: "Інше",        prefix: null,         icon: "📦" },
 ];
-const _groupOpen = { heartbeat: true, points: false, users: false, system: false, other: false };
+const _groupOpen = { heartbeat: false, points: false, users: false, system: false, other: false };
 
 async function load() {
     const btn = document.getElementById("refreshBtn");
