@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from app.redis_client import redis_client
 from app.screens import router as screens_router
 from app.ws import router as ws_router
@@ -36,6 +36,14 @@ async def get_objects(_: dict = Depends(require_auth)):
     data = await redis_client.get_all_points()
     objects = sorted({p["object"] for p in data if p.get("object")})
     return {"objects": objects}
+
+
+@app.get("/api/redis/structure")
+async def get_redis_structure(user: dict = Depends(require_auth)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Тільки для адміністраторів")
+    data = await redis_client.get_structure()
+    return data
 
 
 @app.get("/api/points")

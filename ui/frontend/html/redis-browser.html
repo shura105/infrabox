@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Redis</title>
+    <script>window.REQUIRED_ROLE = "admin";</script>
+    <script src="/auth.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0d1117; color: #c9d1d9;
+            font-family: system-ui, sans-serif; font-size: 14px;
+            min-height: 100vh; display: flex; flex-direction: column;
+        }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 24px; background: #161b22; border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+        }
+        .logo { font-size: 16px; font-weight: 600; color: #58a6ff; }
+        .hdr-right { display: flex; align-items: center; gap: 10px; }
+        .btn {
+            padding: 5px 14px; border-radius: 6px; border: 1px solid #30363d;
+            background: #21262d; color: #c9d1d9; font-size: 13px; cursor: pointer;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { background: #30363d; }
+        .btn-blue { background: #1c3a5e; color: #58a6ff; border-color: #1f4a7a; }
+        .btn-blue:hover { background: #1f4a7a; }
+
+        main { flex: 1; max-width: 1100px; margin: 0 auto; padding: 24px 16px; width: 100%; }
+
+        /* ── stats bar ── */
+        .stats-bar {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .stat-chip {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            padding: 10px 16px; display: flex; flex-direction: column; gap: 2px;
+            min-width: 100px;
+        }
+        .stat-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; }
+        .stat-value { font-size: 22px; font-weight: 700; color: #e6edf3; font-family: monospace; }
+
+        /* ── toolbar ── */
+        .toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 10px; }
+        .search-inp {
+            padding: 5px 10px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-size: 13px; outline: none;
+            width: 260px;
+        }
+        .search-inp:focus { border-color: #58a6ff; }
+        .ts-label { font-size: 11px; color: #484f58; }
+
+        /* ── type badges ── */
+        .type-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 4px;
+            font-size: 10px; font-weight: 700; letter-spacing: .3px;
+            font-family: monospace; text-transform: uppercase;
+        }
+        .type-hash   { background: #1c3a5e; color: #58a6ff; border: 1px solid #1f4a7a; }
+        .type-string { background: #1a3a1a; color: #56d364; border: 1px solid #1e4a1e; }
+        .type-list   { background: #3a2a1a; color: #e3b341; border: 1px solid #4a3a1a; }
+        .type-set    { background: #3a1c3a; color: #d2a8ff; border: 1px solid #4a2a4a; }
+        .type-zset   { background: #3a2200; color: #ffa657; border: 1px solid #4a3200; }
+        .type-other  { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
+
+        /* ── keys list ── */
+        .key-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .key-item {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            overflow: hidden;
+        }
+        .key-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; cursor: pointer; user-select: none;
+            transition: background .12s;
+        }
+        .key-header:hover { background: #1c2128; }
+        .key-name {
+            font-family: monospace; font-size: 13px; color: #e6edf3;
+            flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .key-count { font-size: 11px; color: #8b949e; flex-shrink: 0; }
+        .key-expand { color: #484f58; flex-shrink: 0; font-size: 12px; transition: transform .15s; }
+        .key-item.open .key-expand { transform: rotate(90deg); }
+
+        /* ── value block ── */
+        .key-body { display: none; border-top: 1px solid #21262d; }
+        .key-item.open .key-body { display: block; }
+
+        .hash-table { width: 100%; border-collapse: collapse; }
+        .hash-table td {
+            padding: 6px 14px; border-bottom: 1px solid #21262d;
+            font-family: monospace; font-size: 12px; vertical-align: top;
+        }
+        .hash-table tr:last-child td { border-bottom: none; }
+        .hash-table td:first-child {
+            color: #8b949e; white-space: nowrap; padding-right: 20px;
+            width: 1%; min-width: 120px;
+        }
+        .hash-table td:last-child { color: #c9d1d9; word-break: break-all; }
+
+        .val-string {
+            padding: 8px 14px; font-family: monospace; font-size: 12px;
+            color: #56d364; word-break: break-all;
+        }
+        .val-list, .val-set {
+            padding: 6px 0; display: flex; flex-direction: column;
+        }
+        .val-list-item {
+            padding: 5px 14px; font-family: monospace; font-size: 12px;
+            color: #c9d1d9; border-bottom: 1px solid #21262d;
+        }
+        .val-list-item:last-child { border-bottom: none; }
+        .val-list-idx { color: #484f58; margin-right: 10px; }
+
+        /* ── empty / loading ── */
+        .empty-msg {
+            text-align: center; padding: 60px 20px;
+            color: #484f58; font-size: 15px;
+        }
+        .spinner {
+            display: inline-block; width: 20px; height: 20px;
+            border: 2px solid #30363d; border-top-color: #58a6ff;
+            border-radius: 50%; animation: spin .7s linear infinite;
+            vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .err-msg {
+            background: #3d1c1c; border: 1px solid #6e2c2c;
+            border-radius: 8px; padding: 14px 18px; color: #f47067;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">⚙ Infrabox — Redis</div>
+    <div class="hdr-right">
+        <span class="ts-label" id="tsLabel"></span>
+        <button class="btn btn-blue" id="refreshBtn" onclick="load()">↻ Оновити</button>
+        <a class="btn" href="/admin">← Адмінка</a>
+        <button class="btn" onclick="authLogout()">Вийти</button>
+    </div>
+</header>
+
+<main>
+    <div class="stats-bar" id="statsBar"></div>
+    <div id="errBox"></div>
+
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input class="search-inp" id="searchInp" placeholder="Фільтр по ключу…"
+                   oninput="render()" autocomplete="off">
+            <div id="filterBadges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+    </div>
+
+    <div class="key-list" id="keyList">
+        <div class="empty-msg"><span class="spinner"></span>Завантаження…</div>
+    </div>
+</main>
+
+<script>
+let _data = null;
+let _typeFilter = null;
+
+async function load() {
+    const btn = document.getElementById("refreshBtn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> …';
+    document.getElementById("errBox").innerHTML = "";
+
+    try {
+        const res = await fetch("/api/redis/structure", { headers: authHeaders() });
+        if (res.status === 401) { authLogout(); return; }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showErr(err.detail || `HTTP ${res.status}`);
+            btn.disabled = false;
+            btn.innerHTML = "↻ Оновити";
+            return;
+        }
+        _data = await res.json();
+        const now = new Date();
+        document.getElementById("tsLabel").textContent =
+            now.toLocaleTimeString("uk-UA", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+        renderStats();
+        renderFilters();
+        render();
+    } catch (e) {
+        showErr(e.message);
+    }
+    btn.disabled = false;
+    btn.innerHTML = "↻ Оновити";
+}
+
+function showErr(msg) {
+    document.getElementById("errBox").innerHTML =
+        `<div class="err-msg">⚠ Помилка: ${esc(msg)}</div>`;
+}
+
+function renderStats() {
+    if (!_data) return;
+    const counts = {};
+    for (const k of _data.keys) counts[k.type] = (counts[k.type] || 0) + 1;
+    const order = ["hash", "string", "list", "set", "zset"];
+
+    let html = `<div class="stat-chip">
+        <div class="stat-label">Всього ключів</div>
+        <div class="stat-value">${_data.total}</div>
+    </div>`;
+    for (const t of order) {
+        if (!counts[t]) continue;
+        html += `<div class="stat-chip" style="cursor:pointer" onclick="toggleFilter('${t}')" id="chip-${t}">
+            <div class="stat-label"><span class="type-badge type-${t}">${t}</span></div>
+            <div class="stat-value">${counts[t]}</div>
+        </div>`;
+    }
+    document.getElementById("statsBar").innerHTML = html;
+}
+
+function renderFilters() {
+    // chips handle filtering via onclick; just highlight active
+    for (const t of ["hash","string","list","set","zset"]) {
+        const chip = document.getElementById(`chip-${t}`);
+        if (!chip) continue;
+        chip.style.borderColor = _typeFilter === t ? "#58a6ff" : "#30363d";
+        chip.style.background  = _typeFilter === t ? "#1c2840" : "#161b22";
+    }
+}
+
+function toggleFilter(type) {
+    _typeFilter = _typeFilter === type ? null : type;
+    renderFilters();
+    render();
+}
+
+function render() {
+    if (!_data) return;
+    const q = document.getElementById("searchInp").value.trim().toLowerCase();
+    let keys = _data.keys;
+    if (_typeFilter) keys = keys.filter(k => k.type === _typeFilter);
+    if (q) keys = keys.filter(k => k.key.toLowerCase().includes(q));
+
+    const list = document.getElementById("keyList");
+    if (!keys.length) {
+        list.innerHTML = `<div class="empty-msg">Нічого не знайдено</div>`;
+        return;
+    }
+    list.innerHTML = keys.map(k => renderKey(k)).join("");
+}
+
+function renderKey(k) {
+    const badge = `<span class="type-badge type-${k.type || 'other'}">${k.type}</span>`;
+    const countLabel = countStr(k);
+    const body = renderValue(k);
+
+    return `<div class="key-item" id="ki-${hashId(k.key)}">
+        <div class="key-header" onclick="toggleKey('${hashId(k.key)}')">
+            <span class="key-expand">▶</span>
+            ${badge}
+            <span class="key-name" title="${esc(k.key)}">${esc(k.key)}</span>
+            <span class="key-count">${countLabel}</span>
+        </div>
+        <div class="key-body">${body}</div>
+    </div>`;
+}
+
+function countStr(k) {
+    if (k.type === "hash" && k.value)    return `${Object.keys(k.value).length} поля`;
+    if (k.type === "list" && k.value)    return `${k.value.length} елем.`;
+    if (k.type === "set"  && k.value)    return `${k.value.length} елем.`;
+    if (k.type === "zset" && k.value)    return `${k.value.length} елем.`;
+    return "";
+}
+
+function renderValue(k) {
+    if (k.value === null || k.value === undefined) return `<div class="val-string" style="color:#484f58">(пусто)</div>`;
+
+    if (k.type === "hash") {
+        const rows = Object.entries(k.value).map(([f, v]) =>
+            `<tr><td>${esc(f)}</td><td>${esc(v)}</td></tr>`
+        ).join("");
+        return `<table class="hash-table"><tbody>${rows}</tbody></table>`;
+    }
+    if (k.type === "string") {
+        return `<div class="val-string">${esc(k.value)}</div>`;
+    }
+    if (k.type === "list") {
+        return `<div class="val-list">${k.value.map((v,i) =>
+            `<div class="val-list-item"><span class="val-list-idx">${i}</span>${esc(v)}</div>`
+        ).join("")}</div>`;
+    }
+    if (k.type === "set") {
+        return `<div class="val-set">${k.value.map(v =>
+            `<div class="val-list-item">${esc(v)}</div>`
+        ).join("")}</div>`;
+    }
+    if (k.type === "zset") {
+        return `<div class="val-list">${k.value.map(([v,s]) =>
+            `<div class="val-list-item"><span class="val-list-idx">${s}</span>${esc(v)}</div>`
+        ).join("")}</div>`;
+    }
+    return `<div class="val-string">${esc(String(k.value))}</div>`;
+}
+
+function toggleKey(id) {
+    const el = document.getElementById(`ki-${id}`);
+    if (el) el.classList.toggle("open");
+}
+
+function hashId(s) {
+    // simple stable id from key string
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+load();
+</script>
+</body>
+</html>

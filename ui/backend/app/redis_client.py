@@ -33,5 +33,46 @@ class RedisClient:
 
         return result
 
+    async def get_structure(self):
+        keys = await self.redis.keys("*")
+        result = []
+
+        for key in keys:
+            key_str = key.decode() if isinstance(key, bytes) else key
+            ktype_raw = await self.redis.type(key)
+            ktype = ktype_raw.decode() if isinstance(ktype_raw, bytes) else ktype_raw
+
+            item = {"key": key_str, "type": ktype}
+
+            try:
+                if ktype == "hash":
+                    raw = await self.redis.hgetall(key)
+                    item["value"] = {
+                        (k.decode() if isinstance(k, bytes) else k):
+                        (v.decode() if isinstance(v, bytes) else v)
+                        for k, v in raw.items()
+                    }
+                elif ktype == "string":
+                    val = await self.redis.get(key)
+                    item["value"] = val.decode() if isinstance(val, bytes) else val
+                elif ktype == "list":
+                    vals = await self.redis.lrange(key, 0, -1)
+                    item["value"] = [v.decode() if isinstance(v, bytes) else v for v in vals]
+                elif ktype == "set":
+                    vals = await self.redis.smembers(key)
+                    item["value"] = sorted(v.decode() if isinstance(v, bytes) else v for v in vals)
+                elif ktype == "zset":
+                    vals = await self.redis.zrange(key, 0, -1, withscores=True)
+                    item["value"] = [[v.decode() if isinstance(v, bytes) else v, s] for v, s in vals]
+                else:
+                    item["value"] = None
+            except Exception as e:
+                item["value"] = f"<error: {e}>"
+
+            result.append(item)
+
+        result.sort(key=lambda x: x["key"])
+        return {"total": len(result), "keys": result}
+
 
 redis_client = RedisClient()
