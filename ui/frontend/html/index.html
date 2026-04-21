@@ -710,6 +710,11 @@ function app() {
             if (!targetId) return;
             const target = this.project.screens.find(s => s.id === targetId);
             if (!target) return;
+            // block cross-type navigation
+            const cur = this.project.screens.find(s => s.id === this.screenId);
+            const curType = cur?.screenType || 'pc';
+            const tgtType = target.screenType || 'pc';
+            if (curType !== tgtType) return;
             this.history.push(this.screenId);
             await this.loadScreen(targetId);
         },

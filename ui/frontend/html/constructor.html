@@ -25,6 +25,10 @@
         .btn:disabled{opacity:.4;cursor:default}
         .btn-red{background:#3d1c1c;border-color:#6e2c2c;color:#f47067}
         .btn-red:hover{background:#4a2020}
+        .btn-pc{background:#1c2a3a;border-color:#2d5a8e;color:#58a6ff}.btn-pc:hover{background:#1e3045}
+        .btn-rnd{background:#1a2e1a;border-color:#2d6e2d;color:#56d364}.btn-rnd:hover{background:#1e3a1e}
+        .btn-mob{background:#2e2a1a;border-color:#6e5a2d;color:#e3b341}.btn-mob:hover{background:#3a341e}
+        .snode-type{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0}
 
         /* ── layout ── */
         .main{display:flex;flex:1;overflow:hidden}
@@ -71,6 +75,7 @@
         .snode.sel .snode-inner{border-color:#58a6ff;background:#1c2128}
         .snode-title{font-size:13px;font-weight:600;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .snode-id{font-size:11px;color:#8b949e;margin-top:2px}
+        .snode.sel .snode-inner{border-color:inherit!important}
         /* .snode-hint removed */
 
         /* ── elements canvas ── */
@@ -136,7 +141,9 @@
     <template x-if="mode === 'structure'">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="tb-sep"></div>
-            <button class="btn" @click="openCreate()">+ Екран</button>
+            <button class="btn btn-pc"  @click="openCreate('pc')">+ PC</button>
+            <button class="btn btn-rnd" @click="openCreate('render')">+ Render</button>
+            <button class="btn btn-mob" @click="openCreate('mobile')">+ Mobile</button>
             <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
         </div>
@@ -267,10 +274,15 @@
                              @mousedown.stop="nodeDown($event,node)"
                              @click.stop="selNodeId=node.id"
                              @dblclick.stop="openElements(node.id)">
-                            <div class="snode-inner">
-                                <div class="snode-title" x-text="node.title"></div>
+                            <div class="snode-inner"
+                                 :style="`border-color:${selNodeId===node.id ? screenColor(node) : screenTypeCfg(node).dimColor}`">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                                    <div class="snode-title" x-text="node.title"></div>
+                                    <span class="snode-type"
+                                          :style="`background:${screenTypeCfg(node).bg};color:${screenColor(node)}`"
+                                          x-text="screenTypeCfg(node).prefix"></span>
+                                </div>
                                 <div class="snode-id" x-text="node.id"></div>
-
                             </div>
                         </div>
                     </template>
@@ -299,10 +311,12 @@
                                 @input="project.screens.find(s=>s.id===selNodeId).title = $event.target.value"></div>
                         <div class="pr"><label>ID</label>
                             <input type="text" :value="selNode.id" disabled style="color:#8b949e"></div>
+                        <div class="pr"><label>Тип</label>
+                            <input type="text" :value="screenTypeCfg(selNode).label" disabled style="color:#8b949e"></div>
                         <div class="pr"><label>Батьківський екран</label>
                             <select @change="setNodeParent($event.target.value)">
                                 <option value="" :selected="!selNode.parent">— корінь —</option>
-                                <template x-for="s in project.screens.filter(s=>s.id!==selNodeId)" :key="s.id">
+                                <template x-for="s in sameTypeScreens(screenType(selNode)).filter(s=>s.id!==selNodeId)" :key="s.id">
                                     <option :value="s.id"
                                             :selected="selNode.parent === s.id"
                                             x-text="s.title+' ('+s.id+')'"></option>
@@ -589,7 +603,7 @@
                                 <div class="pr"><label>Цільовий екран</label>
                                     <select @change="setElTarget($event.target.value)">
                                         <option value="" :selected="!selEl.target">— не обрано —</option>
-                                        <template x-for="s in project.screens" :key="s.id">
+                                        <template x-for="s in sameTypeScreens(curScreenType)" :key="s.id">
                                             <option :value="s.id"
                                                     :selected="selEl.target === s.id"
                                                     x-text="s.title+' ('+s.id+')'"></option>
@@ -759,7 +773,7 @@
                                 <div class="pr"><label>Цільовий екран</label>
                                     <select @change="setElTarget($event.target.value)">
                                         <option value="" :selected="!selEl.target">— не обрано —</option>
-                                        <template x-for="s in project.screens" :key="s.id">
+                                        <template x-for="s in sameTypeScreens(curScreenType)" :key="s.id">
                                             <option :value="s.id" :selected="selEl.target===s.id" x-text="s.title+' ('+s.id+')'"></option>
                                         </template>
                                     </select>
@@ -899,16 +913,18 @@
 <!-- create screen modal -->
 <div class="overlay" :class="{open: createModal.open}">
     <div class="modal">
-        <h2>Новий екран</h2>
+        <h2 x-text="`Новий екран — ${SCREEN_TYPES[_createType]?.label}`"></h2>
         <div class="modal-err" id="createErr"></div>
-        <div class="pr"><label>ID (a-z, 0-9, _, -)</label>
-            <input type="text" id="newId" placeholder="heating" @input="autoTitle"></div>
+        <div class="pr">
+            <label>ID (авто)</label>
+            <input type="text" :value="nextId(_createType)" disabled style="color:#8b949e;font-family:monospace">
+        </div>
         <div class="pr"><label>Назва</label>
-            <input type="text" id="newTitle" placeholder="Опалення"></div>
+            <input type="text" id="newTitle" placeholder="Нова сторінка"></div>
         <div class="pr"><label>Батьківський екран</label>
             <select id="newParent">
                 <option value="">— корінь —</option>
-                <template x-for="s in project.screens" :key="s.id">
+                <template x-for="s in sameTypeScreens(_createType)" :key="s.id">
                     <option :value="s.id" x-text="s.title+' ('+s.id+')'"></option>
                 </template>
             </select>
@@ -960,6 +976,13 @@ function app() {
         status: { msg:"Готово", ok:true },
         createModal: { open:false },
         deleteModal:  { open:false, node:null },
+        _createType: 'pc',
+
+        SCREEN_TYPES: {
+            pc:     { prefix:'P', label:'PC',     color:'#58a6ff', dimColor:'#2d5a8e', bg:'#1a2533' },
+            render: { prefix:'R', label:'Render', color:'#56d364', dimColor:'#2d6e2d', bg:'#1a2e1a' },
+            mobile: { prefix:'M', label:'Mobile', color:'#e3b341', dimColor:'#6e5a2d', bg:'#2e2a1a' },
+        },
 
         _scale: 1,
         _bgAspect: null,
@@ -1049,6 +1072,27 @@ function app() {
         },
         get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
         selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood'; },
+        screenType(s)    { return s?.screenType || 'pc'; },
+        screenTypeCfg(s) { return this.SCREEN_TYPES[this.screenType(s)] || this.SCREEN_TYPES.pc; },
+        screenColor(s)   { return this.screenTypeCfg(s).color; },
+        nextId(type) {
+            const cfg = this.SCREEN_TYPES[type];
+            if (!cfg) return 'X1';
+            const prefix = cfg.prefix;
+            const re = new RegExp(`^${prefix}(\\d+)$`);
+            const nums = this.project.screens
+                .map(s => { const m = s.id.match(re); return m ? parseInt(m[1]) : 0; })
+                .filter(n => n > 0);
+            return prefix + ((nums.length ? Math.max(...nums) : 0) + 1);
+        },
+        sameTypeScreens(type) {
+            return this.project.screens.filter(s => this.screenType(s) === type);
+        },
+        get curScreenType() {
+            if (this.mode !== 'elements') return 'pc';
+            const s = this.project.screens.find(s => s.id === this.sc?.id);
+            return this.screenType(s);
+        },
         get selNode()   { return this.project.screens.find(s => s.id === this.selNodeId) ?? {}; },
         get selDeco()   { return this.decos.find(d => d.id === this.selDecoId) ?? null; },
         get arrowDecos(){ return this.decos.filter(d => d.type === 'arrow'); },
@@ -1306,35 +1350,21 @@ function app() {
         },
 
         // ── structure: create ─────────────────────────────────────────────────
-        openCreate() {
-            document.getElementById("newId").value    = "";
+        openCreate(type = 'pc') {
+            this._createType = type;
             document.getElementById("newTitle").value = "";
-            // default parent = selected node
             const sel = document.getElementById("newParent");
             if (sel) sel.value = this.selNodeId || "";
             document.getElementById("createErr").style.display = "none";
             this.createModal.open = true;
-            this.$nextTick(() => document.getElementById("newId").focus());
-        },
-
-        autoTitle() {
-            const id = document.getElementById("newId").value;
-            const t  = document.getElementById("newTitle");
-            if (!t.value) t.value = id;
+            this.$nextTick(() => document.getElementById("newTitle").focus());
         },
 
         async createScreen() {
-            const id     = document.getElementById("newId").value.trim();
+            const id     = this.nextId(this._createType);
             const title  = document.getElementById("newTitle").value.trim() || id;
             const parent = document.getElementById("newParent").value || null;
             const err    = document.getElementById("createErr");
-
-            if (!id || !/^[a-z0-9_-]+$/.test(id)) {
-                err.textContent="ID: лише a-z, 0-9, _, -"; err.style.display="block"; return;
-            }
-            if (this.project.screens.find(s=>s.id===id)) {
-                err.textContent="Такий ID вже існує"; err.style.display="block"; return;
-            }
 
             // авто-позиція: поряд з батьком або за замовчуванням
             let x = 40, y = 40;
@@ -1351,7 +1381,7 @@ function app() {
                 y = 40;
             }
 
-            this.project.screens.push({ id, title, parent, x, y });
+            this.project.screens.push({ id, title, parent, x, y, screenType: this._createType });
             this.createModal.open = false;
             this.selNodeId = id;
 
