@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrabox — Обладнання</title>
+    <script>window.REQUIRED_ROLE = "admin";</script>
+    <script src="/auth.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0d1117; color: #c9d1d9;
+            font-family: system-ui, sans-serif; font-size: 14px;
+            min-height: 100vh; display: flex; flex-direction: column;
+        }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 24px; background: #161b22; border-bottom: 1px solid #30363d;
+        }
+        .logo { font-size: 16px; font-weight: 600; color: #58a6ff; text-decoration: none; }
+        .hdr-right { display: flex; align-items: center; gap: 12px; }
+        .btn {
+            padding: 5px 14px; border-radius: 6px; border: 1px solid #30363d;
+            background: #21262d; color: #c9d1d9; font-size: 13px; cursor: pointer;
+            text-decoration: none; display: inline-flex; align-items: center;
+        }
+        .btn:hover { background: #30363d; }
+        main {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 16px;
+        }
+        .icon { font-size: 56px; opacity: .25; }
+        .title { font-size: 18px; font-weight: 600; color: #8b949e; }
+        .sub { font-size: 13px; color: #484f58; }
+    </style>
+</head>
+<body>
+<header>
+    <a class="logo" href="/">⬡ Infrabox</a>
+    <div class="hdr-right">
+        <a class="btn" href="/constructor">← Конструктор</a>
+        <button class="btn" onclick="authLogout()">Вийти</button>
+    </div>
+</header>
+<main>
+    <div class="icon">⚙</div>
+    <div class="title">Конструктор обладнання</div>
+    <div class="sub">Розділ у розробці</div>
+</main>
+</body>
+</html>
