@@ -144,6 +144,25 @@
             border-radius: 8px; padding: 14px 18px; color: #f47067;
             margin-bottom: 16px;
         }
+
+        /* ── groups ── */
+        .group { margin-bottom: 20px; }
+        .group-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 4px; cursor: pointer; user-select: none;
+            border-bottom: 1px solid #21262d; margin-bottom: 8px;
+        }
+        .group-header:hover .group-title { color: #e6edf3; }
+        .group-arrow { color: #484f58; font-size: 11px; transition: transform .15s; }
+        .group.open .group-arrow { transform: rotate(90deg); }
+        .group-title { font-size: 13px; font-weight: 600; color: #8b949e; }
+        .group-count {
+            font-size: 11px; color: #484f58; background: #21262d;
+            border: 1px solid #30363d; border-radius: 10px;
+            padding: 1px 8px; font-family: monospace;
+        }
+        .group-body { display: none; }
+        .group.open .group-body { display: flex; flex-direction: column; gap: 6px; }
     </style>
 </head>
 <body>
@@ -180,6 +199,14 @@
 <script>
 let _data = null;
 let _typeFilter = null;
+
+const GROUPS = [
+    { id: "points",  label: "Поінти",       prefix: "point:",  icon: "📊" },
+    { id: "users",   label: "Користувачі",  prefix: "user:",   icon: "👤" },
+    { id: "system",  label: "Система",      prefix: "system:", icon: "⚙" },
+    { id: "other",   label: "Інше",         prefix: null,      icon: "📦" },
+];
+const _groupOpen = { points: true, users: true, system: true, other: true };
 
 async function load() {
     const btn = document.getElementById("refreshBtn");
@@ -252,6 +279,13 @@ function toggleFilter(type) {
     render();
 }
 
+function groupOf(key) {
+    for (const g of GROUPS) {
+        if (g.prefix && key.startsWith(g.prefix)) return g.id;
+    }
+    return "other";
+}
+
 function render() {
     if (!_data) return;
     const q = document.getElementById("searchInp").value.trim().toLowerCase();
@@ -264,7 +298,35 @@ function render() {
         list.innerHTML = `<div class="empty-msg">Нічого не знайдено</div>`;
         return;
     }
-    list.innerHTML = keys.map(k => renderKey(k)).join("");
+
+    // distribute into groups
+    const buckets = {};
+    for (const g of GROUPS) buckets[g.id] = [];
+    for (const k of keys) buckets[groupOf(k.key)].push(k);
+
+    let html = "";
+    for (const g of GROUPS) {
+        const items = buckets[g.id];
+        if (!items.length) continue;
+        const open = _groupOpen[g.id] !== false;
+        html += `<div class="group ${open ? 'open' : ''}" id="grp-${g.id}">
+            <div class="group-header" onclick="toggleGroup('${g.id}')">
+                <span class="group-arrow">▶</span>
+                <span class="group-title">${g.icon} ${g.label}</span>
+                <span class="group-count">${items.length}</span>
+            </div>
+            <div class="group-body">
+                ${items.map(k => renderKey(k)).join("")}
+            </div>
+        </div>`;
+    }
+    list.innerHTML = html;
+}
+
+function toggleGroup(id) {
+    _groupOpen[id] = !_groupOpen[id];
+    const el = document.getElementById(`grp-${id}`);
+    if (el) el.classList.toggle("open", _groupOpen[id]);
 }
 
 function renderKey(k) {
