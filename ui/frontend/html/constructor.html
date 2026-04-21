@@ -141,10 +141,6 @@
     <template x-if="mode === 'structure'">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="tb-sep"></div>
-            <button class="btn btn-pc"  @click="openCreate('pc')">+ PC</button>
-            <button class="btn btn-rnd" @click="openCreate('render')">+ Render</button>
-            <button class="btn btn-mob" @click="openCreate('mobile')">+ Mobile</button>
-            <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
         </div>
     </template>
@@ -175,6 +171,10 @@
 
             <!-- structure left panel -->
             <div class="struct-pal">
+                <div class="pal-title">Екрани</div>
+                <button class="btn btn-pc"  style="width:100%;margin-bottom:4px" @click="openCreate('pc')">+ PC</button>
+                <button class="btn btn-rnd" style="width:100%;margin-bottom:4px" @click="openCreate('render')">+ Render</button>
+                <button class="btn btn-mob" style="width:100%;margin-bottom:10px" @click="openCreate('mobile')">+ Mobile</button>
                 <div class="pal-title">Оформлення</div>
                 <template x-for="item in structPalette" :key="item.type">
                     <div class="pal-item" draggable="true" @dragstart="decodrag($event,item.type)">
