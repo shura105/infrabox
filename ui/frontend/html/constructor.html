@@ -1732,11 +1732,14 @@ updateScale() {
                 if (!cv) return;
                 const r  = cv.getBoundingClientRect();
                 const el = this._drag;
-                const xpx = this.snap((e.clientX-r.left)/this._scale, this.sc.grid);
-                const ypx = this.snap((e.clientY-r.top) /this._scale, this.sc.grid);
+                // snap the element's top-left corner, not the cursor
+                const curPxX = (e.clientX-r.left)/this._scale;
+                const curPxY = (e.clientY-r.top) /this._scale;
+                const xpx = this.snap(curPxX - this._off.x * this.sc.width,  this.sc.grid);
+                const ypx = this.snap(curPxY - this._off.y * this.sc.height, this.sc.grid);
                 const ox = el.x, oy = el.y;
-                el.x = Math.max(0, Math.min(xpx/this.sc.width  - this._off.x, (this.sc.width  - el.w)/this.sc.width));
-                el.y = Math.max(0, Math.min(ypx/this.sc.height - this._off.y, (this.sc.height - el.h)/this.sc.height));
+                el.x = Math.max(0, Math.min(xpx/this.sc.width,  (this.sc.width  - el.w)/this.sc.width));
+                el.y = Math.max(0, Math.min(ypx/this.sc.height, (this.sc.height - el.h)/this.sc.height));
                 // move group_box children
                 if (this._groupEls.length) {
                     const ddx = el.x - ox, ddy = el.y - oy;
