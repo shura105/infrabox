@@ -286,6 +286,7 @@
         .r-ibox-foot { padding: 3px 8px; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .r-ibox-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background .3s; }
         .r-ibox-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .r-shape { position: absolute; inset: 0; overflow: visible; }
 
         /* ── empty / loading states ── */
         .state-msg {
@@ -451,7 +452,8 @@
                     <template x-for="el in els" :key="el.id">
                         <div class="c-el"
                              :style="`left:${el.x*100}%;top:${el.y*100}%;
-                                      width:${el.w*sc.width}px;height:${el.h*sc.height}px;`">
+                                      width:${el.w*sc.width}px;height:${el.h*sc.height}px;
+                                      z-index:${el.type==='group_box'?1:2};`">
 
                             <!-- label -->
                             <template x-if="el.type==='label'">
@@ -575,6 +577,43 @@
                                               x-show="!!el.label" x-text="el.label||''"></text>
                                     </svg>
                                 </div>
+                            </template>
+
+                            <!-- group_box -->
+                            <template x-if="el.type==='group_box'">
+                                <div style="position:absolute;inset:0">
+                                    <div :style="`position:absolute;inset:0;
+                                                  background:${el.fill};
+                                                  border:${el.borderWidth}px solid ${el.borderColor};
+                                                  border-radius:${el.radius}px;
+                                                  opacity:${el.opacity??0.75}`"></div>
+                                    <div :style="`position:absolute;top:5px;
+                                                  left:${el.borderWidth+6}px;right:${el.borderWidth+6}px;
+                                                  font-size:${el.fontSize||12}px;color:${el.color||'#8b949e'};
+                                                  font-weight:500;white-space:nowrap;overflow:hidden;
+                                                  text-overflow:ellipsis;text-align:${el.textAlign||'left'}`"
+                                         x-text="el.title||'Група'"></div>
+                                </div>
+                            </template>
+
+                            <!-- ellipse -->
+                            <template x-if="el.type==='ellipse'">
+                                <div class="r-shape" x-html="svgEllipse(el)"></div>
+                            </template>
+
+                            <!-- line -->
+                            <template x-if="el.type==='line'">
+                                <div class="r-shape" x-html="svgLine(el)"></div>
+                            </template>
+
+                            <!-- arrow -->
+                            <template x-if="el.type==='arrow'">
+                                <div class="r-shape" x-html="svgArrow(el)"></div>
+                            </template>
+
+                            <!-- triangle -->
+                            <template x-if="el.type==='triangle'">
+                                <div class="r-shape" x-html="svgTriangle(el)"></div>
                             </template>
 
                         </div>
@@ -842,6 +881,53 @@ function app() {
             const v=parseFloat(pt.value);
             return (isNaN(v)?'—':String(parseFloat(v.toFixed(2))))+(pt.unit?' '+pt.unit:'');
         },
+        // ── shape SVG helpers ──────────────────────────────────────────────────
+        svgEllipse(el) {
+            const sw = el.strokeWidth || 0, h = sw / 2;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
+                <ellipse cx="50" cy="50" rx="${50-h}" ry="${50-h}"
+                         fill="${el.fill||'transparent'}" stroke="${el.strokeColor||'#58a6ff'}"
+                         stroke-width="${sw}" opacity="${el.opacity??1}"/></svg>`;
+        },
+        svgLine(el) {
+            const sw = el.strokeWidth || 2;
+            const x1 = el.x1??0, y1 = el.y1??0, x2 = el.x2??100, y2 = el.y2??100;
+            const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" overflow="visible">
+                <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+                      stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
+                      stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/></svg>`;
+        },
+        svgArrow(el) {
+            const sw = el.strokeWidth || 2;
+            const x1 = el.x1??0, y1 = el.y1??50, x2 = el.x2??100, y2 = el.y2??50;
+            const col = el.color || '#58a6ff';
+            const aLen = el.arrowSize || 12, aW = aLen * 0.45;
+            const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+            if (len < 1) return `<svg viewBox="0 0 100 100" width="100%" height="100%"></svg>`;
+            const nx = dx/len, ny = dy/len;
+            const bx = x2 - aLen*nx, by = y2 - aLen*ny;
+            const p1 = `${(bx+aW*ny).toFixed(1)},${(by-aW*nx).toFixed(1)}`;
+            const p2 = `${(bx-aW*ny).toFixed(1)},${(by+aW*nx).toFixed(1)}`;
+            const tip = `${x2.toFixed(1)},${y2.toFixed(1)}`;
+            const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" overflow="visible">
+                <line x1="${x1}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"
+                      stroke="${col}" stroke-width="${sw}" stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/>
+                <polygon points="${p1} ${tip} ${p2}" fill="${col}" opacity="${el.opacity??1}"/></svg>`;
+        },
+        svgTriangle(el) {
+            const sw = el.strokeWidth || 0, h = sw / 2;
+            const pts = { up:`50,${h} ${100-h},${100-h} ${h},${100-h}`,
+                          down:`${h},${h} ${100-h},${h} 50,${100-h}`,
+                          right:`${h},${h} ${100-h},50 ${h},${100-h}`,
+                          left:`${100-h},${h} ${h},50 ${100-h},${100-h}` }[el.direction||'up']||`50,0 100,100 0,100`;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
+                <polygon points="${pts}" fill="${el.fill||'#1e2130'}"
+                         stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
+                         stroke-linejoin="round" opacity="${el.opacity??1}"/></svg>`;
+        },
+
         openHref(href) {
             if (!href) return;
             if (this._ws) { this._ws.onclose = null; this._ws.close(); }
