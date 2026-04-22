@@ -800,9 +800,7 @@ function app() {
                     msg.data.forEach(p => { pts[p.id] = p; });
                     this.points = pts;
                 } else if (msg.type === 'update') {
-                    const pts = { ...this.points };
-                    msg.data.forEach(p => { pts[p.id] = p; });
-                    this.points = pts;
+                    msg.data.forEach(p => { this.points[p.id] = p; });
                 }
                 const now = new Date();
                 this.lastUpdate = now.toLocaleTimeString('uk-UA');
