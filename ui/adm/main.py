@@ -34,25 +34,30 @@ _PROXY_CONTAINERS = [
 def _heartbeat_thread():
     r = None
     docker_client = None
+    _docker_tick = 0
     while True:
         try:
             if r is None:
                 r = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
             ts = int(time.time())
-            # own heartbeat
             r.set("heartbeat:infrabox-adm", ts, ex=5)
-            # proxy heartbeats for third-party containers via Docker API
-            try:
-                if docker_client is None:
-                    docker_client = docker_sdk.from_env()
-                running = {c.name for c in docker_client.containers.list()}
-                pipe = r.pipeline()
-                for name in _PROXY_CONTAINERS:
-                    if name in running:
-                        pipe.set(f"heartbeat:{name}", ts, ex=5)
-                pipe.execute()
-            except Exception:
-                docker_client = None
+            # Docker API is polled every 3s — cheaper than every tick, still within TTL=5s
+            _docker_tick += 1
+            if _docker_tick >= 3:
+                _docker_tick = 0
+                try:
+                    if docker_client is None:
+                        docker_client = docker_sdk.from_env()
+                    running = {c.name for c in docker_client.containers.list(
+                        filters={"status": "running", "name": _PROXY_CONTAINERS}
+                    )}
+                    pipe = r.pipeline()
+                    for name in _PROXY_CONTAINERS:
+                        if name in running:
+                            pipe.set(f"heartbeat:{name}", ts, ex=5)
+                    pipe.execute()
+                except Exception:
+                    docker_client = None
         except Exception:
             r = None
         time.sleep(1)
