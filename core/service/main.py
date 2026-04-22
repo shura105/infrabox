@@ -155,6 +155,25 @@ def main():
 
     log.info(f"System tick: {tick}s")
 
+    _hb_tick = 0
+    _HB_INTERVAL = 5  # update heartbeat points every N ticks
+    _HB_POINTS = {
+        "infrabox-core":            200,
+        "infrabox-auth":            201,
+        "infrabox-backend":         202,
+        "infrabox-adm":             203,
+        "infrabox-simulator":       204,
+        "infrabox-selfdiagnostic":  205,
+        "infrabox-arch":            206,
+        "infrabox-arch-backend":    207,
+        "infrabox-redis":           208,
+        "infrabox-mosquitto-real":  209,
+        "infrabox-mosquitto-sim":   210,
+        "infrabox-web":             211,
+        "infrabox-arch-ui":         212,
+        "portainer":               213,
+    }
+
     # --- MAIN LOOP ---
     while True:
 
@@ -307,49 +326,35 @@ def main():
             r.set("system:passed_deadband", passed)
             r.set("heartbeat:infrabox-core", int(time.time()), ex=5)
 
-            # --- HEARTBEAT POINTS ---
-            _HB_POINTS = {
-                "infrabox-core":            200,
-                "infrabox-auth":            201,
-                "infrabox-backend":         202,
-                "infrabox-adm":             203,
-                "infrabox-simulator":       204,
-                "infrabox-selfdiagnostic":  205,
-                "infrabox-arch":            206,
-                "infrabox-arch-backend":    207,
-                "infrabox-redis":           208,
-                "infrabox-mosquitto-real":  209,
-                "infrabox-mosquitto-sim":   210,
-                "infrabox-web":             211,
-                "infrabox-arch-ui":         212,
-                "portainer":               213,
-            }
-            now_ms = int(time.time() * 1000)
-            # pipeline all GETs first, then all writes — avoids 14 serial round-trips
-            hb_get_pipe = r.pipeline()
-            for svc in _HB_POINTS:
-                hb_get_pipe.get(f"heartbeat:{svc}")
-            hb_statuses = hb_get_pipe.execute()
+            # --- HEARTBEAT POINTS (every _HB_INTERVAL ticks) ---
+            _hb_tick += 1
+            if _hb_tick >= _HB_INTERVAL:
+                _hb_tick = 0
+                now_ms = int(time.time() * 1000)
+                hb_get_pipe = r.pipeline()
+                for svc in _HB_POINTS:
+                    hb_get_pipe.get(f"heartbeat:{svc}")
+                hb_statuses = hb_get_pipe.execute()
 
-            hb_pipe = r.pipeline()
-            for (svc, pid), raw in zip(_HB_POINTS.items(), hb_statuses):
-                alive   = raw is not None
-                value   = "1" if alive else "0"
-                quality = "GOOD" if alive else "ALARM"
-                hb_pipe.hset(f"point:{pid}", mapping={
-                    "value":    value,
-                    "ts":       now_ms,
-                    "quality":  quality,
-                    "object":   "home",
-                    "system":   "heartbeat",
-                    "pointname": svc,
-                    "unit":     "",
-                    "min":      "0",  "max":      "1",
-                    "warn_min": "0.5","warn_max": "1",
-                    "alarm_min":"0.5","alarm_max":"1",
-                })
-                hb_pipe.publish("bus:data", pid)
-            hb_pipe.execute()
+                hb_pipe = r.pipeline()
+                for (svc, pid), raw in zip(_HB_POINTS.items(), hb_statuses):
+                    alive   = raw is not None
+                    value   = "1" if alive else "0"
+                    quality = "GOOD" if alive else "ALARM"
+                    hb_pipe.hset(f"point:{pid}", mapping={
+                        "value":    value,
+                        "ts":       now_ms,
+                        "quality":  quality,
+                        "object":   "home",
+                        "system":   "heartbeat",
+                        "pointname": svc,
+                        "unit":     "",
+                        "min":      "0",  "max":      "1",
+                        "warn_min": "0.5","warn_max": "1",
+                        "alarm_min":"0.5","alarm_max":"1",
+                    })
+                    hb_pipe.publish("bus:data", pid)
+                hb_pipe.execute()
 
         except Exception as e:
             log.error(f"Unexpected error in main loop: {e}")
