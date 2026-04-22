@@ -17,22 +17,47 @@ class RedisClient:
         self._pubsub = self.redis.pubsub()
         await self._pubsub.subscribe("bus:data")
 
-    async def listen(self):
+    async def listen(self, batch_interval=0.2):
+        """Collect changed point_ids over batch_interval seconds, then read+yield as one batch."""
+        import asyncio
+        pending = set()
+        deadline = asyncio.get_event_loop().time() + batch_interval
+
         async for msg in self._pubsub.listen():
             if msg["type"] != "message":
                 continue
             raw = msg["data"]
-            point_id = raw.decode() if isinstance(raw, bytes) else str(raw)
-            data = await self.redis.hgetall(f"point:{point_id}")
-            if not data:
+            pending.add(raw.decode() if isinstance(raw, bytes) else str(raw))
+
+            now = asyncio.get_event_loop().time()
+            if now < deadline:
                 continue
-            decoded = {
-                (k.decode() if isinstance(k, bytes) else k):
-                (v.decode() if isinstance(v, bytes) else v)
-                for k, v in data.items()
-            }
-            decoded["id"] = point_id
-            yield decoded
+
+            deadline = now + batch_interval
+            if not pending:
+                continue
+
+            pipe = self.redis.pipeline()
+            ids = list(pending)
+            pending.clear()
+            for pid in ids:
+                pipe.hgetall(f"point:{pid}")
+            results = await pipe.execute()
+
+            batch = []
+            for pid, data in zip(ids, results):
+                if not data:
+                    continue
+                decoded = {
+                    (k.decode() if isinstance(k, bytes) else k):
+                    (v.decode() if isinstance(v, bytes) else v)
+                    for k, v in data.items()
+                }
+                decoded["id"] = pid
+                batch.append(decoded)
+
+            if batch:
+                yield batch
 
     async def get_all_points(self):
         keys = await self.redis.keys("point:*")

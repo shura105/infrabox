@@ -16,8 +16,8 @@ async def websocket_endpoint(ws: WebSocket):
 
         await client.subscribe()
 
-        async for update in client.listen():
-            await ws.send_json({"type": "update", "data": [update]})
+        async for batch in client.listen():
+            await ws.send_json({"type": "update", "data": batch})
 
     except WebSocketDisconnect:
         pass
