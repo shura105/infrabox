@@ -21,10 +21,10 @@ def _heartbeat_thread():
         try:
             if r is None:
                 r = redis_lib.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-            r.set("heartbeat:infrabox-simulator", int(time.time()), ex=5)
+            r.set("heartbeat:infrabox-simulator", int(time.time()), ex=25)
         except Exception:
             r = None
-        time.sleep(1)
+        time.sleep(5)
 
 SPIKE_INTERVAL = 15
 SPIKE_DURATION = 5

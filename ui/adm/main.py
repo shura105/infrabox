@@ -40,7 +40,7 @@ def _heartbeat_thread():
             if r is None:
                 r = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
             ts = int(time.time())
-            r.set("heartbeat:infrabox-adm", ts, ex=5)
+            r.set("heartbeat:infrabox-adm", ts, ex=25)
             # Docker API is polled every 3s — cheaper than every tick, still within TTL=5s
             _docker_tick += 1
             if _docker_tick >= 3:
@@ -54,13 +54,13 @@ def _heartbeat_thread():
                     pipe = r.pipeline()
                     for name in _PROXY_CONTAINERS:
                         if name in running:
-                            pipe.set(f"heartbeat:{name}", ts, ex=5)
+                            pipe.set(f"heartbeat:{name}", ts, ex=25)
                     pipe.execute()
                 except Exception:
                     docker_client = None
         except Exception:
             r = None
-        time.sleep(1)
+        time.sleep(5)
 
 
 app = FastAPI()

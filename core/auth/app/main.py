@@ -52,10 +52,10 @@ def _heartbeat_thread():
                     port=int(os.getenv("REDIS_PORT", 6379)),
                     decode_responses=True
                 )
-            r.set("heartbeat:infrabox-auth", int(time.time()), ex=5)
+            r.set("heartbeat:infrabox-auth", int(time.time()), ex=25)
         except Exception:
             r = None
-        time.sleep(1)
+        time.sleep(5)
 
 
 @app.on_event("startup")

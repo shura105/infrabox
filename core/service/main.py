@@ -156,7 +156,7 @@ def main():
     log.info(f"System tick: {tick}s")
 
     _hb_tick = 0
-    _HB_INTERVAL = 5  # update heartbeat points every N ticks
+    _HB_INTERVAL = 25  # update heartbeat points every N ticks
     _HB_POINTS = {
         "infrabox-core":            200,
         "infrabox-auth":            201,
@@ -324,7 +324,7 @@ def main():
             # --- STATS ---
             r.set("system:buffer_size", len(updates))
             r.set("system:passed_deadband", passed)
-            r.set("heartbeat:infrabox-core", int(time.time()), ex=5)
+            r.set("heartbeat:infrabox-core", int(time.time()), ex=25)
 
             # --- HEARTBEAT POINTS (every _HB_INTERVAL ticks) ---
             _hb_tick += 1

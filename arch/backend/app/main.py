@@ -16,10 +16,10 @@ def _heartbeat_thread():
         try:
             if r is None:
                 r = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-            r.set("heartbeat:infrabox-arch-backend", int(time.time()), ex=5)
+            r.set("heartbeat:infrabox-arch-backend", int(time.time()), ex=25)
         except Exception:
             r = None
-        time.sleep(1)
+        time.sleep(5)
 
 from datetime import datetime
 from logging.handlers import RotatingFileHandler

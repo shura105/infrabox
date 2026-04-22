@@ -4,24 +4,78 @@
       "id": "root",
       "title": "Головний екран",
       "parent": null,
-      "x": 160,
-      "y": 100
+      "x": 40,
+      "y": 100,
+      "screenNum": 1,
+      "deviceType": 1
     },
     {
       "id": "home",
-      "title": "my_home",
+      "title": "Квартира",
       "parent": "root",
-      "x": 160,
-      "y": 220
+      "x": 40,
+      "y": 200,
+      "screenNum": 2,
+      "deviceType": 1
+    },
+    {
+      "id": "R1",
+      "title": "Головний екран",
+      "parent": null,
+      "x": 260,
+      "y": 100,
+      "screenType": "render",
+      "screenNum": 1,
+      "deviceType": 1
+    },
+    {
+      "id": "R2",
+      "title": "Квартира",
+      "parent": "R1",
+      "x": 260,
+      "y": 200,
+      "screenType": "render",
+      "screenNum": 2,
+      "deviceType": 1
+    },
+    {
+      "id": "M1",
+      "title": "Головний екран",
+      "parent": null,
+      "x": 480,
+      "y": 100,
+      "screenType": "mobile",
+      "screenNum": 1,
+      "deviceType": 1
+    },
+    {
+      "id": "M2",
+      "title": "Квартира",
+      "parent": "M1",
+      "x": 480,
+      "y": 200,
+      "screenType": "mobile",
+      "screenNum": 2,
+      "deviceType": 1
+    },
+    {
+      "id": "R3",
+      "title": "Квартира",
+      "parent": null,
+      "x": 260,
+      "y": 300,
+      "screenType": "render",
+      "screenNum": 2,
+      "deviceType": 2
     }
   ],
   "decos": [
     {
       "id": "deco_1776449983366",
       "type": "group",
-      "x": 120,
+      "x": 20,
       "y": 40,
-      "w": 240,
+      "w": 200,
       "h": 260,
       "fill": "rgba(30,40,60,0.5)",
       "borderColor": "#334",
@@ -31,13 +85,59 @@
     {
       "id": "deco_1776450009964",
       "type": "label",
-      "x": 160,
-      "y": 41,
+      "x": 40,
+      "y": 40,
       "w": 160,
       "h": 32,
       "text": "Домашня автоматика",
       "fontSize": 14,
       "color": "#d6d6d6"
+    },
+    {
+      "id": "deco_1776784502798",
+      "type": "group",
+      "x": 240,
+      "y": 40,
+      "w": 200,
+      "h": 340,
+      "fill": "rgba(30,40,60,0.5)",
+      "borderColor": "#334",
+      "borderWidth": 2,
+      "radius": 8
+    },
+    {
+      "id": "deco_1776784588969",
+      "type": "label",
+      "x": 260,
+      "y": 40,
+      "w": 160,
+      "h": 32,
+      "text": "Рендери",
+      "fontSize": 14,
+      "color": "#8b949e"
+    },
+    {
+      "id": "deco_1776786048811",
+      "type": "group",
+      "x": 460,
+      "y": 40,
+      "w": 200,
+      "h": 260,
+      "fill": "rgba(30,40,60,0.5)",
+      "borderColor": "#334",
+      "borderWidth": 2,
+      "radius": 8
+    },
+    {
+      "id": "deco_1776786062184",
+      "type": "label",
+      "x": 480,
+      "y": 40,
+      "w": 160,
+      "h": 32,
+      "text": "Мобільні",
+      "fontSize": 14,
+      "color": "#8b949e"
     }
   ]
 }
