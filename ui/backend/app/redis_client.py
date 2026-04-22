@@ -4,6 +4,7 @@ import redis.asyncio as redis
 class RedisClient:
     def __init__(self):
         self.redis = None
+        self._pubsub = None
 
     async def connect(self):
         self.redis = redis.Redis(
@@ -11,6 +12,27 @@ class RedisClient:
             port=6379,
             decode_responses=False
         )
+
+    async def subscribe(self):
+        self._pubsub = self.redis.pubsub()
+        await self._pubsub.subscribe("bus:data")
+
+    async def listen(self):
+        async for msg in self._pubsub.listen():
+            if msg["type"] != "message":
+                continue
+            raw = msg["data"]
+            point_id = raw.decode() if isinstance(raw, bytes) else str(raw)
+            data = await self.redis.hgetall(f"point:{point_id}")
+            if not data:
+                continue
+            decoded = {
+                (k.decode() if isinstance(k, bytes) else k):
+                (v.decode() if isinstance(v, bytes) else v)
+                for k, v in data.items()
+            }
+            decoded["id"] = point_id
+            yield decoded
 
     async def get_all_points(self):
         keys = await self.redis.keys("point:*")
