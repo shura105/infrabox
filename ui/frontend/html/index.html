@@ -262,7 +262,7 @@
         }
         .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; margin-bottom: 1px; }
         .r-value .vrow { display: flex; align-items: baseline; gap: 4px; min-width: 0; flex: 1; }
-        .r-value .vv  { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .r-value .vv  { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
         .r-value .vu  { flex-shrink: 0; color: var(--text-dim); text-align: right; }
         .r-navbtn {
             position: absolute; inset: 0;
@@ -278,7 +278,7 @@
         .r-indicator { position: absolute; inset: 0; border-radius: 50%; transition: background .3s; }
         .r-rect  { position: absolute; inset: 0; }
         .r-level { position: absolute; inset: 0; overflow: hidden; border-radius: 4px; }
-        .r-level-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.9); pointer-events: none; }
+        .r-level-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.9); pointer-events: none; font-variant-numeric: tabular-nums; }
         .r-gauge { position: absolute; inset: 0; overflow: hidden; }
         .r-ibox { position: absolute; inset: 0; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; border: 2px solid rgba(255,255,255,.12); transition: border-color .3s, filter .15s; }
         .r-ibox:hover { filter: brightness(1.12); }
@@ -592,7 +592,7 @@
                                               :stroke="gaugeNeedleColor(el)" stroke-width="2" stroke-linecap="round"/>
                                         <circle cx="50" cy="56" r="3.5" :fill="gaugeNeedleColor(el)"/>
                                         <text x="50" y="88" text-anchor="middle" font-weight="600"
-                                              font-family="system-ui,sans-serif"
+                                              font-family="system-ui,sans-serif" font-variant-numeric="tabular-nums"
                                               :fill="gaugeTextColor(el)" :font-size="el.fontSize||13"
                                               x-show="el.showValue" x-text="gaugeValueText(el)"></text>
                                         <text x="50" y="8" text-anchor="middle"
