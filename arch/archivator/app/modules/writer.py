@@ -123,6 +123,11 @@ class Writer:
                         continue
 
                     point_id = int(msg["data"])
+
+                    meta = self.points_meta.get(point_id, {})
+                    if meta.get("onArchive", 1) == 0:
+                        continue
+
                     data = r.hgetall(f"point:{point_id}")
                     if not data:
                         continue

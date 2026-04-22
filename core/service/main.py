@@ -325,10 +325,15 @@ def main():
                 "portainer":               213,
             }
             now_ms = int(time.time() * 1000)
+            # pipeline all GETs first, then all writes — avoids 14 serial round-trips
+            hb_get_pipe = r.pipeline()
+            for svc in _HB_POINTS:
+                hb_get_pipe.get(f"heartbeat:{svc}")
+            hb_statuses = hb_get_pipe.execute()
+
             hb_pipe = r.pipeline()
-            for svc, pid in _HB_POINTS.items():
-                raw = r.get(f"heartbeat:{svc}")
-                alive = raw is not None
+            for (svc, pid), raw in zip(_HB_POINTS.items(), hb_statuses):
+                alive   = raw is not None
                 value   = "1" if alive else "0"
                 quality = "GOOD" if alive else "ALARM"
                 hb_pipe.hset(f"point:{pid}", mapping={
