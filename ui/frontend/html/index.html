@@ -247,6 +247,7 @@
             position: relative;
             transform-origin: top left;
             box-shadow: 0 4px 24px rgba(0,0,0,.5);
+            will-change: transform;
         }
         /* element styles (same as constructor) */
         .c-el { position: absolute; }
@@ -465,13 +466,13 @@
         <!-- canvas -->
         <template x-if="sc">
             <div class="cv-wrap"
-                 :style="`width:${sc.width*viewScale}px;height:${sc.height*viewScale}px;`">
+                 :style="`width:${Math.round(sc.width*viewScale)}px;height:${Math.round(sc.height*viewScale)}px;`">
                 <div id="cv"
                      :style="`width:${sc.width}px;height:${sc.height}px;
                               background-color:${sc.bg};
                               background-image:${cvBgImage()};
                               background-size:100% 100%;
-                              transform:scale(${viewScale});transform-origin:top left;`">
+                              transform:scale(${Math.round(sc.width*viewScale)/sc.width},${Math.round(sc.height*viewScale)/sc.height});transform-origin:top left;`">
 
                     <template x-for="el in els" :key="el.id">
                         <div class="c-el"
