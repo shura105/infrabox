@@ -49,8 +49,8 @@ def _heartbeat_thread():
                     if docker_client is None:
                         docker_client = docker_sdk.from_env()
                     running = {c.name for c in docker_client.containers.list(
-                        filters={"status": "running", "name": _PROXY_CONTAINERS}
-                    )}
+                        filters={"name": _PROXY_CONTAINERS}
+                    ) if c.status == "running"}
                     pipe = r.pipeline()
                     for name in _PROXY_CONTAINERS:
                         if name in running:
