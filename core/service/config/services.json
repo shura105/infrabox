@@ -1,6 +1,6 @@
 [
   {
-    "drop": "infrabox",
+    "drop": "homeServ-1",
     "services": [
       {
         "id": "heartbeat",
