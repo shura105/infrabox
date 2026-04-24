@@ -2354,21 +2354,34 @@ async function deletePoint(id) {
     });
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        alert(j.detail || `Помилка ${res.status}`);
+        document.getElementById("pointModalError").textContent = j.detail || `Помилка ${res.status}`;
+        document.getElementById("pointModalError").style.display = "block";
         return;
     }
     await loadPoints();
 }
 
 async function reloadPoints() {
-    if (!confirm("Перезапустити core, simulator та selfdiagnostic для застосування змін?")) return;
-    const res = await fetch("/adm/api/points/reload", {
-        method: "POST",
-        headers: authHeaders()
-    });
-    const j = await res.json().catch(() => ({}));
-    const lines = Object.entries(j).map(([k, v]) => `${k}: ${v}`).join("\n");
-    alert("Результат перезапуску:\n\n" + lines);
+    _openConfirm(
+        "Застосування змін",
+        "Перезапустити core, simulator та selfdiagnostic для застосування змін?",
+        "btn-blue",
+        async () => {
+            _openSubLog("↺ Перезапуск сервісів");
+            const res = await fetch("/adm/api/points/reload", {
+                method: "POST",
+                headers: authHeaders()
+            });
+            const j = await res.json().catch(() => ({}));
+            if (res && res.ok) {
+                const lines = Object.entries(j).map(([k, v]) => `${k}: ${v}`).join("\n");
+                _subLogDone("готово ✓", "#56d364", lines);
+            } else {
+                _subLogDone("помилка", "#f47067",
+                    `ПОМИЛКА: ${j.detail || res.status}`);
+            }
+        }
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
