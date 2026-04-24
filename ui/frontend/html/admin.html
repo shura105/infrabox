@@ -2112,7 +2112,7 @@ function _fillPointForm(p) {
     const svcEntry = _allServices.find(s => s.id === (p.hb_service || ""));
     const sysDrop  = svcEntry ? svcEntry.drop : (p.drop || "");
     document.getElementById("pt_sys_drop_sel").value    = sysDrop;
-    _fillSysServiceSel(sysDrop);
+    _fillSysSvcSel(sysDrop);
     document.getElementById("pt_hb_service_sel").value  = p.hb_service || "";
     document.getElementById("pt_hb_service").value      = p.hb_service || "";
     document.getElementById("pt_pointname").value       = p.pointname ?? "";
