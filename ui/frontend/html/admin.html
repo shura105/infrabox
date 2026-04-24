@@ -427,6 +427,17 @@
         .pt-table th { color: #8b949e; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
         .pt-table tr:hover td { background: #161b22; }
         .pt-table tr.pt-heartbeat td { opacity: 0.55; }
+        .pt-group-header td {
+            background: #0d1117;
+            color: #58a6ff;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            padding: 8px 10px 5px;
+            border-top: 1px solid #21262d;
+        }
+        .pt-group-header:first-child td { border-top: none; }
 
         .pt-id  { font-family: monospace; color: #8b949e; }
         .pt-name { font-weight: 500; color: #e6edf3; }
@@ -694,6 +705,18 @@
             <div class="field">
                 <label>Назва (pointname)</label>
                 <input type="text" id="pt_pointname" placeholder="inputTemperature">
+            </div>
+        </div>
+        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Тип</div>
+        <div class="form-grid">
+            <div class="field" style="grid-column:1/-1">
+                <select id="pt_type">
+                    <option value="analog">Аналоговий</option>
+                    <option value="discrete">Дискретний</option>
+                    <option value="calculated">Розрахунковий</option>
+                    <option value="selfdiag">Самодіагностика</option>
+                    <option value="system">Системний</option>
+                </select>
             </div>
         </div>
         <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
@@ -1852,17 +1875,33 @@ function filterPoints() {
 
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
+    const GROUP_ORDER  = ["selfdiag", "analog", "discrete", "calculated", "system"];
+    const GROUP_LABELS = { selfdiag: "Самодіагностика", analog: "Аналогові",
+                           discrete: "Дискретні", calculated: "Розрахункові", system: "Системні" };
+
     if (!points.length) {
         tbody.innerHTML = `<tr class="loading-row"><td colspan="9">Немає параметрів</td></tr>`;
         return;
     }
     tbody.innerHTML = "";
+
+    // bucket by type
+    const groups = {};
     for (const p of points) {
-        const isHB = p.id >= 200;
-        const hbBadge = isHB ? `<span class="pt-hb-badge">💓</span>` : "";
-        const archiveLabel = p.onArchive ? (p.archive_on_change ? "зм" : `${p.archive_interval}с`) : "—";
+        const t = p.type || "analog";
+        (groups[t] = groups[t] || []).push(p);
+    }
+
+    const renderRow = (p) => {
+        const isSystem = p.type === "system";
+        const hbBadge  = isSystem ? `<span class="pt-hb-badge">💓</span>` : "";
+        let archiveLabel;
+        if (!parseInt(p.onArchive))           archiveLabel = "—";
+        else if (!parseInt(p.archive_on_change)) archiveLabel = `⏱${p.archive_interval}с`;
+        else if (parseInt(p.archive_interval) > 0) archiveLabel = `зм+⏱${p.archive_interval}с`;
+        else                                   archiveLabel = "зм";
         const tr = document.createElement("tr");
-        if (isHB) tr.classList.add("pt-heartbeat");
+        if (isSystem) tr.classList.add("pt-heartbeat");
         tr.innerHTML = `
             <td class="pt-id">${p.id}</td>
             <td>${_esc(p.object || "")}</td>
@@ -1875,10 +1914,32 @@ function _renderPoints(points) {
             <td>
                 <div class="actions">
                     <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
-                    ${isHB ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
+                    ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
                 </div>
             </td>`;
         tbody.appendChild(tr);
+    };
+
+    // render known groups in order
+    const rendered = new Set();
+    for (const gkey of GROUP_ORDER) {
+        const gpoints = groups[gkey];
+        if (!gpoints?.length) continue;
+        rendered.add(gkey);
+        const hdr = document.createElement("tr");
+        hdr.className = "pt-group-header";
+        hdr.innerHTML = `<td colspan="9">${GROUP_LABELS[gkey] || gkey} <span style="color:#8b949e;font-weight:400">(${gpoints.length})</span></td>`;
+        tbody.appendChild(hdr);
+        gpoints.forEach(renderRow);
+    }
+    // unknown types
+    for (const [gkey, gpoints] of Object.entries(groups)) {
+        if (rendered.has(gkey)) continue;
+        const hdr = document.createElement("tr");
+        hdr.className = "pt-group-header";
+        hdr.innerHTML = `<td colspan="9">${gkey} <span style="color:#8b949e;font-weight:400">(${gpoints.length})</span></td>`;
+        tbody.appendChild(hdr);
+        gpoints.forEach(renderRow);
     }
 }
 
@@ -1910,6 +1971,7 @@ function onArchiveModeChange() {
 
 function _pointFormDefaults() {
     document.getElementById("pt_id").value             = "";
+    document.getElementById("pt_type").value           = "analog";
     document.getElementById("pt_unit").value           = "";
     document.getElementById("pt_object").value         = "";
     document.getElementById("pt_drop").value           = "";
@@ -1927,6 +1989,7 @@ function _pointFormDefaults() {
 
 function _fillPointForm(p) {
     document.getElementById("pt_id").value             = p.id;
+    document.getElementById("pt_type").value           = p.type || "analog";
     document.getElementById("pt_unit").value           = p.unit ?? "";
     document.getElementById("pt_object").value         = p.object ?? "";
     document.getElementById("pt_drop").value           = p.drop ?? "";
@@ -1978,6 +2041,7 @@ function closePointModal() {
 function _readPointForm() {
     return {
         id:                  parseInt(document.getElementById("pt_id").value),
+        type:                document.getElementById("pt_type").value,
         object:              document.getElementById("pt_object").value.trim(),
         drop:                document.getElementById("pt_drop").value.trim(),
         system:              document.getElementById("pt_system").value.trim(),
