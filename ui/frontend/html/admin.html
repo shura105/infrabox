@@ -395,7 +395,8 @@
             flex-wrap: wrap;
             margin-bottom: 14px;
         }
-        .points-toolbar input[type=search] {
+        .points-toolbar input[type=search],
+        .points-toolbar input[type=number] {
             padding: 5px 9px;
             background: #0d1117;
             border: 1px solid #30363d;
@@ -405,7 +406,9 @@
             outline: none;
             width: 180px;
         }
-        .points-toolbar input[type=search]:focus { border-color: #58a6ff; }
+        .points-toolbar input[type=number] { width: 70px; }
+        .points-toolbar input[type=search]:focus,
+        .points-toolbar input[type=number]:focus { border-color: #58a6ff; }
         .points-toolbar select {
             padding: 5px 9px;
             background: #0d1117;
@@ -566,7 +569,7 @@
     <div class="tab-panel" id="tab-points">
         <h1>Управління параметрами</h1>
         <div class="points-toolbar">
-            <input type="number" id="ptSearchId" placeholder="ID" style="width:70px" oninput="filterPoints()">
+            <input type="number" id="ptSearchId" placeholder="ID" oninput="filterPoints()">
             <select id="ptFilterObj" onchange="filterPoints()">
                 <option value="">Всі об'єкти</option>
             </select>
