@@ -700,7 +700,7 @@
         <div class="form-grid-3">
             <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
             <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
-            <div class="field"><label>Deadband</label><input type="number" id="pt_deadband" step="any"></div>
+            <div class="field"></div>
             <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
             <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
             <div class="field"></div>
@@ -722,6 +722,10 @@
             <div class="field" id="pt_archive_interval_wrap" style="display:none">
                 <label>Інтервал (с)</label>
                 <input type="number" id="pt_archive_interval" min="1" value="60">
+            </div>
+            <div class="field">
+                <label>Deadband</label>
+                <input type="number" id="pt_deadband" step="any">
             </div>
         </div>
         <!-- hidden backing fields -->
