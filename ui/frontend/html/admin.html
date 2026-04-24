@@ -1873,16 +1873,23 @@ function filterPoints() {
     _renderPoints(filtered);
 }
 
+const _ptGroupOpen = {};   // persists expand/collapse state across re-renders
+
+function _togglePtGroup(gkey) {
+    _ptGroupOpen[gkey] = !_ptGroupOpen[gkey];
+    document.querySelectorAll(`[data-ptg="${gkey}"]`).forEach(tr => {
+        tr.style.display = _ptGroupOpen[gkey] ? "" : "none";
+    });
+    const arrow = document.querySelector(`[data-ptg-hdr="${gkey}"] .pt-arrow`);
+    if (arrow) arrow.textContent = _ptGroupOpen[gkey] ? "▾" : "▸";
+}
+
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
     const GROUP_ORDER  = ["selfdiag", "analog", "discrete", "calculated", "system"];
     const GROUP_LABELS = { selfdiag: "Самодіагностика", analog: "Аналогові",
                            discrete: "Дискретні", calculated: "Розрахункові", system: "Системні" };
 
-    if (!points.length) {
-        tbody.innerHTML = `<tr class="loading-row"><td colspan="9">Немає параметрів</td></tr>`;
-        return;
-    }
     tbody.innerHTML = "";
 
     // bucket by type
@@ -1892,54 +1899,56 @@ function _renderPoints(points) {
         (groups[t] = groups[t] || []).push(p);
     }
 
-    const renderRow = (p) => {
-        const isSystem = p.type === "system";
-        const hbBadge  = isSystem ? `<span class="pt-hb-badge">💓</span>` : "";
-        let archiveLabel;
-        if (!parseInt(p.onArchive))           archiveLabel = "—";
-        else if (!parseInt(p.archive_on_change)) archiveLabel = `⏱${p.archive_interval}с`;
-        else if (parseInt(p.archive_interval) > 0) archiveLabel = `зм+⏱${p.archive_interval}с`;
-        else                                   archiveLabel = "зм";
-        const tr = document.createElement("tr");
-        if (isSystem) tr.classList.add("pt-heartbeat");
-        tr.innerHTML = `
-            <td class="pt-id">${p.id}</td>
-            <td>${_esc(p.object || "")}</td>
-            <td>${_esc(p.system || "")}</td>
-            <td class="pt-name">${_esc(p.pointname || "")}${hbBadge}</td>
-            <td class="pt-unit">${_esc(p.unit || "")}</td>
-            <td class="pt-minmax">${p.min} / ${p.max}</td>
-            <td class="pt-unit">${p.deadband ?? "—"}</td>
-            <td style="font-size:11px;color:#8b949e">${archiveLabel}</td>
-            <td>
-                <div class="actions">
-                    <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
-                    ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
-                </div>
-            </td>`;
-        tbody.appendChild(tr);
-    };
-
-    // render known groups in order
-    const rendered = new Set();
-    for (const gkey of GROUP_ORDER) {
-        const gpoints = groups[gkey];
-        if (!gpoints?.length) continue;
-        rendered.add(gkey);
-        const hdr = document.createElement("tr");
-        hdr.className = "pt-group-header";
-        hdr.innerHTML = `<td colspan="9">${GROUP_LABELS[gkey] || gkey} <span style="color:#8b949e;font-weight:400">(${gpoints.length})</span></td>`;
-        tbody.appendChild(hdr);
-        gpoints.forEach(renderRow);
+    // all groups in fixed order, always rendered
+    const allKeys = [...GROUP_ORDER];
+    for (const k of Object.keys(groups)) {
+        if (!allKeys.includes(k)) allKeys.push(k);
     }
-    // unknown types
-    for (const [gkey, gpoints] of Object.entries(groups)) {
-        if (rendered.has(gkey)) continue;
+
+    for (const gkey of allKeys) {
+        const gpoints = groups[gkey] || [];
+        const open = !!_ptGroupOpen[gkey];
+        const label = GROUP_LABELS[gkey] || gkey;
+        const arrow = open ? "▾" : "▸";
+        const count = gpoints.length ? `<span style="color:#8b949e;font-weight:400">(${gpoints.length})</span>` : `<span style="color:#8b949e;font-weight:400">(0)</span>`;
+
         const hdr = document.createElement("tr");
         hdr.className = "pt-group-header";
-        hdr.innerHTML = `<td colspan="9">${gkey} <span style="color:#8b949e;font-weight:400">(${gpoints.length})</span></td>`;
+        hdr.dataset.ptgHdr = gkey;
+        hdr.style.cursor = "pointer";
+        hdr.innerHTML = `<td colspan="9"><span class="pt-arrow" style="margin-right:6px;font-size:10px">${arrow}</span>${label} ${count}</td>`;
+        hdr.addEventListener("click", () => _togglePtGroup(gkey));
         tbody.appendChild(hdr);
-        gpoints.forEach(renderRow);
+
+        for (const p of gpoints) {
+            const isSystem = p.type === "system";
+            const hbBadge  = isSystem ? `<span class="pt-hb-badge">💓</span>` : "";
+            let archiveLabel;
+            if (!parseInt(p.onArchive))                  archiveLabel = "—";
+            else if (!parseInt(p.archive_on_change))     archiveLabel = `⏱${p.archive_interval}с`;
+            else if (parseInt(p.archive_interval) > 0)  archiveLabel = `зм+⏱${p.archive_interval}с`;
+            else                                          archiveLabel = "зм";
+            const tr = document.createElement("tr");
+            tr.dataset.ptg = gkey;
+            tr.style.display = open ? "" : "none";
+            if (isSystem) tr.classList.add("pt-heartbeat");
+            tr.innerHTML = `
+                <td class="pt-id">${p.id}</td>
+                <td>${_esc(p.object || "")}</td>
+                <td>${_esc(p.system || "")}</td>
+                <td class="pt-name">${_esc(p.pointname || "")}${hbBadge}</td>
+                <td class="pt-unit">${_esc(p.unit || "")}</td>
+                <td class="pt-minmax">${p.min} / ${p.max}</td>
+                <td class="pt-unit">${p.deadband ?? "—"}</td>
+                <td style="font-size:11px;color:#8b949e">${archiveLabel}</td>
+                <td>
+                    <div class="actions">
+                        <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
+                        ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
+                    </div>
+                </td>`;
+            tbody.appendChild(tr);
+        }
     }
 }
 
