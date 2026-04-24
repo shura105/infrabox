@@ -714,6 +714,7 @@
                     <option value="analog">Аналоговий</option>
                     <option value="discrete">Дискретний</option>
                     <option value="calculated">Розрахунковий</option>
+                    <option value="external">Від зовнішніх систем</option>
                     <option value="selfdiag">Самодіагностика</option>
                     <option value="system">Системний</option>
                 </select>
@@ -2035,9 +2036,10 @@ function _togglePtGroup(gkey) {
 
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
-    const GROUP_ORDER  = ["selfdiag", "analog", "discrete", "calculated", "system"];
+    const GROUP_ORDER  = ["selfdiag", "analog", "discrete", "calculated", "external", "system"];
     const GROUP_LABELS = { selfdiag: "Самодіагностика", analog: "Аналогові",
-                           discrete: "Дискретні", calculated: "Розрахункові", system: "Системні" };
+                           discrete: "Дискретні", calculated: "Розрахункові",
+                           external: "Від зовнішніх систем", system: "Системні" };
 
     tbody.innerHTML = "";
 
