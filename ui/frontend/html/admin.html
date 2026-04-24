@@ -713,13 +713,20 @@
             </div>
         </div>
 
-        <!-- ── Системний: тільки прив'язка до хартбіту ── -->
+        <!-- ── Системний: вузол → контейнер ── -->
         <div id="pt_section_system">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Хартбіт</div>
             <div class="form-grid">
                 <div class="field">
-                    <label>Сервіс</label>
-                    <select id="pt_hb_service_sel" onchange="document.getElementById('pt_hb_service').value=this.value">
+                    <label>Вузол</label>
+                    <select id="pt_sys_drop_sel" onchange="onSysDropChange()">
+                        <option value="">— оберіть —</option>
+                    </select>
+                    <input type="hidden" id="pt_drop">
+                </div>
+                <div class="field">
+                    <label>Контейнер (хартбіт)</label>
+                    <select id="pt_hb_service_sel" onchange="onSysServiceChange()">
                         <option value="">— оберіть —</option>
                     </select>
                     <input type="hidden" id="pt_hb_service">
@@ -1930,9 +1937,15 @@ function _populateModalSelects() {
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">— оберіть —</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
-    const svcSel = document.getElementById("pt_hb_service_sel");
-    svcSel.innerHTML = `<option value="">— оберіть —</option>` +
-        _allServices.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    // system drop selector — unique drops from services.json
+    const sysDropSel = document.getElementById("pt_sys_drop_sel");
+    const sysDrops = [...new Map(_allServices.map(s => [s.drop, s.drop])).keys()];
+    sysDropSel.innerHTML = `<option value="">— оберіть —</option>` +
+        sysDrops.map(d => {
+            const match = _allDrops.find(x => x.id === d);
+            const label = match ? match.name : d;
+            return `<option value="${_esc(d)}">${_esc(label)}</option>`;
+        }).join("");
 }
 
 function _archiveMode(p) {
@@ -2065,6 +2078,7 @@ function onArchiveModeChange() {
 function _pointFormDefaults() {
     document.getElementById("pt_id").value              = "";
     document.getElementById("pt_type").value            = "analog";
+    document.getElementById("pt_sys_drop_sel").value    = "";
     document.getElementById("pt_hb_service_sel").value  = "";
     document.getElementById("pt_hb_service").value      = "";
     document.getElementById("pt_pointname").value       = "";
@@ -2090,6 +2104,11 @@ function _fillPointForm(p) {
     const isSystem = (p.type || "analog") === "system";
     document.getElementById("pt_id").value              = p.id;
     document.getElementById("pt_type").value            = p.type || "analog";
+    // for system: find drop from services.json and populate selects
+    const svcEntry = _allServices.find(s => s.id === (p.hb_service || ""));
+    const sysDrop  = svcEntry ? svcEntry.drop : (p.drop || "");
+    document.getElementById("pt_sys_drop_sel").value    = sysDrop;
+    _fillSysServiceSel(sysDrop);
     document.getElementById("pt_hb_service_sel").value  = p.hb_service || "";
     document.getElementById("pt_hb_service").value      = p.hb_service || "";
     document.getElementById("pt_pointname").value       = p.pointname ?? "";
@@ -2123,6 +2142,29 @@ function onPointTypeChange() {
     const isSystem = document.getElementById("pt_type").value === "system";
     document.getElementById("pt_section_system").style.display = isSystem ? "" : "none";
     document.getElementById("pt_section_tech").style.display   = isSystem ? "none" : "";
+}
+
+function _fillSysServiceSel(drop) {
+    const sel = document.getElementById("pt_hb_service_sel");
+    const filtered = drop ? _allServices.filter(s => s.drop === drop) : _allServices;
+    sel.innerHTML = `<option value="">— оберіть —</option>` +
+        filtered.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+}
+
+function onSysDropChange() {
+    const drop = document.getElementById("pt_sys_drop_sel").value;
+    document.getElementById("pt_drop").value = drop;
+    _fillSysServiceSel(drop);
+    document.getElementById("pt_hb_service_sel").value = "";
+    document.getElementById("pt_hb_service").value = "";
+}
+
+function onSysServiceChange() {
+    const svc = document.getElementById("pt_hb_service_sel").value;
+    document.getElementById("pt_hb_service").value = svc;
+    // auto-fill pointname if empty
+    if (svc && !document.getElementById("pt_pointname").value)
+        document.getElementById("pt_pointname").value = svc;
 }
 
 function _setPointModalMode(isSystem) {

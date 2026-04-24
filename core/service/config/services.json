@@ -1,58 +1,86 @@
 [
   {
     "id": "infrabox-core",
-    "name": "Core"
+    "name": "Core",
+    "drop": "infrabox",
+    "subsystem": "core"
   },
   {
     "id": "infrabox-auth",
-    "name": "Auth"
+    "name": "Auth",
+    "drop": "infrabox",
+    "subsystem": "auth"
   },
   {
     "id": "infrabox-backend",
-    "name": "Backend"
+    "name": "Backend",
+    "drop": "infrabox",
+    "subsystem": "backend"
   },
   {
     "id": "infrabox-adm",
-    "name": "ADM"
+    "name": "ADM",
+    "drop": "infrabox",
+    "subsystem": "adm"
   },
   {
     "id": "infrabox-simulator",
-    "name": "Simulator"
+    "name": "Simulator",
+    "drop": "infrabox",
+    "subsystem": "simulator"
   },
   {
     "id": "infrabox-selfdiagnostic",
-    "name": "Self-diagnostic"
+    "name": "Self-diagnostic",
+    "drop": "infrabox",
+    "subsystem": "selfdiagnostic"
   },
   {
     "id": "infrabox-arch",
-    "name": "Archivator"
+    "name": "Archivator",
+    "drop": "infrabox",
+    "subsystem": "arch"
   },
   {
     "id": "infrabox-arch-backend",
-    "name": "Arch Backend"
-  },
-  {
-    "id": "infrabox-redis",
-    "name": "Redis"
-  },
-  {
-    "id": "infrabox-mosquitto-real",
-    "name": "MQTT Real"
-  },
-  {
-    "id": "infrabox-mosquitto-sim",
-    "name": "MQTT Sim"
-  },
-  {
-    "id": "infrabox-web",
-    "name": "Web"
+    "name": "Arch Backend",
+    "drop": "infrabox",
+    "subsystem": "arch"
   },
   {
     "id": "infrabox-arch-ui",
-    "name": "Arch UI"
+    "name": "Arch UI",
+    "drop": "infrabox",
+    "subsystem": "arch"
+  },
+  {
+    "id": "infrabox-redis",
+    "name": "Redis",
+    "drop": "infrabox",
+    "subsystem": "infrastructure"
+  },
+  {
+    "id": "infrabox-mosquitto-real",
+    "name": "MQTT Real",
+    "drop": "infrabox",
+    "subsystem": "infrastructure"
+  },
+  {
+    "id": "infrabox-mosquitto-sim",
+    "name": "MQTT Sim",
+    "drop": "infrabox",
+    "subsystem": "infrastructure"
+  },
+  {
+    "id": "infrabox-web",
+    "name": "Web",
+    "drop": "infrabox",
+    "subsystem": "frontend"
   },
   {
     "id": "portainer",
-    "name": "Portainer"
+    "name": "Portainer",
+    "drop": "infrabox",
+    "subsystem": "infrastructure"
   }
 ]
