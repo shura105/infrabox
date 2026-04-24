@@ -397,7 +397,8 @@
         }
         .points-toolbar input[type=search],
         .points-toolbar input[type=number] {
-            padding: 5px 9px;
+            padding: 0 9px;
+            height: 31px;
             background: #0d1117;
             border: 1px solid #30363d;
             border-radius: 6px;
@@ -405,12 +406,14 @@
             font-size: 13px;
             outline: none;
             width: 180px;
+            box-sizing: border-box;
         }
         .points-toolbar input[type=number] { width: 70px; }
         .points-toolbar input[type=search]:focus,
         .points-toolbar input[type=number]:focus { border-color: #58a6ff; }
         .points-toolbar select {
-            padding: 5px 9px;
+            padding: 0 9px;
+            height: 31px;
             background: #0d1117;
             border: 1px solid #30363d;
             border-radius: 6px;
