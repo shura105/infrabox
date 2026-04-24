@@ -2084,7 +2084,7 @@ function _renderPoints(points) {
             tr.innerHTML = `
                 <td class="pt-id">${p.id}</td>
                 <td>${_esc(p.object || "")}</td>
-                <td>${_esc(p.system || "")}</td>
+                <td>${_esc(isSystem ? (p.hb_service || p.system || "") : (p.system || ""))}</td>
                 <td class="pt-name">${_esc(p.pointname || "")}${hbBadge}</td>
                 <td class="pt-unit">${_esc(p.unit || "")}</td>
                 <td class="pt-minmax">${p.min} / ${p.max}</td>
