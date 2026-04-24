@@ -566,7 +566,13 @@
     <div class="tab-panel" id="tab-points">
         <h1>Управління параметрами</h1>
         <div class="points-toolbar">
-            <input type="search" id="ptSearch" placeholder="ID, об'єкт, система…" oninput="filterPoints()">
+            <input type="number" id="ptSearchId" placeholder="ID" style="width:70px" oninput="filterPoints()">
+            <select id="ptFilterObj" onchange="filterPoints()">
+                <option value="">Всі об'єкти</option>
+            </select>
+            <select id="ptFilterSys" onchange="filterPoints()">
+                <option value="">Всі системи</option>
+            </select>
             <select id="ptFilterArchive" onchange="filterPoints()">
                 <option value="">Будь-який архів</option>
                 <option value="off">Вимкнено</option>
@@ -1847,7 +1853,16 @@ async function loadPoints() {
 }
 
 function _buildPointFilters() {
-    // archive filter is static — nothing to build dynamically
+    const objSel = document.getElementById("ptFilterObj");
+    const sysSel = document.getElementById("ptFilterSys");
+    const curObj = objSel.value;
+    const curSys = sysSel.value;
+    const objects = [...new Set(_allPoints.map(p => p.object).filter(Boolean))].sort();
+    const systems = [...new Set(_allPoints.map(p => p.system).filter(Boolean))].sort();
+    objSel.innerHTML = `<option value="">Всі об'єкти</option>` +
+        objects.map(o => `<option value="${_esc(o)}"${o === curObj ? " selected" : ""}>${_esc(o)}</option>`).join("");
+    sysSel.innerHTML = `<option value="">Всі системи</option>` +
+        systems.map(s => `<option value="${_esc(s)}"${s === curSys ? " selected" : ""}>${_esc(s)}</option>`).join("");
 }
 
 function _archiveMode(p) {
@@ -1858,11 +1873,15 @@ function _archiveMode(p) {
 }
 
 function filterPoints() {
-    const q   = document.getElementById("ptSearch").value.toLowerCase();
+    const id  = document.getElementById("ptSearchId").value.trim();
+    const obj = document.getElementById("ptFilterObj").value;
+    const sys = document.getElementById("ptFilterSys").value;
     const arc = document.getElementById("ptFilterArchive").value;
     const filtered = _allPoints.filter(p => {
+        if (id  && String(p.id) !== id) return false;
+        if (obj && p.object !== obj) return false;
+        if (sys && p.system !== sys) return false;
         if (arc && _archiveMode(p) !== arc) return false;
-        if (q && !`${p.id} ${p.object} ${p.system} ${p.pointname}`.toLowerCase().includes(q)) return false;
         return true;
     });
     _renderPoints(filtered);
