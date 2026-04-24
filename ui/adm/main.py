@@ -324,7 +324,7 @@ def sub_build_stream(sub_id: str):
             wd = shlex.quote(workdir)
 
             for cmd in [
-                f"cd {wd} && docker-compose --no-ansi build",
+                f"cd {wd} && docker-compose --no-ansi build --no-cache",
                 f"cd {wd} && docker compose up -d",
             ]:
                 proc = subprocess.Popen(
