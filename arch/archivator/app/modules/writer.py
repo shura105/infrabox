@@ -239,6 +239,19 @@ class Writer:
 
             time.sleep(10)
 
+    def _rotation_watchdog(self):
+        """Примусова ротація тому якщо умова виконана, але write() не викликається (0 записів)."""
+        time.sleep(60)
+        while self.running:
+            try:
+                with self.volume._lock:
+                    if self.volume.recording and self.volume.should_rotate():
+                        self.log.info("Rotation watchdog triggered forced rotate")
+                        self.volume.rotate()
+            except Exception as e:
+                self.log.error(f"Rotation watchdog error: {e}")
+            time.sleep(60)
+
     def _watch_points_file(self):
         path = "/app/config/points.json"
         try:
@@ -265,5 +278,6 @@ class Writer:
         threading.Thread(target=self._listen_values,     daemon=True).start()
         threading.Thread(target=self._watchdog,          daemon=True).start()
         threading.Thread(target=self._watch_points_file, daemon=True).start()
+        threading.Thread(target=self._rotation_watchdog,  daemon=True).start()
 
         self.log.info(f"Writer started — {len(self.points_meta)} points loaded")

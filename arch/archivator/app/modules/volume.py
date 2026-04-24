@@ -26,7 +26,39 @@ class Volume:
         # lock ініціалізується ДО _open() щоб write() не падав при race
         self._lock = threading.Lock()
         self.recording = self._load_state()
+        self._close_orphans()
         self._open()
+
+    def _close_orphans(self):
+        """При старті закриває томи, що залишились відкритими після падіння/перезапуску."""
+        if not os.path.exists(self.data_dir):
+            return
+        for name in os.listdir(self.data_dir):
+            vol_path = os.path.join(self.data_dir, name)
+            if not os.path.isdir(vol_path):
+                continue
+            meta_path = os.path.join(vol_path, "meta.json")
+            gz_path   = meta_path + ".gz"
+            try:
+                if os.path.exists(meta_path):
+                    with open(meta_path) as f:
+                        meta = json.load(f)
+                elif os.path.exists(gz_path):
+                    import gzip as _gz
+                    with _gz.open(gz_path, "rt") as f:
+                        meta = json.load(f)
+                else:
+                    continue
+                if meta.get("status") == "open":
+                    # закриваємо: встановлюємо current_dir тимчасово
+                    self.current_dir = vol_path
+                    self.opened_at   = datetime.fromisoformat(meta["opened_at"])
+                    self.record_count = meta.get("record_count", 0)
+                    self._write_meta("close")
+                    self._write_session("close", reason="orphan_close")
+                    self.log.info(f"Orphan volume closed: {name}")
+            except Exception as e:
+                self.log.warning(f"Could not close orphan {name}: {e}")
 
     def _volume_name(self):
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
