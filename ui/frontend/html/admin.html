@@ -503,7 +503,9 @@
     <button class="tab-btn"        id="tab-perms-btn"  onclick="switchTab('perms')">Права доступу</button>
     <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
     <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
-    <button class="tab-btn"        id="tab-points-btn" onclick="switchTab('points')">Параметри</button>
+    <button class="tab-btn"        id="tab-points-btn"   onclick="switchTab('points')">Параметри</button>
+    <button class="tab-btn"        id="tab-archives-btn" onclick="switchTab('archives')">Архіви</button>
+    <button class="tab-btn"        id="tab-meta-btn"     onclick="switchTab('meta')">Метадані</button>
 </div>
 
 <main>
@@ -692,6 +694,18 @@
                 <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- ══════════════════════════════ ARCHIVES TAB ═════════════════════════════ -->
+    <div class="tab-panel" id="tab-archives">
+        <h1>Архіви</h1>
+        <p style="color:#8b949e;margin-top:12px">Розділ у розробці.</p>
+    </div>
+
+    <!-- ══════════════════════════════ META TAB ══════════════════════════════════ -->
+    <div class="tab-panel" id="tab-meta">
+        <h1>Метадані</h1>
+        <p style="color:#8b949e;margin-top:12px">Розділ у розробці.</p>
     </div>
 
 </main>
@@ -1006,9 +1020,12 @@ function switchTab(name) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.getElementById(`tab-${name}`).classList.add("active");
     document.getElementById(`tab-${name}-btn`).classList.add("active");
-    if (name === "system") { loadHostsFromConfig(); loadSystem(); loadSubs(); }
-    if (name === "apps")   loadApps();
-    if (name === "perms")  { loadUsers().then(loadPerms); }
+    if (name === "system")   { loadHostsFromConfig(); loadSystem(); loadSubs(); }
+    if (name === "apps")     loadApps();
+    if (name === "perms")    { loadUsers().then(loadPerms); }
+    if (name === "points")   loadPoints();
+    if (name === "archives") loadArchives();
+    if (name === "meta")     loadMeta();
 }
 
 function switchSub(name) {
@@ -2385,6 +2402,12 @@ async function reloadPoints() {
         }
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Archives / Meta (placeholders)
+// ─────────────────────────────────────────────────────────────────────────────
+function loadArchives() { /* TODO */ }
+function loadMeta()     { /* TODO */ }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Start
