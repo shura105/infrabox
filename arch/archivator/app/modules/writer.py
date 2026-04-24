@@ -246,7 +246,7 @@ class Writer:
         except Exception:
             last_mtime = 0
         while self.running:
-            time.sleep(10)
+            time.sleep(60)
             try:
                 mtime = os.path.getmtime(path)
                 if mtime != last_mtime:
