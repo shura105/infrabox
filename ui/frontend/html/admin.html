@@ -2125,7 +2125,7 @@ function openPointEdit(id) {
     _pointEditId = id;
     document.getElementById("pointModalTitle").textContent = `Параметр #${id}`;
     document.getElementById("pointModalError").style.display = "none";
-    document.getElementById("pt_id").disabled = true;
+    document.getElementById("pt_id").disabled = p.type !== "system";
     _fillPointForm(p);
     _setPointModalMode(p.type === "system");
     document.getElementById("pointOverlay").classList.add("open");
