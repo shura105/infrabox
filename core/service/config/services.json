@@ -1,86 +1,27 @@
 [
   {
-    "id": "infrabox-core",
-    "name": "Core",
     "drop": "infrabox",
-    "subsystem": "core"
-  },
-  {
-    "id": "infrabox-auth",
-    "name": "Auth",
-    "drop": "infrabox",
-    "subsystem": "auth"
-  },
-  {
-    "id": "infrabox-backend",
-    "name": "Backend",
-    "drop": "infrabox",
-    "subsystem": "backend"
-  },
-  {
-    "id": "infrabox-adm",
-    "name": "ADM",
-    "drop": "infrabox",
-    "subsystem": "adm"
-  },
-  {
-    "id": "infrabox-simulator",
-    "name": "Simulator",
-    "drop": "infrabox",
-    "subsystem": "simulator"
-  },
-  {
-    "id": "infrabox-selfdiagnostic",
-    "name": "Self-diagnostic",
-    "drop": "infrabox",
-    "subsystem": "selfdiagnostic"
-  },
-  {
-    "id": "infrabox-arch",
-    "name": "Archivator",
-    "drop": "infrabox",
-    "subsystem": "arch"
-  },
-  {
-    "id": "infrabox-arch-backend",
-    "name": "Arch Backend",
-    "drop": "infrabox",
-    "subsystem": "arch"
-  },
-  {
-    "id": "infrabox-arch-ui",
-    "name": "Arch UI",
-    "drop": "infrabox",
-    "subsystem": "arch"
-  },
-  {
-    "id": "infrabox-redis",
-    "name": "Redis",
-    "drop": "infrabox",
-    "subsystem": "infrastructure"
-  },
-  {
-    "id": "infrabox-mosquitto-real",
-    "name": "MQTT Real",
-    "drop": "infrabox",
-    "subsystem": "infrastructure"
-  },
-  {
-    "id": "infrabox-mosquitto-sim",
-    "name": "MQTT Sim",
-    "drop": "infrabox",
-    "subsystem": "infrastructure"
-  },
-  {
-    "id": "infrabox-web",
-    "name": "Web",
-    "drop": "infrabox",
-    "subsystem": "frontend"
-  },
-  {
-    "id": "portainer",
-    "name": "Portainer",
-    "drop": "infrabox",
-    "subsystem": "infrastructure"
+    "services": [
+      {
+        "id": "heartbeat",
+        "name": "Хартбіт",
+        "elements": [
+          { "id": "infrabox-core",           "name": "Core" },
+          { "id": "infrabox-auth",           "name": "Auth" },
+          { "id": "infrabox-backend",        "name": "Backend" },
+          { "id": "infrabox-adm",            "name": "ADM" },
+          { "id": "infrabox-simulator",      "name": "Simulator" },
+          { "id": "infrabox-selfdiagnostic", "name": "Self-diagnostic" },
+          { "id": "infrabox-arch",           "name": "Archivator" },
+          { "id": "infrabox-arch-backend",   "name": "Arch Backend" },
+          { "id": "infrabox-arch-ui",        "name": "Arch UI" },
+          { "id": "infrabox-redis",          "name": "Redis" },
+          { "id": "infrabox-mosquitto-real", "name": "MQTT Real" },
+          { "id": "infrabox-mosquitto-sim",  "name": "MQTT Sim" },
+          { "id": "infrabox-web",            "name": "Web" },
+          { "id": "portainer",               "name": "Portainer" }
+        ]
+      }
+    ]
   }
 ]

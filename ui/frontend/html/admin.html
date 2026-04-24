@@ -713,9 +713,9 @@
             </div>
         </div>
 
-        <!-- ── Системний: вузол → контейнер ── -->
+        <!-- ── Системний: вузол → сервіс → елемент ── -->
         <div id="pt_section_system">
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Хартбіт</div>
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Прив'язка</div>
             <div class="form-grid">
                 <div class="field">
                     <label>Вузол</label>
@@ -725,8 +725,14 @@
                     <input type="hidden" id="pt_drop">
                 </div>
                 <div class="field">
-                    <label>Контейнер (хартбіт)</label>
-                    <select id="pt_hb_service_sel" onchange="onSysServiceChange()">
+                    <label>Сервіс</label>
+                    <select id="pt_sys_svc_sel" onchange="onSysSvcChange()">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Елемент</label>
+                    <select id="pt_hb_service_sel" onchange="onSysElemChange()">
                         <option value="">— оберіть —</option>
                     </select>
                     <input type="hidden" id="pt_hb_service">
@@ -2144,27 +2150,48 @@ function onPointTypeChange() {
     document.getElementById("pt_section_tech").style.display   = isSystem ? "none" : "";
 }
 
-function _fillSysServiceSel(drop) {
-    const sel = document.getElementById("pt_hb_service_sel");
-    const filtered = drop ? _allServices.filter(s => s.drop === drop) : _allServices;
+// helpers to navigate services.json hierarchy
+function _svcNode(drop) {
+    return _allServices.find(n => n.drop === drop);
+}
+function _svcServices(drop) {
+    return _svcNode(drop)?.services || [];
+}
+function _svcElements(drop, svcId) {
+    return _svcServices(drop).find(s => s.id === svcId)?.elements || [];
+}
+
+function _fillSysSvcSel(drop) {
+    const sel = document.getElementById("pt_sys_svc_sel");
     sel.innerHTML = `<option value="">— оберіть —</option>` +
-        filtered.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+        _svcServices(drop).map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+}
+function _fillSysElemSel(drop, svcId) {
+    const sel = document.getElementById("pt_hb_service_sel");
+    sel.innerHTML = `<option value="">— оберіть —</option>` +
+        _svcElements(drop, svcId).map(e => `<option value="${_esc(e.id)}">${_esc(e.name || e.id)}</option>`).join("");
 }
 
 function onSysDropChange() {
     const drop = document.getElementById("pt_sys_drop_sel").value;
     document.getElementById("pt_drop").value = drop;
-    _fillSysServiceSel(drop);
+    _fillSysSvcSel(drop);
+    document.getElementById("pt_sys_svc_sel").value  = "";
+    document.getElementById("pt_hb_service_sel").innerHTML = `<option value="">— оберіть —</option>`;
+    document.getElementById("pt_hb_service").value = "";
+}
+function onSysSvcChange() {
+    const drop  = document.getElementById("pt_sys_drop_sel").value;
+    const svcId = document.getElementById("pt_sys_svc_sel").value;
+    _fillSysElemSel(drop, svcId);
     document.getElementById("pt_hb_service_sel").value = "";
     document.getElementById("pt_hb_service").value = "";
 }
-
-function onSysServiceChange() {
-    const svc = document.getElementById("pt_hb_service_sel").value;
-    document.getElementById("pt_hb_service").value = svc;
-    // auto-fill pointname if empty
-    if (svc && !document.getElementById("pt_pointname").value)
-        document.getElementById("pt_pointname").value = svc;
+function onSysElemChange() {
+    const elem = document.getElementById("pt_hb_service_sel").value;
+    document.getElementById("pt_hb_service").value = elem;
+    if (elem && !document.getElementById("pt_pointname").value)
+        document.getElementById("pt_pointname").value = elem;
 }
 
 function _setPointModalMode(isSystem) {
