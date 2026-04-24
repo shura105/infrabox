@@ -716,31 +716,29 @@
         <!-- ── Системний: вузол → сервіс → елемент ── -->
         <div id="pt_section_system">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Прив'язка</div>
-            <div class="form-grid">
-                <div class="field">
-                    <label>Вузол</label>
-                    <select id="pt_sys_drop_sel" onchange="onSysDropChange()">
-                        <option value="">— оберіть —</option>
-                    </select>
-                    <input type="hidden" id="pt_drop">
-                </div>
-                <div class="field">
-                    <label>Сервіс</label>
-                    <select id="pt_sys_svc_sel" onchange="onSysSvcChange()">
-                        <option value="">— оберіть —</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>Елемент</label>
-                    <select id="pt_hb_service_sel" onchange="onSysElemChange()">
-                        <option value="">— оберіть —</option>
-                    </select>
-                    <input type="hidden" id="pt_hb_service">
-                </div>
-                <div class="field">
-                    <label>Назва (pointname)</label>
-                    <input type="text" id="pt_pointname" placeholder="infrabox-core">
-                </div>
+            <div class="field">
+                <label>Вузол</label>
+                <select id="pt_sys_drop_sel" onchange="onSysDropChange()">
+                    <option value="">— оберіть —</option>
+                </select>
+                <input type="hidden" id="pt_drop">
+            </div>
+            <div class="field" style="margin-top:10px">
+                <label>Сервіс</label>
+                <select id="pt_sys_svc_sel" onchange="onSysSvcChange()">
+                    <option value="">— оберіть —</option>
+                </select>
+            </div>
+            <div class="field" style="margin-top:10px">
+                <label>Елемент</label>
+                <select id="pt_hb_service_sel" onchange="onSysElemChange()">
+                    <option value="">— оберіть —</option>
+                </select>
+                <input type="hidden" id="pt_hb_service">
+            </div>
+            <div class="field" style="margin-top:10px">
+                <label>Назва (pointname)</label>
+                <input type="text" id="pt_pointname" placeholder="infrabox-core">
             </div>
         </div>
 
