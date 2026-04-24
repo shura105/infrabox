@@ -2108,13 +2108,27 @@ function _fillPointForm(p) {
     const isSystem = (p.type || "analog") === "system";
     document.getElementById("pt_id").value              = p.id;
     document.getElementById("pt_type").value            = p.type || "analog";
-    // for system: find drop from services.json and populate selects
-    const svcEntry = _allServices.find(s => s.id === (p.hb_service || ""));
-    const sysDrop  = svcEntry ? svcEntry.drop : (p.drop || "");
-    document.getElementById("pt_sys_drop_sel").value    = sysDrop;
+    // for system: find drop+svc that contains this hb_service element
+    let sysDrop = p.drop || "";
+    let sysSvc  = "";
+    if (p.hb_service) {
+        outer: for (const node of _allServices) {
+            for (const svc of (node.services || [])) {
+                if ((svc.elements || []).some(e => e.id === p.hb_service)) {
+                    sysDrop = node.drop;
+                    sysSvc  = svc.id;
+                    break outer;
+                }
+            }
+        }
+    }
+    document.getElementById("pt_sys_drop_sel").value = sysDrop;
+    document.getElementById("pt_drop").value          = sysDrop;
     _fillSysSvcSel(sysDrop);
-    document.getElementById("pt_hb_service_sel").value  = p.hb_service || "";
-    document.getElementById("pt_hb_service").value      = p.hb_service || "";
+    document.getElementById("pt_sys_svc_sel").value  = sysSvc;
+    _fillSysElemSel(sysDrop, sysSvc);
+    document.getElementById("pt_hb_service_sel").value = p.hb_service || "";
+    document.getElementById("pt_hb_service").value     = p.hb_service || "";
     document.getElementById("pt_pointname").value       = p.pointname ?? "";
     document.getElementById("pt_unit").value            = p.unit ?? "";
     document.getElementById("pt_object_sel").value      = p.object ?? "";
