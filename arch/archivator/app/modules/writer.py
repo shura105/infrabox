@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import threading
 import redis
@@ -238,6 +239,23 @@ class Writer:
 
             time.sleep(10)
 
+    def _watch_points_file(self):
+        path = "/app/config/points.json"
+        try:
+            last_mtime = os.path.getmtime(path)
+        except Exception:
+            last_mtime = 0
+        while self.running:
+            time.sleep(10)
+            try:
+                mtime = os.path.getmtime(path)
+                if mtime != last_mtime:
+                    last_mtime = mtime
+                    self.points_meta = self._load_points_meta()
+                    self.log.info(f"points.json reloaded — {len(self.points_meta)} points")
+            except Exception as e:
+                self.log.error(f"points.json watch error: {e}")
+
     def start(self):
         self.running = True
         threading.Thread(target=self._interval_archiver, daemon=True).start()
@@ -246,5 +264,6 @@ class Writer:
         threading.Thread(target=self._listen_events,     daemon=True).start()
         threading.Thread(target=self._listen_values,     daemon=True).start()
         threading.Thread(target=self._watchdog,          daemon=True).start()
+        threading.Thread(target=self._watch_points_file, daemon=True).start()
 
         self.log.info(f"Writer started — {len(self.points_meta)} points loaded")
