@@ -726,7 +726,7 @@
             <div id="archVolList" style="display:none;margin-top:10px">
                 <table class="pt-table">
                     <thead><tr>
-                        <th>Том</th><th>Відкрито</th><th>Закрито</th><th>Записів</th><th>Статус</th>
+                        <th>Том</th><th>Відкрито</th><th>Закрито</th><th>Записів</th><th>Розмір</th><th>Статус</th>
                     </tr></thead>
                     <tbody id="archVolBody">
                         <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
@@ -2480,9 +2480,10 @@ async function _loadArchVolList() {
     const h = authHeaders();
     const tbody = document.getElementById("archVolBody");
     tbody.innerHTML = `<tr class="loading-row"><td colspan="5">Завантаження…</td></tr>`;
-    const [vols, status] = await Promise.all([
-        fetch("/arch/api/volumes", { headers: h }).then(r => r.ok ? r.json() : []),
-        fetch("/arch/api/status",  { headers: h }).then(r => r.ok ? r.json() : null),
+    const [vols, status, sizes] = await Promise.all([
+        fetch("/arch/api/volumes",       { headers: h }).then(r => r.ok ? r.json() : []),
+        fetch("/arch/api/status",        { headers: h }).then(r => r.ok ? r.json() : null),
+        fetch("/arch/api/volumes-sizes", { headers: h }).then(r => r.ok ? r.json() : {}),
     ]);
     const activeVol   = status?.current_volume?.volume;
     const activeCount = status?.current_volume?.record_count;
@@ -2510,12 +2511,14 @@ async function _loadArchVolList() {
         const recTd     = zeroRecs
             ? `<span style='color:#e3b341' title='Том відкрито, але записів немає'>0 ⚠</span>`
             : (recCount ?? "—");
+        const sizeTd    = sizes[v] != null ? _fmtBytes(sizes[v]) : "—";
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td style="font-family:monospace;font-size:11px">${_esc(v)}</td>
             <td style="font-size:11px">${m.opened_at ? m.opened_at.replace("T"," ").slice(0,16) : "—"}</td>
             <td style="font-size:11px">${closedTd}</td>
             <td style="font-size:11px">${recTd}</td>
+            <td style="font-size:11px;color:#8b949e">${sizeTd}</td>
             <td style="font-size:11px;color:#8b949e">${_esc(m.status ?? "")}</td>`;
         tbody.appendChild(tr);
     });

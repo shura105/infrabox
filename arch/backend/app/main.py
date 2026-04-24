@@ -32,7 +32,8 @@ from modules.arch_client import (
     get_events, get_values, get_selfdiag,
     get_config, get_sessions, control,
     get_current_values,
-    get_arch_config, set_arch_depth
+    get_arch_config, set_arch_depth,
+    get_volumes_sizes
 )
 
 app = FastAPI(title="Infrabox Arch Backend")
@@ -234,6 +235,11 @@ async def status():
 @app.get("/volumes")
 async def volumes():
     return await get_volumes()
+
+
+@app.get("/volumes-sizes")
+async def volumes_sizes():
+    return await get_volumes_sizes()
 
 
 @app.get("/volumes/{volume}/meta")

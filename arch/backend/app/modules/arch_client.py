@@ -51,6 +51,10 @@ async def get_volumes():
     return await _get("/volumes")
 
 
+async def get_volumes_sizes():
+    return await _get("/volumes-sizes")
+
+
 async def get_volume_meta(volume: str):
     return await _get(f"/volumes/{volume}/meta")
 

@@ -176,6 +176,19 @@ def list_volumes():
     return sorted(volumes, reverse=True)
 
 
+@app.get("/volumes-sizes")
+def volumes_sizes():
+    """Розмір кожного тому в байтах — один запит замість N."""
+    if not os.path.exists(DATA_DIR):
+        return {}
+    result = {}
+    for name in os.listdir(DATA_DIR):
+        path = os.path.join(DATA_DIR, name)
+        if os.path.isdir(path):
+            result[name] = _dir_size_bytes(path)
+    return result
+
+
 # --- CURRENT VOLUME (живі дані) ---
 @app.get("/current/values")
 def get_current_values(point_id: int = None):
