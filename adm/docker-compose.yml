@@ -18,6 +18,7 @@ services:
       - /etc/hostname:/host_hostname:ro
       - ./data:/app/data
       - ../infrabox.json:/app/config/infrabox.json
+      - /home/shura/infrabox/core/service/config/points.json:/app/config/points.json
 
 networks:
   infrabox-net:

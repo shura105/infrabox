@@ -384,6 +384,80 @@
         .app-dot.stopped  { background: #f47067; }
         .app-dot.paused   { background: #e3b341; }
         .app-dot.loading  { background: #58a6ff; }
+
+        /* ── points tab ── */
+        .points-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .points-toolbar input[type=search] {
+            padding: 5px 9px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+            width: 180px;
+        }
+        .points-toolbar input[type=search]:focus { border-color: #58a6ff; }
+        .points-toolbar select {
+            padding: 5px 9px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+        }
+        .points-toolbar select:focus { border-color: #58a6ff; }
+        .points-toolbar .spacer { flex: 1; }
+
+        .pt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .pt-table th, .pt-table td {
+            padding: 7px 10px;
+            text-align: left;
+            border-bottom: 1px solid #21262d;
+        }
+        .pt-table th { color: #8b949e; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+        .pt-table tr:hover td { background: #161b22; }
+        .pt-table tr.pt-heartbeat td { opacity: 0.55; }
+
+        .pt-id  { font-family: monospace; color: #8b949e; }
+        .pt-name { font-weight: 500; color: #e6edf3; }
+        .pt-unit { color: #8b949e; }
+        .pt-minmax { font-family: monospace; font-size: 11px; white-space: nowrap; }
+        .pt-hb-badge {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: #21262d;
+            color: #8b949e;
+            border: 1px solid #30363d;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        /* points modal is wider */
+        .modal-wide {
+            width: 620px;
+            max-width: 96vw;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 16px;
+        }
+        .form-grid .field-full { grid-column: 1 / -1; }
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0 12px;
+        }
     </style>
 </head>
 <body>
@@ -403,6 +477,7 @@
     <button class="tab-btn"        id="tab-perms-btn"  onclick="switchTab('perms')">Права доступу</button>
     <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
     <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
+    <button class="tab-btn"        id="tab-points-btn" onclick="switchTab('points')">Параметри</button>
 </div>
 
 <main>
@@ -471,6 +546,39 @@
                     </td>
                 </tr>
             </tbody>
+        </table>
+    </div>
+
+    <!-- ══════════════════════════════ POINTS TAB ════════════════════════════════ -->
+    <div class="tab-panel" id="tab-points">
+        <h1>Управління параметрами</h1>
+        <div class="points-toolbar">
+            <input type="search" id="ptSearch" placeholder="Пошук…" oninput="filterPoints()">
+            <select id="ptFilterObj" onchange="filterPoints()">
+                <option value="">Всі об'єкти</option>
+            </select>
+            <select id="ptFilterSys" onchange="filterPoints()">
+                <option value="">Всі системи</option>
+            </select>
+            <div class="spacer"></div>
+            <button class="btn btn-green" onclick="openPointCreate()">+ Додати</button>
+            <button class="btn btn-orange" onclick="reloadPoints()">↺ Застосувати зміни</button>
+        </div>
+        <table class="pt-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Об'єкт</th>
+                    <th>Система</th>
+                    <th>Назва</th>
+                    <th>Од.</th>
+                    <th>min / max</th>
+                    <th>Deadband</th>
+                    <th>Архів</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="pointsBody"></tbody>
         </table>
     </div>
 
@@ -554,6 +662,77 @@
     </div>
 
 </main>
+
+<!-- ══════════════════════════ POINTS MODAL ═══════════════════════════════ -->
+<div class="overlay" id="pointOverlay">
+    <div class="modal modal-wide">
+        <h2 id="pointModalTitle">Параметр</h2>
+        <div class="modal-error" id="pointModalError"></div>
+        <div class="form-grid">
+            <div class="field">
+                <label>ID</label>
+                <input type="number" id="pt_id" min="1">
+            </div>
+            <div class="field">
+                <label>Одиниця (unit)</label>
+                <input type="text" id="pt_unit" placeholder="°C">
+            </div>
+            <div class="field">
+                <label>Об'єкт (object)</label>
+                <input type="text" id="pt_object" placeholder="home">
+            </div>
+            <div class="field">
+                <label>Дроп (drop)</label>
+                <input type="text" id="pt_drop" placeholder="homeServ-1">
+            </div>
+            <div class="field">
+                <label>Система (system)</label>
+                <input type="text" id="pt_system" placeholder="heating">
+            </div>
+            <div class="field">
+                <label>Назва (pointname)</label>
+                <input type="text" id="pt_pointname" placeholder="inputTemperature">
+            </div>
+        </div>
+        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
+        <div class="form-grid-3">
+            <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
+            <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
+            <div class="field"><label>Deadband</label><input type="number" id="pt_deadband" step="any"></div>
+            <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
+            <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
+            <div class="field"></div>
+            <div class="field"><label>alarm_min</label><input type="number" id="pt_alarm_min" step="any"></div>
+            <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
+            <div class="field"></div>
+        </div>
+        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
+        <div class="form-grid-3">
+            <div class="field">
+                <label>Архівування</label>
+                <select id="pt_onArchive">
+                    <option value="1">Так</option>
+                    <option value="0">Ні</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Інтервал (с)</label>
+                <input type="number" id="pt_archive_interval" min="0">
+            </div>
+            <div class="field">
+                <label>За зміною</label>
+                <select id="pt_archive_on_change">
+                    <option value="1">Так</option>
+                    <option value="0">Ні</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="closePointModal()">Скасувати</button>
+            <button class="btn btn-green" onclick="savePoint()">Зберегти</button>
+        </div>
+    </div>
+</div>
 
 <!-- ══════════════════════════ PERMS MODAL ════════════════════════════════ -->
 <div class="overlay" id="permsOverlay">
@@ -1626,9 +1805,227 @@ async function savePerms() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Points
+// ─────────────────────────────────────────────────────────────────────────────
+let _allPoints = [];
+let _pointEditId = null; // null = create mode, number = edit mode
+
+async function loadPoints() {
+    const res = await fetch("/adm/api/points", { headers: authHeaders() });
+    if (!res.ok) { console.error("loadPoints failed", res.status); return; }
+    _allPoints = await res.json();
+    _buildPointFilters();
+    _renderPoints(_allPoints);
+}
+
+function _buildPointFilters() {
+    const objSel = document.getElementById("ptFilterObj");
+    const sysSel = document.getElementById("ptFilterSys");
+    const curObj = objSel.value;
+    const curSys = sysSel.value;
+
+    const objects = [...new Set(_allPoints.map(p => p.object).filter(Boolean))].sort();
+    const systems = [...new Set(_allPoints.map(p => p.system).filter(Boolean))].sort();
+
+    objSel.innerHTML = `<option value="">Всі об'єкти</option>` +
+        objects.map(o => `<option value="${_esc(o)}"${o === curObj ? " selected" : ""}>${_esc(o)}</option>`).join("");
+    sysSel.innerHTML = `<option value="">Всі системи</option>` +
+        systems.map(s => `<option value="${_esc(s)}"${s === curSys ? " selected" : ""}>${_esc(s)}</option>`).join("");
+}
+
+function filterPoints() {
+    const q   = document.getElementById("ptSearch").value.toLowerCase();
+    const obj = document.getElementById("ptFilterObj").value;
+    const sys = document.getElementById("ptFilterSys").value;
+    const filtered = _allPoints.filter(p => {
+        if (obj && p.object !== obj) return false;
+        if (sys && p.system !== sys) return false;
+        if (q && !`${p.id} ${p.object} ${p.system} ${p.pointname} ${p.unit}`.toLowerCase().includes(q)) return false;
+        return true;
+    });
+    _renderPoints(filtered);
+}
+
+function _renderPoints(points) {
+    const tbody = document.getElementById("pointsBody");
+    if (!points.length) {
+        tbody.innerHTML = `<tr class="loading-row"><td colspan="9">Немає параметрів</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = "";
+    for (const p of points) {
+        const isHB = p.id >= 200;
+        const hbBadge = isHB ? `<span class="pt-hb-badge">💓</span>` : "";
+        const archiveLabel = p.onArchive ? (p.archive_on_change ? "зм" : `${p.archive_interval}с`) : "—";
+        const tr = document.createElement("tr");
+        if (isHB) tr.classList.add("pt-heartbeat");
+        tr.innerHTML = `
+            <td class="pt-id">${p.id}</td>
+            <td>${_esc(p.object || "")}</td>
+            <td>${_esc(p.system || "")}</td>
+            <td class="pt-name">${_esc(p.pointname || "")}${hbBadge}</td>
+            <td class="pt-unit">${_esc(p.unit || "")}</td>
+            <td class="pt-minmax">${p.min} / ${p.max}</td>
+            <td class="pt-unit">${p.deadband ?? "—"}</td>
+            <td style="font-size:11px;color:#8b949e">${archiveLabel}</td>
+            <td>
+                <div class="actions">
+                    <button class="btn btn-blue" onclick="openPointEdit(${p.id})">✏</button>
+                    ${isHB ? "" : `<button class="btn btn-red" onclick="deletePoint(${p.id})">🗑</button>`}
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+function _pointFormDefaults() {
+    document.getElementById("pt_id").value             = "";
+    document.getElementById("pt_unit").value           = "";
+    document.getElementById("pt_object").value         = "";
+    document.getElementById("pt_drop").value           = "";
+    document.getElementById("pt_system").value         = "";
+    document.getElementById("pt_pointname").value      = "";
+    document.getElementById("pt_min").value            = "0";
+    document.getElementById("pt_max").value            = "100";
+    document.getElementById("pt_deadband").value       = "0";
+    document.getElementById("pt_warn_min").value       = "0";
+    document.getElementById("pt_warn_max").value       = "100";
+    document.getElementById("pt_alarm_min").value      = "0";
+    document.getElementById("pt_alarm_max").value      = "100";
+    document.getElementById("pt_onArchive").value      = "1";
+    document.getElementById("pt_archive_interval").value  = "0";
+    document.getElementById("pt_archive_on_change").value = "1";
+}
+
+function _fillPointForm(p) {
+    document.getElementById("pt_id").value             = p.id;
+    document.getElementById("pt_unit").value           = p.unit ?? "";
+    document.getElementById("pt_object").value         = p.object ?? "";
+    document.getElementById("pt_drop").value           = p.drop ?? "";
+    document.getElementById("pt_system").value         = p.system ?? "";
+    document.getElementById("pt_pointname").value      = p.pointname ?? "";
+    document.getElementById("pt_min").value            = p.min ?? 0;
+    document.getElementById("pt_max").value            = p.max ?? 100;
+    document.getElementById("pt_deadband").value       = p.deadband ?? 0;
+    document.getElementById("pt_warn_min").value       = p.warn_min ?? 0;
+    document.getElementById("pt_warn_max").value       = p.warn_max ?? 100;
+    document.getElementById("pt_alarm_min").value      = p.alarm_min ?? 0;
+    document.getElementById("pt_alarm_max").value      = p.alarm_max ?? 100;
+    document.getElementById("pt_onArchive").value      = p.onArchive ?? 1;
+    document.getElementById("pt_archive_interval").value  = p.archive_interval ?? 0;
+    document.getElementById("pt_archive_on_change").value = p.archive_on_change ?? 1;
+}
+
+function openPointCreate() {
+    _pointEditId = null;
+    document.getElementById("pointModalTitle").textContent = "Новий параметр";
+    document.getElementById("pointModalError").style.display = "none";
+    document.getElementById("pt_id").disabled = false;
+    _pointFormDefaults();
+    document.getElementById("pointOverlay").classList.add("open");
+}
+
+function openPointEdit(id) {
+    const p = _allPoints.find(x => x.id === id);
+    if (!p) return;
+    _pointEditId = id;
+    document.getElementById("pointModalTitle").textContent = `Параметр #${id}`;
+    document.getElementById("pointModalError").style.display = "none";
+    document.getElementById("pt_id").disabled = true;
+    _fillPointForm(p);
+    document.getElementById("pointOverlay").classList.add("open");
+}
+
+function closePointModal() {
+    document.getElementById("pointOverlay").classList.remove("open");
+    _pointEditId = null;
+}
+
+function _readPointForm() {
+    return {
+        id:                  parseInt(document.getElementById("pt_id").value),
+        object:              document.getElementById("pt_object").value.trim(),
+        drop:                document.getElementById("pt_drop").value.trim(),
+        system:              document.getElementById("pt_system").value.trim(),
+        pointname:           document.getElementById("pt_pointname").value.trim(),
+        unit:                document.getElementById("pt_unit").value.trim(),
+        min:                 parseFloat(document.getElementById("pt_min").value) || 0,
+        max:                 parseFloat(document.getElementById("pt_max").value) || 100,
+        warn_min:            parseFloat(document.getElementById("pt_warn_min").value) || 0,
+        warn_max:            parseFloat(document.getElementById("pt_warn_max").value) || 100,
+        alarm_min:           parseFloat(document.getElementById("pt_alarm_min").value) || 0,
+        alarm_max:           parseFloat(document.getElementById("pt_alarm_max").value) || 100,
+        deadband:            parseFloat(document.getElementById("pt_deadband").value) || 0,
+        interval:            1,
+        onArchive:           parseInt(document.getElementById("pt_onArchive").value),
+        archive_interval:    parseInt(document.getElementById("pt_archive_interval").value) || 0,
+        archive_on_change:   parseInt(document.getElementById("pt_archive_on_change").value),
+    };
+}
+
+async function savePoint() {
+    const errEl = document.getElementById("pointModalError");
+    errEl.style.display = "none";
+    const data = _readPointForm();
+    if (!data.id || !data.pointname) {
+        errEl.textContent = "ID та Назва є обов'язковими";
+        errEl.style.display = "block";
+        return;
+    }
+    let res;
+    if (_pointEditId === null) {
+        res = await fetch("/adm/api/points", {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+    } else {
+        res = await fetch(`/adm/api/points/${_pointEditId}`, {
+            method: "PUT",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+    }
+    if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        errEl.textContent = j.detail || `Помилка ${res.status}`;
+        errEl.style.display = "block";
+        return;
+    }
+    closePointModal();
+    await loadPoints();
+}
+
+async function deletePoint(id) {
+    if (!confirm(`Видалити параметр #${id}?`)) return;
+    const res = await fetch(`/adm/api/points/${id}`, {
+        method: "DELETE",
+        headers: authHeaders()
+    });
+    if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert(j.detail || `Помилка ${res.status}`);
+        return;
+    }
+    await loadPoints();
+}
+
+async function reloadPoints() {
+    if (!confirm("Перезапустити core, simulator та selfdiagnostic для застосування змін?")) return;
+    const res = await fetch("/adm/api/points/reload", {
+        method: "POST",
+        headers: authHeaders()
+    });
+    const j = await res.json().catch(() => ({}));
+    const lines = Object.entries(j).map(([k, v]) => `${k}: ${v}`).join("\n");
+    alert("Результат перезапуску:\n\n" + lines);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Start
 // ─────────────────────────────────────────────────────────────────────────────
 loadUsers();
+loadPoints();
 </script>
 </body>
 </html>

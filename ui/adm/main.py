@@ -509,3 +509,89 @@ def host_reboot():
 @app.post("/host/shutdown")
 def host_shutdown():
     return _power_cmd("shutdown -h now")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Points management
+# ─────────────────────────────────────────────────────────────────────────────
+POINTS_PATH = "/app/config/points.json"
+
+
+def _read_points():
+    with open(POINTS_PATH) as f:
+        return json.load(f)
+
+
+def _write_points(points):
+    with open(POINTS_PATH, "w") as f:
+        json.dump(points, f, ensure_ascii=False, indent=2)
+
+
+@app.get("/points")
+def get_points():
+    return _read_points()
+
+
+class PointIn(BaseModel):
+    id: int
+    object: str
+    drop: str
+    system: str
+    pointname: str
+    unit: str = ""
+    min: float = 0
+    max: float = 100
+    warn_min: float = 0
+    warn_max: float = 100
+    alarm_min: float = 0
+    alarm_max: float = 100
+    deadband: float = 0
+    interval: int = 1
+    onArchive: int = 1
+    archive_interval: int = 0
+    archive_on_change: int = 1
+
+
+@app.post("/points")
+def create_point(p: PointIn):
+    points = _read_points()
+    if any(x["id"] == p.id for x in points):
+        raise HTTPException(409, f"Point id={p.id} already exists")
+    points.append(p.model_dump())
+    _write_points(points)
+    return {"ok": True}
+
+
+@app.put("/points/{point_id}")
+def update_point(point_id: int, p: PointIn):
+    points = _read_points()
+    for i, x in enumerate(points):
+        if x["id"] == point_id:
+            points[i] = p.model_dump()
+            _write_points(points)
+            return {"ok": True}
+    raise HTTPException(404, f"Point {point_id} not found")
+
+
+@app.delete("/points/{point_id}")
+def delete_point(point_id: int):
+    points = _read_points()
+    new = [x for x in points if x["id"] != point_id]
+    if len(new) == len(points):
+        raise HTTPException(404, f"Point {point_id} not found")
+    _write_points(new)
+    return {"ok": True}
+
+
+@app.post("/points/reload")
+def reload_points():
+    """Restart core + simulator + selfdiagnostic to pick up points.json changes."""
+    results = {}
+    for name in ["infrabox-core", "infrabox-simulator", "infrabox-selfdiagnostic"]:
+        try:
+            c = _docker().containers.get(name)
+            c.restart()
+            results[name] = "restarted"
+        except Exception as e:
+            results[name] = f"error: {e}"
+    return results
