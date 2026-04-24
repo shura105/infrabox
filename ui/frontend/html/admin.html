@@ -2480,8 +2480,12 @@ async function _loadArchVolList() {
     const h = authHeaders();
     const tbody = document.getElementById("archVolBody");
     tbody.innerHTML = `<tr class="loading-row"><td colspan="5">Завантаження…</td></tr>`;
-    const vols = await fetch("/arch/api/volumes", { headers: h })
-        .then(r => r.ok ? r.json() : []);
+    const [vols, status] = await Promise.all([
+        fetch("/arch/api/volumes", { headers: h }).then(r => r.ok ? r.json() : []),
+        fetch("/arch/api/status",  { headers: h }).then(r => r.ok ? r.json() : null),
+    ]);
+    const activeVol   = status?.current_volume?.volume;
+    const activeCount = status?.current_volume?.record_count;
     document.getElementById("archVolCount").textContent = `(${vols.length})`;
     if (!vols.length) {
         tbody.innerHTML = `<tr class="loading-row"><td colspan="5">Томів немає</td></tr>`;
@@ -2496,13 +2500,16 @@ async function _loadArchVolList() {
     vols.forEach((v, i) => {
         const m = metas[i] || {};
         const isActive  = !m.closed_at;
-        const zeroRecs  = isActive && (m.record_count === 0 || m.record_count === "0");
+        // для активного тому беремо лічильник з пам'яті (meta.json завжди 0 при відкритті)
+        const recCount  = (isActive && v === activeVol && activeCount != null)
+            ? activeCount : m.record_count;
+        const zeroRecs  = isActive && (recCount === 0 || recCount === "0");
         const closedTd  = isActive
             ? `<span style='color:#56d364'>активний</span>`
             : m.closed_at.replace("T"," ").slice(0,16);
         const recTd     = zeroRecs
             ? `<span style='color:#e3b341' title='Том відкрито, але записів немає'>0 ⚠</span>`
-            : (m.record_count ?? "—");
+            : (recCount ?? "—");
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td style="font-family:monospace;font-size:11px">${_esc(v)}</td>
