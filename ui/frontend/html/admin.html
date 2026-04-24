@@ -699,7 +699,41 @@
     <!-- ══════════════════════════════ ARCHIVES TAB ═════════════════════════════ -->
     <div class="tab-panel" id="tab-archives">
         <h1>Архіви</h1>
-        <p style="color:#8b949e;margin-top:12px">Розділ у розробці.</p>
+
+        <!-- поточні налаштування -->
+        <div style="margin-top:18px">
+            <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Налаштування глибини</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div style="color:#c9d1d9;font-size:13px">Максимальна кількість томів:</div>
+                <input type="number" id="archMaxVolumes" min="1" style="width:80px"
+                    placeholder="30">
+                <button class="btn btn-blue" onclick="applyArchDepth()">Застосувати</button>
+                <span id="archDepthMsg" style="font-size:12px;color:#8b949e"></span>
+            </div>
+            <div id="archCurrentInfo" style="margin-top:12px;font-size:12px;color:#8b949e;line-height:1.8"></div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- список томів (розгортається) -->
+        <div>
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none"
+                 onclick="toggleArchVolumes()">
+                <span id="archVolChevron" style="font-size:11px;color:#58a6ff">▶</span>
+                <span style="font-size:11px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Архівні томи</span>
+                <span id="archVolCount" style="font-size:11px;color:#8b949e"></span>
+            </div>
+            <div id="archVolList" style="display:none;margin-top:10px">
+                <table class="pt-table">
+                    <thead><tr>
+                        <th>Том</th><th>Відкрито</th><th>Закрито</th><th>Записів</th><th>Статус</th>
+                    </tr></thead>
+                    <tbody id="archVolBody">
+                        <tr class="loading-row"><td colspan="5">Завантаження…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- ══════════════════════════════ META TAB ══════════════════════════════════ -->
@@ -2404,10 +2438,100 @@ async function reloadPoints() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Archives / Meta (placeholders)
+// Archives
 // ─────────────────────────────────────────────────────────────────────────────
-function loadArchives() { /* TODO */ }
-function loadMeta()     { /* TODO */ }
+let _archVolOpen = false;
+
+async function loadArchives() {
+    const h = authHeaders();
+    const [rCfg, rStatus] = await Promise.all([
+        fetch("/arch/api/arch-config", { headers: h }),
+        fetch("/arch/api/status",      { headers: h }),
+    ]);
+
+    if (rCfg.ok) {
+        const cfg = await rCfg.json();
+        document.getElementById("archMaxVolumes").value = cfg.max_volumes ?? 30;
+        let info = `Макс. записів у томі: <b>${cfg.max_records ?? "—"}</b> &nbsp;|&nbsp; `;
+        info    += `Макс. тривалість тому: <b>${cfg.max_duration_hours ?? "—"} год</b>`;
+        document.getElementById("archCurrentInfo").innerHTML = info;
+    }
+
+    if (rStatus.ok) {
+        const st = await rStatus.json();
+        const cv = st.current_volume || {};
+        const info2 = document.getElementById("archCurrentInfo");
+        info2.innerHTML += `<br>Поточний том: <b>${cv.volume ?? "—"}</b> &nbsp;|&nbsp; ` +
+            `Записів: <b>${cv.record_count ?? "—"}</b>`;
+    }
+
+    if (_archVolOpen) await _loadArchVolList();
+}
+
+async function _loadArchVolList() {
+    const h = authHeaders();
+    const tbody = document.getElementById("archVolBody");
+    tbody.innerHTML = `<tr class="loading-row"><td colspan="5">Завантаження…</td></tr>`;
+    const vols = await fetch("/arch/api/volumes", { headers: h })
+        .then(r => r.ok ? r.json() : []);
+    document.getElementById("archVolCount").textContent = `(${vols.length})`;
+    if (!vols.length) {
+        tbody.innerHTML = `<tr class="loading-row"><td colspan="5">Томів немає</td></tr>`;
+        return;
+    }
+    const metas = await Promise.all(vols.map(v =>
+        fetch(`/arch/api/volumes/${v}/meta`, { headers: h })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+    ));
+    tbody.innerHTML = "";
+    vols.forEach((v, i) => {
+        const m = metas[i] || {};
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td style="font-family:monospace;font-size:11px">${_esc(v)}</td>
+            <td style="font-size:11px">${m.opened_at ? m.opened_at.replace("T"," ").slice(0,16) : "—"}</td>
+            <td style="font-size:11px">${m.closed_at ? m.closed_at.replace("T"," ").slice(0,16) : "<span style='color:#56d364'>активний</span>"}</td>
+            <td style="font-size:11px">${m.record_count ?? "—"}</td>
+            <td style="font-size:11px;color:#8b949e">${_esc(m.status ?? "")}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+async function toggleArchVolumes() {
+    _archVolOpen = !_archVolOpen;
+    document.getElementById("archVolChevron").textContent = _archVolOpen ? "▼" : "▶";
+    document.getElementById("archVolList").style.display = _archVolOpen ? "" : "none";
+    if (_archVolOpen) await _loadArchVolList();
+}
+
+async function applyArchDepth() {
+    const val = parseInt(document.getElementById("archMaxVolumes").value);
+    const msg = document.getElementById("archDepthMsg");
+    if (!val || val < 1) { msg.textContent = "Введіть коректне значення"; msg.style.color="#f47067"; return; }
+    msg.textContent = "…"; msg.style.color = "#8b949e";
+    const res = await fetch("/arch/api/arch-config/depth", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ max_volumes: val })
+    });
+    if (res.ok) {
+        const j = await res.json();
+        msg.style.color = "#56d364";
+        msg.textContent = j.pruned > 0
+            ? `Збережено. Видалено старих томів: ${j.pruned}`
+            : "Збережено. Нічого для видалення.";
+        if (_archVolOpen) await _loadArchVolList();
+    } else {
+        msg.style.color = "#f47067";
+        msg.textContent = "Помилка збереження";
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Meta (placeholder)
+// ─────────────────────────────────────────────────────────────────────────────
+function loadMeta() { /* TODO */ }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Start

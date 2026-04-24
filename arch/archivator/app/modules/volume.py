@@ -15,6 +15,7 @@ class Volume:
         self.data_dir = data_dir
         self.max_records = config["volume"]["max_records"]
         self.max_duration_hours = config["volume"]["max_duration_hours"]
+        self.max_volumes = config["volume"].get("max_volumes", 30)
         self.compression = config["compression"]["enabled"]
 
         self.current_dir = None
@@ -109,6 +110,55 @@ class Volume:
             elapsed_hours >= self.max_duration_hours
         )
 
+    def prune_old_volumes(self):
+        """Видаляє найстаріші томи, якщо їх більше ніж max_volumes. Повертає кількість видалених."""
+        if self.max_volumes <= 0:
+            return 0
+        current = os.path.basename(self.current_dir)
+        try:
+            all_dirs = sorted([
+                d for d in os.listdir(self.data_dir)
+                if os.path.isdir(os.path.join(self.data_dir, d)) and d != current
+            ])
+        except Exception as e:
+            self.log.error(f"prune_old_volumes list error: {e}")
+            return 0
+        to_delete = all_dirs[:-self.max_volumes] if len(all_dirs) > self.max_volumes else []
+        deleted = set()
+        for v in to_delete:
+            try:
+                shutil.rmtree(os.path.join(self.data_dir, v))
+                deleted.add(v)
+                self.log.info(f"Pruned old volume: {v}")
+            except Exception as e:
+                self.log.error(f"Failed to prune volume {v}: {e}")
+        if deleted:
+            self._prune_sessions(deleted)
+        return len(deleted)
+
+    def _prune_sessions(self, deleted_volumes):
+        sessions_path = os.path.join(self.data_dir, "sessions.json")
+        if not os.path.exists(sessions_path):
+            return
+        try:
+            with open(sessions_path) as f:
+                lines = f.readlines()
+            kept = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    if rec.get("volume") not in deleted_volumes:
+                        kept.append(line + "\n")
+                except json.JSONDecodeError:
+                    pass
+            with open(sessions_path, "w") as f:
+                f.writelines(kept)
+        except Exception as e:
+            self.log.error(f"_prune_sessions error: {e}")
+
     def rotate(self):
         if self.record_count >= self.max_records:
             reason = "max_records"
@@ -119,6 +169,7 @@ class Volume:
 
         self._close(reason=reason)
         self._open()
+        self.prune_old_volumes()
 
     def write(self, stream, record):
         if not self.recording:

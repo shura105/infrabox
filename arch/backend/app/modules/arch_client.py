@@ -103,3 +103,16 @@ async def control(action: str):
     r = await _status_client.post(f"/control/{action}")
     r.raise_for_status()
     return r.json()
+
+
+async def get_arch_config():
+    r = await _status_client.get("/arch-config")
+    r.raise_for_status()
+    return r.json()
+
+
+async def set_arch_depth(max_volumes: int):
+    r = await _status_client.post("/arch-config/depth",
+                                  json={"max_volumes": max_volumes})
+    r.raise_for_status()
+    return r.json()

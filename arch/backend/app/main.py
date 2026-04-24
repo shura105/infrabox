@@ -26,11 +26,13 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from modules.arch_client import (
     get_status, get_volumes, get_volume_meta,
     get_events, get_values, get_selfdiag,
     get_config, get_sessions, control,
-    get_current_values
+    get_current_values,
+    get_arch_config, set_arch_depth
 )
 
 app = FastAPI(title="Infrabox Arch Backend")
@@ -268,6 +270,20 @@ async def sessions():
 @app.post("/control/{action}")
 async def control_action(action: str):
     return await control(action)
+
+
+# --- ARCH CONFIG ---
+@app.get("/arch-config")
+async def arch_config():
+    return await get_arch_config()
+
+
+class DepthBody(BaseModel):
+    max_volumes: int
+
+@app.post("/arch-config/depth")
+async def arch_config_depth(body: DepthBody):
+    return await set_arch_depth(body.max_volumes)
 
 
 # --- POINTS ---
