@@ -22,6 +22,7 @@ services:
       - /home/shura/infrabox/core/service/config/objects.json:/app/config/objects.json
       - /home/shura/infrabox/core/service/config/drops.json:/app/config/drops.json
       - /home/shura/infrabox/core/service/config/systems.json:/app/config/systems.json
+      - /home/shura/infrabox/core/service/config/services.json:/app/config/services.json
 
 networks:
   infrabox-net:

@@ -718,8 +718,11 @@
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Хартбіт</div>
             <div class="form-grid">
                 <div class="field">
-                    <label>Сервіс (hb_service)</label>
-                    <input type="text" id="pt_hb_service" placeholder="infrabox-core">
+                    <label>Сервіс</label>
+                    <select id="pt_hb_service_sel" onchange="document.getElementById('pt_hb_service').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                    <input type="hidden" id="pt_hb_service">
                 </div>
                 <div class="field">
                     <label>Назва (pointname)</label>
@@ -1879,25 +1882,28 @@ async function savePerms() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Points
 // ─────────────────────────────────────────────────────────────────────────────
-let _allPoints  = [];
-let _allObjects = [];
-let _allDrops   = [];
-let _allSystems = [];
+let _allPoints   = [];
+let _allObjects  = [];
+let _allDrops    = [];
+let _allSystems  = [];
+let _allServices = [];
 let _pointEditId = null;
 
 async function loadPoints() {
     const h = authHeaders();
-    const [rPts, rObj, rDrp, rSys] = await Promise.all([
-        fetch("/adm/api/points",  { headers: h }),
-        fetch("/adm/api/objects", { headers: h }),
-        fetch("/adm/api/drops",   { headers: h }),
-        fetch("/adm/api/systems", { headers: h }),
+    const [rPts, rObj, rDrp, rSys, rSvc] = await Promise.all([
+        fetch("/adm/api/points",   { headers: h }),
+        fetch("/adm/api/objects",  { headers: h }),
+        fetch("/adm/api/drops",    { headers: h }),
+        fetch("/adm/api/systems",  { headers: h }),
+        fetch("/adm/api/services", { headers: h }),
     ]);
     if (!rPts.ok) { console.error("loadPoints failed", rPts.status); return; }
-    _allPoints  = await rPts.json();
-    _allObjects = rObj.ok ? await rObj.json() : [];
-    _allDrops   = rDrp.ok ? await rDrp.json() : [];
-    _allSystems = rSys.ok ? await rSys.json() : [];
+    _allPoints   = await rPts.json();
+    _allObjects  = rObj.ok ? await rObj.json() : [];
+    _allDrops    = rDrp.ok ? await rDrp.json() : [];
+    _allSystems  = rSys.ok ? await rSys.json() : [];
+    _allServices = rSvc.ok ? await rSvc.json() : [];
     _buildPointFilters();
     _populateModalSelects();
     _renderPoints(_allPoints);
@@ -1924,6 +1930,9 @@ function _populateModalSelects() {
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">— оберіть —</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    const svcSel = document.getElementById("pt_hb_service_sel");
+    svcSel.innerHTML = `<option value="">— оберіть —</option>` +
+        _allServices.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
 }
 
 function _archiveMode(p) {
@@ -2056,6 +2065,7 @@ function onArchiveModeChange() {
 function _pointFormDefaults() {
     document.getElementById("pt_id").value              = "";
     document.getElementById("pt_type").value            = "analog";
+    document.getElementById("pt_hb_service_sel").value  = "";
     document.getElementById("pt_hb_service").value      = "";
     document.getElementById("pt_pointname").value       = "";
     document.getElementById("pt_unit").value            = "";
@@ -2080,6 +2090,7 @@ function _fillPointForm(p) {
     const isSystem = (p.type || "analog") === "system";
     document.getElementById("pt_id").value              = p.id;
     document.getElementById("pt_type").value            = p.type || "analog";
+    document.getElementById("pt_hb_service_sel").value  = p.hb_service || "";
     document.getElementById("pt_hb_service").value      = p.hb_service || "";
     document.getElementById("pt_pointname").value       = p.pointname ?? "";
     document.getElementById("pt_unit").value            = p.unit ?? "";
