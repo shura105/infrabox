@@ -157,21 +157,11 @@ def main():
 
     _hb_tick = 0
     _HB_INTERVAL = 25  # update heartbeat points every N ticks
+    # built dynamically from points.json — system points with hb_service field
     _HB_POINTS = {
-        "infrabox-core":            200,
-        "infrabox-auth":            201,
-        "infrabox-backend":         202,
-        "infrabox-adm":             203,
-        "infrabox-simulator":       204,
-        "infrabox-selfdiagnostic":  205,
-        "infrabox-arch":            206,
-        "infrabox-arch-backend":    207,
-        "infrabox-redis":           208,
-        "infrabox-mosquitto-real":  209,
-        "infrabox-mosquitto-sim":   210,
-        "infrabox-web":             211,
-        "infrabox-arch-ui":         212,
-        "portainer":               213,
+        meta["hb_service"]: pid
+        for pid, meta in meta_cache.items()
+        if meta.get("hb_service")
     }
 
     # --- MAIN LOOP ---
@@ -341,17 +331,19 @@ def main():
                     alive   = raw is not None
                     value   = "1" if alive else "0"
                     quality = "GOOD" if alive else "ALARM"
+                    meta    = meta_cache[pid]
+                    lim     = meta["limits"]
                     hb_pipe.hset(f"point:{pid}", mapping={
                         "value":    value,
                         "ts":       now_ms,
                         "quality":  quality,
-                        "object":   "home",
-                        "system":   "heartbeat",
-                        "pointname": svc,
-                        "unit":     "",
-                        "min":      "0",  "max":      "1",
-                        "warn_min": "0.5","warn_max": "1",
-                        "alarm_min":"0.5","alarm_max":"1",
+                        "object":   meta["object"],
+                        "system":   meta["system"],
+                        "pointname": meta["pointname"],
+                        "unit":     meta.get("unit", ""),
+                        "min":      lim["min"],    "max":      lim["max"],
+                        "warn_min": lim["warn_min"],"warn_max": lim["warn_max"],
+                        "alarm_min":lim["alarm_min"],"alarm_max":lim["alarm_max"],
                     })
                     hb_pipe.publish("bus:data", pid)
                 hb_pipe.execute()

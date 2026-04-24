@@ -30,6 +30,7 @@ def load_points():
             },
 
             "deadband": p.get("deadband", 0),
+            "hb_service": p.get("hb_service", ""),
             "last_value": None,
             "state": "INIT",
             "last_change_ts": 0,

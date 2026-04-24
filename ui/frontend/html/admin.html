@@ -723,14 +723,18 @@
         <div id="pt_section_type_wrap">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Тип</div>
             <div class="form-grid">
-                <div class="field" style="grid-column:1/-1">
-                    <select id="pt_type">
+                <div class="field">
+                    <select id="pt_type" onchange="onPointTypeChange()">
                         <option value="analog">Аналоговий</option>
                         <option value="discrete">Дискретний</option>
                         <option value="calculated">Розрахунковий</option>
                         <option value="selfdiag">Самодіагностика</option>
                         <option value="system">Системний</option>
                     </select>
+                </div>
+                <div class="field" id="pt_hb_service_wrap" style="display:none">
+                    <label>Хартбіт-сервіс (hb_service)</label>
+                    <input type="text" id="pt_hb_service" placeholder="infrabox-core">
                 </div>
             </div>
         </div>
@@ -1969,7 +1973,7 @@ function _renderPoints(points) {
                 <td style="font-size:11px;color:#8b949e">${archiveLabel}</td>
                 <td>
                     <div class="actions">
-                        ${isSystem ? "" : `<button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>`}
+                        <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
                         ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
                     </div>
                 </td>`;
@@ -2007,6 +2011,7 @@ function onArchiveModeChange() {
 function _pointFormDefaults() {
     document.getElementById("pt_id").value             = "";
     document.getElementById("pt_type").value           = "analog";
+    document.getElementById("pt_hb_service").value     = "";
     document.getElementById("pt_unit").value           = "";
     document.getElementById("pt_object").value         = "";
     document.getElementById("pt_drop").value           = "";
@@ -2025,6 +2030,7 @@ function _pointFormDefaults() {
 function _fillPointForm(p) {
     document.getElementById("pt_id").value             = p.id;
     document.getElementById("pt_type").value           = p.type || "analog";
+    document.getElementById("pt_hb_service").value     = p.hb_service || "";
     document.getElementById("pt_unit").value           = p.unit ?? "";
     document.getElementById("pt_object").value         = p.object ?? "";
     document.getElementById("pt_drop").value           = p.drop ?? "";
@@ -2048,19 +2054,18 @@ function _fillPointForm(p) {
     _setArchiveMode(mode, intv > 0 ? intv : null);
 }
 
+function onPointTypeChange() {
+    const isSystem = document.getElementById("pt_type").value === "system";
+    document.getElementById("pt_hb_service_wrap").style.display = isSystem ? "" : "none";
+}
+
 function _setPointModalMode(isSystem) {
-    const hide = v => v.style.display = "none";
-    const show = v => v.style.display = "";
-    const fn = isSystem ? hide : show;
-    fn(document.getElementById("pt_section_ident"));
-    fn(document.getElementById("pt_section_type_wrap"));
-    fn(document.getElementById("pt_section_minmax"));
-    fn(document.getElementById("pt_section_archive"));
-    // system: show name as read-only header info
-    document.getElementById("pt_section_ident").querySelectorAll("input").forEach(el => {
-        el.readOnly = isSystem;
-        el.style.opacity = isSystem ? "0.45" : "";
-    });
+    // all sections always visible — no hiding needed anymore
+    document.getElementById("pt_section_ident").style.display = "";
+    document.getElementById("pt_section_type_wrap").style.display = "";
+    document.getElementById("pt_section_minmax").style.display = "";
+    document.getElementById("pt_section_archive").style.display = "";
+    onPointTypeChange();
 }
 
 function openPointCreate() {
@@ -2077,10 +2082,7 @@ function openPointEdit(id) {
     const p = _allPoints.find(x => x.id === id);
     if (!p) return;
     _pointEditId = id;
-    const isSystem = p.type === "system";
-    document.getElementById("pointModalTitle").textContent = isSystem
-        ? `${p.pointname} (системний)`
-        : `Параметр #${id}`;
+    document.getElementById("pointModalTitle").textContent = `Параметр #${id}`;
     document.getElementById("pointModalError").style.display = "none";
     document.getElementById("pt_id").disabled = true;
     _fillPointForm(p);
@@ -2097,6 +2099,7 @@ function _readPointForm() {
     return {
         id:                  parseInt(document.getElementById("pt_id").value),
         type:                document.getElementById("pt_type").value,
+        hb_service:          document.getElementById("pt_hb_service").value.trim(),
         object:              document.getElementById("pt_object").value.trim(),
         drop:                document.getElementById("pt_drop").value.trim(),
         system:              document.getElementById("pt_system").value.trim(),

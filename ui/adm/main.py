@@ -535,6 +535,7 @@ def get_points():
 class PointIn(BaseModel):
     id: int
     type: str = "analog"
+    hb_service: str = ""
     object: str
     drop: str
     system: str
