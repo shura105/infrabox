@@ -307,12 +307,19 @@
             font-family: monospace;
             font-size: 11px;
             color: #8b949e;
-            white-space: pre-wrap;
-            word-break: break-all;
             max-height: 380px;
             overflow-y: auto;
             margin-top: 10px;
         }
+        .rebuild-log .log-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .rebuild-log .log-ok   { color: #56d364; }
+        .rebuild-log .log-err  { color: #f47067; }
+        .rebuild-log .log-warn { color: #e3b341; }
+        .rebuild-log .log-info { color: #c9d1d9; }
 
         .section-divider {
             border: none;
@@ -1588,11 +1595,51 @@ function renderSubs() {
 }
 
 // ── subLog helpers ────────────────────────────────────────────────────────────
+function _logClass(line) {
+    if (/error|failed|помилка|err:/i.test(line))            return "log-err";
+    if (/warning|warn:/i.test(line))                        return "log-warn";
+    if (/started|created|done|success|готово|✓/i.test(line)) return "log-ok";
+    if (/^(step|#|\[)\S/i.test(line.trimStart()))           return "log-info";
+    return "";
+}
+let _logBuf = "";
+function _setLog(el, text) {
+    el.innerHTML = text.split("\n").map(line => {
+        const cls = _logClass(line);
+        return `<div class="log-line${cls ? " "+cls : ""}">${_esc(line) || " "}</div>`;
+    }).join("");
+    el.scrollTop = el.scrollHeight;
+}
+function _initLogStream(el) { el.innerHTML = ""; _logBuf = ""; }
+function _appendLog(el, chunk) {
+    _logBuf += chunk;
+    const lines = _logBuf.split("\n");
+    _logBuf = lines.pop();
+    for (const line of lines) {
+        const cls = _logClass(line);
+        const div = document.createElement("div");
+        div.className = "log-line" + (cls ? " " + cls : "");
+        div.textContent = line || " ";
+        el.appendChild(div);
+    }
+    el.scrollTop = el.scrollHeight;
+}
+function _flushLog(el) {
+    if (!_logBuf) return;
+    const cls = _logClass(_logBuf);
+    const div = document.createElement("div");
+    div.className = "log-line" + (cls ? " " + cls : "");
+    div.textContent = _logBuf;
+    el.appendChild(div);
+    _logBuf = "";
+    el.scrollTop = el.scrollHeight;
+}
+
 function _openSubLog(title, allowClose = true) {
     document.getElementById("subLogTitle").textContent  = title;
     document.getElementById("subLogStatus").textContent = "виконується…";
     document.getElementById("subLogStatus").style.color = "#58a6ff";
-    document.getElementById("subLog").textContent       = "";
+    _initLogStream(document.getElementById("subLog"));
     const btn = document.getElementById("subLogCloseBtn");
     btn.textContent = allowClose ? "Закрити" : "⏹ Скасувати";
     btn.disabled    = false;
@@ -1602,7 +1649,7 @@ function _openSubLog(title, allowClose = true) {
 function _subLogDone(statusText, color, logText) {
     document.getElementById("subLogStatus").textContent = statusText;
     document.getElementById("subLogStatus").style.color = color;
-    if (logText !== undefined) document.getElementById("subLog").textContent = logText;
+    if (logText !== undefined) _setLog(document.getElementById("subLog"), logText);
     const btn = document.getElementById("subLogCloseBtn");
     btn.textContent = "Закрити";
     btn.disabled    = false;
@@ -1669,7 +1716,7 @@ async function subBuild(id) {
 
         if (!res.ok) {
             const err = await res.text().catch(() => res.status);
-            logEl.textContent = `ПОМИЛКА: ${err}`;
+            _setLog(logEl, `ПОМИЛКА: ${err}`);
             statusEl.textContent = "помилка";
             statusEl.style.color = "#f47067";
             return;
@@ -1686,9 +1733,9 @@ async function subBuild(id) {
             // detect [EXIT N] marker
             const match = chunk.match(/\[EXIT (\d+)\]/);
             if (match) exitCode = parseInt(match[1]);
-            logEl.textContent += chunk;
-            logEl.scrollTop = logEl.scrollHeight;
+            _appendLog(logEl, chunk.replace(/\[EXIT \d+\]/, ""));
         }
+        _flushLog(logEl);
 
         if (exitCode === 0 || exitCode === null) {
             _subLogDone("готово ✓", "#56d364");
@@ -1698,7 +1745,8 @@ async function subBuild(id) {
         }
     } catch (e) {
         if (e.name !== "AbortError") {
-            logEl.textContent += `\n[помилка з'єднання: ${e.message}]`;
+            _appendLog(logEl, `\n[помилка з'єднання: ${e.message}]`);
+            _flushLog(logEl);
             _subLogDone("помилка", "#f47067");
         }
     } finally {
