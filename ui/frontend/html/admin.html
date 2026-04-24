@@ -725,7 +725,7 @@
             </div>
             <div class="field">
                 <label>Deadband</label>
-                <input type="number" id="pt_deadband" step="any">
+                <input type="text" inputmode="decimal" id="pt_deadband" placeholder="0.5">
             </div>
         </div>
         <!-- hidden backing fields -->
@@ -1989,7 +1989,7 @@ function _readPointForm() {
         warn_max:            parseFloat(document.getElementById("pt_warn_max").value) || 100,
         alarm_min:           parseFloat(document.getElementById("pt_alarm_min").value) || 0,
         alarm_max:           parseFloat(document.getElementById("pt_alarm_max").value) || 100,
-        deadband:            parseFloat(document.getElementById("pt_deadband").value) || 0,
+        deadband:            (() => { const v = parseFloat(document.getElementById("pt_deadband").value.replace(",",".")); return isNaN(v) ? 0 : v; })(),
         interval:            1,
         onArchive:           parseInt(document.getElementById("pt_onArchive").value),
         archive_on_change:   parseInt(document.getElementById("pt_archive_on_change").value),
