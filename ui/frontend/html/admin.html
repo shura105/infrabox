@@ -1886,6 +1886,8 @@ function _setArchiveMode(mode, interval) {
     document.getElementById("pt_archive_mode").value = mode;
     const wrap = document.getElementById("pt_archive_interval_wrap");
     const intvEl = document.getElementById("pt_archive_interval");
+    const deadbandWrap = document.getElementById("pt_deadband").closest(".field");
+
     if (mode === "change_interval" || mode === "interval") {
         wrap.style.display = "";
         if (interval != null) intvEl.value = interval;
@@ -1893,6 +1895,9 @@ function _setArchiveMode(mode, interval) {
     } else {
         wrap.style.display = "none";
     }
+    // deadband only relevant when archiving on change
+    deadbandWrap.style.display = (mode === "off" || mode === "interval") ? "none" : "";
+
     // sync hidden fields
     document.getElementById("pt_onArchive").value       = mode === "off" ? "0" : "1";
     document.getElementById("pt_archive_on_change").value = mode === "interval" ? "0" : "1";
