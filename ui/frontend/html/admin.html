@@ -574,13 +574,13 @@
         <div class="points-toolbar">
             <input type="number" id="ptSearchId" placeholder="ID" oninput="filterPoints()">
             <select id="ptFilterObj" onchange="filterPoints()">
-                <option value="">Всі об'єкти</option>
+                <option value="">Об'єкти</option>
             </select>
             <select id="ptFilterSys" onchange="filterPoints()">
-                <option value="">Всі системи</option>
+                <option value="">Системи</option>
             </select>
             <select id="ptFilterArchive" onchange="filterPoints()">
-                <option value="">Будь-який архів</option>
+                <option value="">Архівування</option>
                 <option value="off">Вимкнено</option>
                 <option value="change">За зміною</option>
                 <option value="change_interval">Зміна + інтервал</option>
@@ -810,7 +810,7 @@
                 <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Об'єкти</div>
                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;cursor:pointer">
                     <input type="checkbox" id="permsAllObjects" onchange="toggleAllObjects(this.checked)">
-                    Всі об'єкти
+                    Об'єкти
                 </label>
             </div>
             <div id="permsObjects" style="display:flex;flex-wrap:wrap;gap:8px"></div>
@@ -1897,9 +1897,9 @@ function _buildPointFilters() {
     const sysSel = document.getElementById("ptFilterSys");
     const curObj = objSel.value;
     const curSys = sysSel.value;
-    objSel.innerHTML = `<option value="">Всі об'єкти</option>` +
+    objSel.innerHTML = `<option value="">Об'єкти</option>` +
         _allObjects.map(o => `<option value="${_esc(o.id)}"${o.id === curObj ? " selected" : ""}>${_esc(o.name || o.id)}</option>`).join("");
-    sysSel.innerHTML = `<option value="">Всі системи</option>` +
+    sysSel.innerHTML = `<option value="">Системи</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}"${s.id === curSys ? " selected" : ""}>${_esc(s.name || s.id)}</option>`).join("");
 }
 
