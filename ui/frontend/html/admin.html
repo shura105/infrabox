@@ -694,67 +694,79 @@
     <div class="modal modal-wide">
         <h2 id="pointModalTitle">Параметр</h2>
         <div class="modal-error" id="pointModalError"></div>
-        <div class="form-grid" id="pt_section_ident">
+
+        <!-- ── Тип — завжди зверху ── -->
+        <div class="form-grid" style="margin-bottom:4px">
             <div class="field">
                 <label>ID</label>
                 <input type="number" id="pt_id" min="1">
             </div>
-            <div class="field" id="pt_section_unit">
-                <label>Одиниця (unit)</label>
-                <input type="text" id="pt_unit" placeholder="°C">
-            </div>
             <div class="field">
-                <label>Об'єкт (object)</label>
-                <select id="pt_object_sel" onchange="document.getElementById('pt_object').value=this.value">
-                    <option value="">— оберіть —</option>
+                <label>Тип параметра</label>
+                <select id="pt_type" onchange="onPointTypeChange()">
+                    <option value="analog">Аналоговий</option>
+                    <option value="discrete">Дискретний</option>
+                    <option value="calculated">Розрахунковий</option>
+                    <option value="selfdiag">Самодіагностика</option>
+                    <option value="system">Системний</option>
                 </select>
-                <input type="hidden" id="pt_object">
-            </div>
-            <div class="field">
-                <label>Вузол (drop)</label>
-                <select id="pt_drop_sel" onchange="document.getElementById('pt_drop').value=this.value">
-                    <option value="">— оберіть —</option>
-                </select>
-                <input type="hidden" id="pt_drop">
-            </div>
-            <div class="field">
-                <label>Система (system)</label>
-                <select id="pt_system_sel" onchange="document.getElementById('pt_system').value=this.value">
-                    <option value="">— оберіть —</option>
-                </select>
-                <input type="hidden" id="pt_system">
-            </div>
-            <div class="field">
-                <label>Назва (pointname)</label>
-                <input type="text" id="pt_pointname" placeholder="inputTemperature">
             </div>
         </div>
-        <div id="pt_section_type_wrap">
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Тип</div>
+
+        <!-- ── Системний: тільки прив'язка до хартбіту ── -->
+        <div id="pt_section_system">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Хартбіт</div>
             <div class="form-grid">
                 <div class="field">
-                    <select id="pt_type" onchange="onPointTypeChange()">
-                        <option value="analog">Аналоговий</option>
-                        <option value="discrete">Дискретний</option>
-                        <option value="calculated">Розрахунковий</option>
-                        <option value="selfdiag">Самодіагностика</option>
-                        <option value="system">Системний</option>
-                    </select>
-                </div>
-                <div class="field" id="pt_hb_service_wrap" style="display:none">
-                    <label>Хартбіт-сервіс (hb_service)</label>
+                    <label>Сервіс (hb_service)</label>
                     <input type="text" id="pt_hb_service" placeholder="infrabox-core">
+                </div>
+                <div class="field">
+                    <label>Назва (pointname)</label>
+                    <input type="text" id="pt_pointname" placeholder="infrabox-core">
                 </div>
             </div>
         </div>
-        <div id="pt_section_ranges">
+
+        <!-- ── Технологічний: ідентифікація + одиниця ── -->
+        <div id="pt_section_tech">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>Об'єкт</label>
+                    <select id="pt_object_sel" onchange="document.getElementById('pt_object').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                    <input type="hidden" id="pt_object">
+                </div>
+                <div class="field">
+                    <label>Вузол</label>
+                    <select id="pt_drop_sel" onchange="document.getElementById('pt_drop').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                    <input type="hidden" id="pt_drop">
+                </div>
+                <div class="field">
+                    <label>Система</label>
+                    <select id="pt_system_sel" onchange="document.getElementById('pt_system').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                    <input type="hidden" id="pt_system">
+                </div>
+                <div class="field">
+                    <label>Назва (pointname)</label>
+                    <input type="text" id="pt_pointname_tech" placeholder="inputTemperature">
+                </div>
+                <div class="field">
+                    <label>Одиниця (unit)</label>
+                    <input type="text" id="pt_unit" placeholder="°C">
+                </div>
+            </div>
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
-            <div class="form-grid-3" id="pt_section_minmax">
+            <div class="form-grid-3">
                 <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
                 <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
                 <div class="field"></div>
-            </div>
-            <div class="form-grid-3" id="pt_section_warnalarm">
                 <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
                 <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
                 <div class="field"></div>
@@ -762,12 +774,10 @@
                 <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
                 <div class="field"></div>
             </div>
-        </div>
-        <div id="pt_section_archive">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
             <div class="form-grid">
                 <div class="field">
-                    <label>Режим архівування</label>
+                    <label>Режим</label>
                     <select id="pt_archive_mode" onchange="onArchiveModeChange()">
                         <option value="off">Вимкнено</option>
                         <option value="change">За зміною</option>
@@ -779,12 +789,13 @@
                     <label>Інтервал (с)</label>
                     <input type="number" id="pt_archive_interval" min="1" value="60">
                 </div>
-                <div class="field">
+                <div class="field" id="pt_deadband_wrap">
                     <label>Deadband</label>
                     <input type="text" inputmode="decimal" id="pt_deadband" placeholder="0.5">
                 </div>
             </div>
         </div>
+
         <!-- hidden backing fields -->
         <input type="hidden" id="pt_onArchive">
         <input type="hidden" id="pt_archive_on_change">
@@ -2043,39 +2054,42 @@ function onArchiveModeChange() {
 }
 
 function _pointFormDefaults() {
-    document.getElementById("pt_id").value             = "";
-    document.getElementById("pt_type").value           = "analog";
-    document.getElementById("pt_hb_service").value     = "";
-    document.getElementById("pt_unit").value           = "";
+    document.getElementById("pt_id").value              = "";
+    document.getElementById("pt_type").value            = "analog";
+    document.getElementById("pt_hb_service").value      = "";
+    document.getElementById("pt_pointname").value       = "";
+    document.getElementById("pt_unit").value            = "";
     document.getElementById("pt_object_sel").value      = "";
-    document.getElementById("pt_object").value         = "";
-    document.getElementById("pt_drop_sel").value       = "";
-    document.getElementById("pt_drop").value           = "";
-    document.getElementById("pt_system_sel").value     = "";
-    document.getElementById("pt_system").value         = "";
-    document.getElementById("pt_pointname").value      = "";
-    document.getElementById("pt_min").value            = "0";
-    document.getElementById("pt_max").value            = "100";
-    document.getElementById("pt_deadband").value       = "0";
-    document.getElementById("pt_warn_min").value       = "0";
-    document.getElementById("pt_warn_max").value       = "100";
-    document.getElementById("pt_alarm_min").value      = "0";
-    document.getElementById("pt_alarm_max").value      = "100";
+    document.getElementById("pt_object").value          = "";
+    document.getElementById("pt_drop_sel").value        = "";
+    document.getElementById("pt_drop").value            = "";
+    document.getElementById("pt_system_sel").value      = "";
+    document.getElementById("pt_system").value          = "";
+    document.getElementById("pt_pointname_tech").value  = "";
+    document.getElementById("pt_min").value             = "0";
+    document.getElementById("pt_max").value             = "100";
+    document.getElementById("pt_deadband").value        = "0";
+    document.getElementById("pt_warn_min").value        = "0";
+    document.getElementById("pt_warn_max").value        = "100";
+    document.getElementById("pt_alarm_min").value       = "0";
+    document.getElementById("pt_alarm_max").value       = "100";
     _setArchiveMode("change");
 }
 
 function _fillPointForm(p) {
-    document.getElementById("pt_id").value             = p.id;
-    document.getElementById("pt_type").value           = p.type || "analog";
-    document.getElementById("pt_hb_service").value     = p.hb_service || "";
-    document.getElementById("pt_unit").value           = p.unit ?? "";
+    const isSystem = (p.type || "analog") === "system";
+    document.getElementById("pt_id").value              = p.id;
+    document.getElementById("pt_type").value            = p.type || "analog";
+    document.getElementById("pt_hb_service").value      = p.hb_service || "";
+    document.getElementById("pt_pointname").value       = p.pointname ?? "";
+    document.getElementById("pt_unit").value            = p.unit ?? "";
     document.getElementById("pt_object_sel").value      = p.object ?? "";
-    document.getElementById("pt_object").value         = p.object ?? "";
-    document.getElementById("pt_drop_sel").value       = p.drop ?? "";
-    document.getElementById("pt_drop").value           = p.drop ?? "";
-    document.getElementById("pt_system_sel").value     = p.system ?? "";
-    document.getElementById("pt_system").value         = p.system ?? "";
-    document.getElementById("pt_pointname").value      = p.pointname ?? "";
+    document.getElementById("pt_object").value          = p.object ?? "";
+    document.getElementById("pt_drop_sel").value        = p.drop ?? "";
+    document.getElementById("pt_drop").value            = p.drop ?? "";
+    document.getElementById("pt_system_sel").value      = p.system ?? "";
+    document.getElementById("pt_system").value          = p.system ?? "";
+    document.getElementById("pt_pointname_tech").value  = p.pointname ?? "";
     document.getElementById("pt_min").value            = p.min ?? 0;
     document.getElementById("pt_max").value            = p.max ?? 100;
     document.getElementById("pt_deadband").value       = p.deadband ?? 0;
@@ -2096,16 +2110,11 @@ function _fillPointForm(p) {
 
 function onPointTypeChange() {
     const isSystem = document.getElementById("pt_type").value === "system";
-    document.getElementById("pt_hb_service_wrap").style.display = isSystem ? "" : "none";
+    document.getElementById("pt_section_system").style.display = isSystem ? "" : "none";
+    document.getElementById("pt_section_tech").style.display   = isSystem ? "none" : "";
 }
 
 function _setPointModalMode(isSystem) {
-    const hide = id => document.getElementById(id).style.display = "none";
-    const show = id => document.getElementById(id).style.display = "";
-    const fn = isSystem ? hide : show;
-    fn("pt_section_unit");
-    fn("pt_section_ranges");
-    fn("pt_section_archive");
     onPointTypeChange();
 }
 
@@ -2144,7 +2153,9 @@ function _readPointForm() {
         object:              document.getElementById("pt_object").value.trim(),
         drop:                document.getElementById("pt_drop").value.trim(),
         system:              document.getElementById("pt_system").value.trim(),
-        pointname:           document.getElementById("pt_pointname").value.trim(),
+        pointname:           (document.getElementById("pt_type").value === "system"
+                                ? document.getElementById("pt_pointname").value
+                                : document.getElementById("pt_pointname_tech").value).trim(),
         unit:                document.getElementById("pt_unit").value.trim(),
         min:                 parseFloat(document.getElementById("pt_min").value) || 0,
         max:                 parseFloat(document.getElementById("pt_max").value) || 100,
