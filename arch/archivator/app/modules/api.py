@@ -316,6 +316,17 @@ def rotate_volume():
 
 
 # --- ARCH CONFIG ---
+def _dir_size_bytes(path):
+    total = 0
+    for dirpath, _, filenames in os.walk(path):
+        for fname in filenames:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, fname))
+            except OSError:
+                pass
+    return total
+
+
 @app.get("/arch-config")
 def get_arch_config():
     with open(CONFIG_PATH) as f:
@@ -325,6 +336,7 @@ def get_arch_config():
         "max_days":           vol.get("max_days", 30),
         "max_records":        vol.get("max_records", 100000),
         "max_duration_hours": vol.get("max_duration_hours", 24),
+        "total_size_bytes":   _dir_size_bytes(DATA_DIR),
     }
 
 

@@ -2440,6 +2440,12 @@ async function reloadPoints() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Archives
 // ─────────────────────────────────────────────────────────────────────────────
+function _fmtBytes(b) {
+    if (b >= 1073741824) return (b / 1073741824).toFixed(2) + " ГБ";
+    if (b >= 1048576)    return (b / 1048576).toFixed(1)    + " МБ";
+    if (b >= 1024)       return (b / 1024).toFixed(0)       + " КБ";
+    return b + " Б";
+}
 let _archVolOpen = false;
 
 async function loadArchives() {
@@ -2452,8 +2458,10 @@ async function loadArchives() {
     if (rCfg.ok) {
         const cfg = await rCfg.json();
         document.getElementById("archMaxDays").value = cfg.max_days ?? 30;
+        const sz = cfg.total_size_bytes != null ? _fmtBytes(cfg.total_size_bytes) : "—";
         let info = `Макс. записів у томі: <b>${cfg.max_records ?? "—"}</b> &nbsp;|&nbsp; `;
-        info    += `Макс. тривалість тому: <b>${cfg.max_duration_hours ?? "—"} год</b>`;
+        info    += `Макс. тривалість тому: <b>${cfg.max_duration_hours ?? "—"} год</b> &nbsp;|&nbsp; `;
+        info    += `Всього на диску: <b>${sz}</b>`;
         document.getElementById("archCurrentInfo").innerHTML = info;
     }
 
@@ -2487,12 +2495,20 @@ async function _loadArchVolList() {
     tbody.innerHTML = "";
     vols.forEach((v, i) => {
         const m = metas[i] || {};
+        const isActive  = !m.closed_at;
+        const zeroRecs  = isActive && (m.record_count === 0 || m.record_count === "0");
+        const closedTd  = isActive
+            ? `<span style='color:#56d364'>активний</span>`
+            : m.closed_at.replace("T"," ").slice(0,16);
+        const recTd     = zeroRecs
+            ? `<span style='color:#e3b341' title='Том відкрито, але записів немає'>0 ⚠</span>`
+            : (m.record_count ?? "—");
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td style="font-family:monospace;font-size:11px">${_esc(v)}</td>
             <td style="font-size:11px">${m.opened_at ? m.opened_at.replace("T"," ").slice(0,16) : "—"}</td>
-            <td style="font-size:11px">${m.closed_at ? m.closed_at.replace("T"," ").slice(0,16) : "<span style='color:#56d364'>активний</span>"}</td>
-            <td style="font-size:11px">${m.record_count ?? "—"}</td>
+            <td style="font-size:11px">${closedTd}</td>
+            <td style="font-size:11px">${recTd}</td>
             <td style="font-size:11px;color:#8b949e">${_esc(m.status ?? "")}</td>`;
         tbody.appendChild(tr);
     });
