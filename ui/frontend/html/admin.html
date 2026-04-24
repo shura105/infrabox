@@ -694,7 +694,7 @@
     <div class="modal modal-wide">
         <h2 id="pointModalTitle">Параметр</h2>
         <div class="modal-error" id="pointModalError"></div>
-        <div class="form-grid">
+        <div class="form-grid" id="pt_section_ident">
             <div class="field">
                 <label>ID</label>
                 <input type="number" id="pt_id" min="1">
@@ -720,23 +720,27 @@
                 <input type="text" id="pt_pointname" placeholder="inputTemperature">
             </div>
         </div>
-        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Тип</div>
-        <div class="form-grid">
-            <div class="field" style="grid-column:1/-1">
-                <select id="pt_type">
-                    <option value="analog">Аналоговий</option>
-                    <option value="discrete">Дискретний</option>
-                    <option value="calculated">Розрахунковий</option>
-                    <option value="selfdiag">Самодіагностика</option>
-                    <option value="system">Системний</option>
-                </select>
+        <div id="pt_section_type_wrap">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Тип</div>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1">
+                    <select id="pt_type">
+                        <option value="analog">Аналоговий</option>
+                        <option value="discrete">Дискретний</option>
+                        <option value="calculated">Розрахунковий</option>
+                        <option value="selfdiag">Самодіагностика</option>
+                        <option value="system">Системний</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
-        <div class="form-grid-3">
+        <div class="form-grid-3" id="pt_section_minmax">
             <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
             <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
             <div class="field"></div>
+        </div>
+        <div class="form-grid-3">
             <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
             <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
             <div class="field"></div>
@@ -744,24 +748,26 @@
             <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
             <div class="field"></div>
         </div>
-        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
-        <div class="form-grid">
-            <div class="field">
-                <label>Режим архівування</label>
-                <select id="pt_archive_mode" onchange="onArchiveModeChange()">
-                    <option value="off">Вимкнено</option>
-                    <option value="change">За зміною</option>
-                    <option value="change_interval">За зміною + інтервал</option>
-                    <option value="interval">Лише за інтервалом</option>
-                </select>
-            </div>
-            <div class="field" id="pt_archive_interval_wrap" style="display:none">
-                <label>Інтервал (с)</label>
-                <input type="number" id="pt_archive_interval" min="1" value="60">
-            </div>
-            <div class="field">
-                <label>Deadband</label>
-                <input type="text" inputmode="decimal" id="pt_deadband" placeholder="0.5">
+        <div id="pt_section_archive">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>Режим архівування</label>
+                    <select id="pt_archive_mode" onchange="onArchiveModeChange()">
+                        <option value="off">Вимкнено</option>
+                        <option value="change">За зміною</option>
+                        <option value="change_interval">За зміною + інтервал</option>
+                        <option value="interval">Лише за інтервалом</option>
+                    </select>
+                </div>
+                <div class="field" id="pt_archive_interval_wrap" style="display:none">
+                    <label>Інтервал (с)</label>
+                    <input type="number" id="pt_archive_interval" min="1" value="60">
+                </div>
+                <div class="field">
+                    <label>Deadband</label>
+                    <input type="text" inputmode="decimal" id="pt_deadband" placeholder="0.5">
+                </div>
             </div>
         </div>
         <!-- hidden backing fields -->
@@ -2042,12 +2048,28 @@ function _fillPointForm(p) {
     _setArchiveMode(mode, intv > 0 ? intv : null);
 }
 
+function _setPointModalMode(isSystem) {
+    const hide = v => v.style.display = "none";
+    const show = v => v.style.display = "";
+    const fn = isSystem ? hide : show;
+    fn(document.getElementById("pt_section_ident"));
+    fn(document.getElementById("pt_section_type_wrap"));
+    fn(document.getElementById("pt_section_minmax"));
+    fn(document.getElementById("pt_section_archive"));
+    // system: show name as read-only header info
+    document.getElementById("pt_section_ident").querySelectorAll("input").forEach(el => {
+        el.readOnly = isSystem;
+        el.style.opacity = isSystem ? "0.45" : "";
+    });
+}
+
 function openPointCreate() {
     _pointEditId = null;
     document.getElementById("pointModalTitle").textContent = "Новий параметр";
     document.getElementById("pointModalError").style.display = "none";
     document.getElementById("pt_id").disabled = false;
     _pointFormDefaults();
+    _setPointModalMode(false);
     document.getElementById("pointOverlay").classList.add("open");
 }
 
@@ -2055,10 +2077,14 @@ function openPointEdit(id) {
     const p = _allPoints.find(x => x.id === id);
     if (!p) return;
     _pointEditId = id;
-    document.getElementById("pointModalTitle").textContent = `Параметр #${id}`;
+    const isSystem = p.type === "system";
+    document.getElementById("pointModalTitle").textContent = isSystem
+        ? `${p.pointname} (системний)`
+        : `Параметр #${id}`;
     document.getElementById("pointModalError").style.display = "none";
     document.getElementById("pt_id").disabled = true;
     _fillPointForm(p);
+    _setPointModalMode(isSystem);
     document.getElementById("pointOverlay").classList.add("open");
 }
 
