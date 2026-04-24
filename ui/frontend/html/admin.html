@@ -699,7 +699,7 @@
                 <label>ID</label>
                 <input type="number" id="pt_id" min="1">
             </div>
-            <div class="field">
+            <div class="field" id="pt_section_unit">
                 <label>Одиниця (unit)</label>
                 <input type="text" id="pt_unit" placeholder="°C">
             </div>
@@ -747,19 +747,21 @@
                 </div>
             </div>
         </div>
-        <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
-        <div class="form-grid-3" id="pt_section_minmax">
-            <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
-            <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
-            <div class="field"></div>
-        </div>
-        <div class="form-grid-3">
-            <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
-            <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
-            <div class="field"></div>
-            <div class="field"><label>alarm_min</label><input type="number" id="pt_alarm_min" step="any"></div>
-            <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
-            <div class="field"></div>
+        <div id="pt_section_ranges">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
+            <div class="form-grid-3" id="pt_section_minmax">
+                <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
+                <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
+                <div class="field"></div>
+            </div>
+            <div class="form-grid-3" id="pt_section_warnalarm">
+                <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
+                <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
+                <div class="field"></div>
+                <div class="field"><label>alarm_min</label><input type="number" id="pt_alarm_min" step="any"></div>
+                <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
+                <div class="field"></div>
+            </div>
         </div>
         <div id="pt_section_archive">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
@@ -2098,11 +2100,12 @@ function onPointTypeChange() {
 }
 
 function _setPointModalMode(isSystem) {
-    // all sections always visible — no hiding needed anymore
-    document.getElementById("pt_section_ident").style.display = "";
-    document.getElementById("pt_section_type_wrap").style.display = "";
-    document.getElementById("pt_section_minmax").style.display = "";
-    document.getElementById("pt_section_archive").style.display = "";
+    const hide = id => document.getElementById(id).style.display = "none";
+    const show = id => document.getElementById(id).style.display = "";
+    const fn = isSystem ? hide : show;
+    fn("pt_section_unit");
+    fn("pt_section_ranges");
+    fn("pt_section_archive");
     onPointTypeChange();
 }
 
