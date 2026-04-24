@@ -709,26 +709,24 @@
             <div class="field"></div>
         </div>
         <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
-        <div class="form-grid-3">
+        <div class="form-grid">
             <div class="field">
-                <label>Архівування</label>
-                <select id="pt_onArchive">
-                    <option value="1">Так</option>
-                    <option value="0">Ні</option>
+                <label>Режим архівування</label>
+                <select id="pt_archive_mode" onchange="onArchiveModeChange()">
+                    <option value="off">Вимкнено</option>
+                    <option value="change">За зміною</option>
+                    <option value="change_interval">За зміною + інтервал</option>
+                    <option value="interval">Лише за інтервалом</option>
                 </select>
             </div>
-            <div class="field">
+            <div class="field" id="pt_archive_interval_wrap" style="display:none">
                 <label>Інтервал (с)</label>
-                <input type="number" id="pt_archive_interval" min="0">
-            </div>
-            <div class="field">
-                <label>За зміною</label>
-                <select id="pt_archive_on_change">
-                    <option value="1">Так</option>
-                    <option value="0">Ні</option>
-                </select>
+                <input type="number" id="pt_archive_interval" min="1" value="60">
             </div>
         </div>
+        <!-- hidden backing fields -->
+        <input type="hidden" id="pt_onArchive">
+        <input type="hidden" id="pt_archive_on_change">
         <div class="modal-footer">
             <button class="btn btn-gray" onclick="closePointModal()">Скасувати</button>
             <button class="btn btn-green" onclick="savePoint()">Зберегти</button>
@@ -1880,6 +1878,27 @@ function _renderPoints(points) {
     }
 }
 
+function _setArchiveMode(mode, interval) {
+    document.getElementById("pt_archive_mode").value = mode;
+    const wrap = document.getElementById("pt_archive_interval_wrap");
+    const intvEl = document.getElementById("pt_archive_interval");
+    if (mode === "change_interval" || mode === "interval") {
+        wrap.style.display = "";
+        if (interval != null) intvEl.value = interval;
+        else if (!intvEl.value || intvEl.value === "0") intvEl.value = "60";
+    } else {
+        wrap.style.display = "none";
+    }
+    // sync hidden fields
+    document.getElementById("pt_onArchive").value       = mode === "off" ? "0" : "1";
+    document.getElementById("pt_archive_on_change").value = mode === "interval" ? "0" : "1";
+}
+
+function onArchiveModeChange() {
+    const mode = document.getElementById("pt_archive_mode").value;
+    _setArchiveMode(mode);
+}
+
 function _pointFormDefaults() {
     document.getElementById("pt_id").value             = "";
     document.getElementById("pt_unit").value           = "";
@@ -1894,9 +1913,7 @@ function _pointFormDefaults() {
     document.getElementById("pt_warn_max").value       = "100";
     document.getElementById("pt_alarm_min").value      = "0";
     document.getElementById("pt_alarm_max").value      = "100";
-    document.getElementById("pt_onArchive").value      = "1";
-    document.getElementById("pt_archive_interval").value  = "0";
-    document.getElementById("pt_archive_on_change").value = "1";
+    _setArchiveMode("change");
 }
 
 function _fillPointForm(p) {
@@ -1913,9 +1930,15 @@ function _fillPointForm(p) {
     document.getElementById("pt_warn_max").value       = p.warn_max ?? 100;
     document.getElementById("pt_alarm_min").value      = p.alarm_min ?? 0;
     document.getElementById("pt_alarm_max").value      = p.alarm_max ?? 100;
-    document.getElementById("pt_onArchive").value      = p.onArchive ?? 1;
-    document.getElementById("pt_archive_interval").value  = p.archive_interval ?? 0;
-    document.getElementById("pt_archive_on_change").value = p.archive_on_change ?? 1;
+    // derive archive mode from raw fields
+    const onArch = parseInt(p.onArchive ?? 1);
+    const onChg  = parseInt(p.archive_on_change ?? 1);
+    const intv   = parseInt(p.archive_interval ?? 0);
+    let mode = "change";
+    if (!onArch)          mode = "off";
+    else if (!onChg)      mode = "interval";
+    else if (intv > 0)    mode = "change_interval";
+    _setArchiveMode(mode, intv > 0 ? intv : null);
 }
 
 function openPointCreate() {
@@ -1960,8 +1983,10 @@ function _readPointForm() {
         deadband:            parseFloat(document.getElementById("pt_deadband").value) || 0,
         interval:            1,
         onArchive:           parseInt(document.getElementById("pt_onArchive").value),
-        archive_interval:    parseInt(document.getElementById("pt_archive_interval").value) || 0,
         archive_on_change:   parseInt(document.getElementById("pt_archive_on_change").value),
+        archive_interval:    (["change_interval","interval"].includes(document.getElementById("pt_archive_mode").value))
+                                 ? (parseInt(document.getElementById("pt_archive_interval").value) || 60)
+                                 : 0,
     };
 }
 
