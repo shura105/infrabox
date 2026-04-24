@@ -566,12 +566,13 @@
     <div class="tab-panel" id="tab-points">
         <h1>Управління параметрами</h1>
         <div class="points-toolbar">
-            <input type="search" id="ptSearch" placeholder="Пошук…" oninput="filterPoints()">
-            <select id="ptFilterObj" onchange="filterPoints()">
-                <option value="">Всі об'єкти</option>
-            </select>
-            <select id="ptFilterSys" onchange="filterPoints()">
-                <option value="">Всі системи</option>
+            <input type="search" id="ptSearch" placeholder="ID, об'єкт, система…" oninput="filterPoints()">
+            <select id="ptFilterArchive" onchange="filterPoints()">
+                <option value="">Будь-який архів</option>
+                <option value="off">Вимкнено</option>
+                <option value="change">За зміною</option>
+                <option value="change_interval">Зміна + інтервал</option>
+                <option value="interval">Лише інтервал</option>
             </select>
             <div class="spacer"></div>
             <button class="btn btn-green" onclick="openPointCreate()">+ Додати</button>
@@ -1846,28 +1847,22 @@ async function loadPoints() {
 }
 
 function _buildPointFilters() {
-    const objSel = document.getElementById("ptFilterObj");
-    const sysSel = document.getElementById("ptFilterSys");
-    const curObj = objSel.value;
-    const curSys = sysSel.value;
+    // archive filter is static — nothing to build dynamically
+}
 
-    const objects = [...new Set(_allPoints.map(p => p.object).filter(Boolean))].sort();
-    const systems = [...new Set(_allPoints.map(p => p.system).filter(Boolean))].sort();
-
-    objSel.innerHTML = `<option value="">Всі об'єкти</option>` +
-        objects.map(o => `<option value="${_esc(o)}"${o === curObj ? " selected" : ""}>${_esc(o)}</option>`).join("");
-    sysSel.innerHTML = `<option value="">Всі системи</option>` +
-        systems.map(s => `<option value="${_esc(s)}"${s === curSys ? " selected" : ""}>${_esc(s)}</option>`).join("");
+function _archiveMode(p) {
+    if (!parseInt(p.onArchive))               return "off";
+    if (!parseInt(p.archive_on_change))       return "interval";
+    if (parseInt(p.archive_interval) > 0)     return "change_interval";
+    return "change";
 }
 
 function filterPoints() {
     const q   = document.getElementById("ptSearch").value.toLowerCase();
-    const obj = document.getElementById("ptFilterObj").value;
-    const sys = document.getElementById("ptFilterSys").value;
+    const arc = document.getElementById("ptFilterArchive").value;
     const filtered = _allPoints.filter(p => {
-        if (obj && p.object !== obj) return false;
-        if (sys && p.system !== sys) return false;
-        if (q && !`${p.id} ${p.object} ${p.system} ${p.pointname} ${p.unit}`.toLowerCase().includes(q)) return false;
+        if (arc && _archiveMode(p) !== arc) return false;
+        if (q && !`${p.id} ${p.object} ${p.system} ${p.pointname}`.toLowerCase().includes(q)) return false;
         return true;
     });
     _renderPoints(filtered);
