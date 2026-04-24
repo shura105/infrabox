@@ -1,0 +1,32 @@
+[
+  {
+    "id": "heating",
+    "object": "home",
+    "name": "Опалення"
+  },
+  {
+    "id": "water",
+    "object": "garage",
+    "name": "Водопостачання"
+  },
+  {
+    "id": "gas",
+    "object": "boiler",
+    "name": "Газ"
+  },
+  {
+    "id": "power",
+    "object": "solar",
+    "name": "Електроживлення"
+  },
+  {
+    "id": "selfDiag",
+    "object": "home",
+    "name": "Самодіагностика"
+  },
+  {
+    "id": "heartbeat",
+    "object": "home",
+    "name": "Хартбіт сервісів"
+  }
+]

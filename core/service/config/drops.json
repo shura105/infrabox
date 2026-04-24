@@ -1,0 +1,27 @@
+[
+  {
+    "id": "homeServ-1",
+    "object": "home",
+    "name": "Сервер будинку"
+  },
+  {
+    "id": "garageServ-1",
+    "object": "garage",
+    "name": "Сервер гаражу"
+  },
+  {
+    "id": "boilerServ-1",
+    "object": "boiler",
+    "name": "Сервер котельні"
+  },
+  {
+    "id": "solarServ-1",
+    "object": "solar",
+    "name": "Сервер сонячної станції"
+  },
+  {
+    "id": "infrabox",
+    "object": "home",
+    "name": "Infrabox (система)"
+  }
+]

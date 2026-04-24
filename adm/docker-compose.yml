@@ -19,6 +19,9 @@ services:
       - ./data:/app/data
       - ../infrabox.json:/app/config/infrabox.json
       - /home/shura/infrabox/core/service/config/points.json:/app/config/points.json
+      - /home/shura/infrabox/core/service/config/objects.json:/app/config/objects.json
+      - /home/shura/infrabox/core/service/config/drops.json:/app/config/drops.json
+      - /home/shura/infrabox/core/service/config/systems.json:/app/config/systems.json
 
 networks:
   infrabox-net:

@@ -514,7 +514,10 @@ def host_shutdown():
 # ─────────────────────────────────────────────────────────────────────────────
 # Points management
 # ─────────────────────────────────────────────────────────────────────────────
-POINTS_PATH = "/app/config/points.json"
+POINTS_PATH  = "/app/config/points.json"
+OBJECTS_PATH = "/app/config/objects.json"
+DROPS_PATH   = "/app/config/drops.json"
+SYSTEMS_PATH = "/app/config/systems.json"
 
 
 def _read_points():
@@ -526,6 +529,21 @@ def _write_points(points):
     with open(POINTS_PATH, "w") as f:
         json.dump(points, f, ensure_ascii=False, indent=2)
 
+
+@app.get("/objects")
+def get_objects():
+    with open(OBJECTS_PATH) as f:
+        return json.load(f)
+
+@app.get("/drops")
+def get_drops():
+    with open(DROPS_PATH) as f:
+        return json.load(f)
+
+@app.get("/systems")
+def get_systems():
+    with open(SYSTEMS_PATH) as f:
+        return json.load(f)
 
 @app.get("/points")
 def get_points():

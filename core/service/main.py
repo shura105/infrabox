@@ -10,7 +10,7 @@ from modules.init import load_points
 from modules.watchdog import RedisWatchdog
 from modules.logger import setup_logger
 
-CONFIG_PATH = "/app/config/system.json"
+CONFIG_PATH = "/app/config/sys_params.json"
 
 buffer = {}
 buffer_lock = Lock()

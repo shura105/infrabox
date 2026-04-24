@@ -705,15 +705,24 @@
             </div>
             <div class="field">
                 <label>Об'єкт (object)</label>
-                <input type="text" id="pt_object" placeholder="home">
+                <select id="pt_object_sel" onchange="document.getElementById('pt_object').value=this.value">
+                    <option value="">— оберіть —</option>
+                </select>
+                <input type="hidden" id="pt_object">
             </div>
             <div class="field">
-                <label>Дроп (drop)</label>
-                <input type="text" id="pt_drop" placeholder="homeServ-1">
+                <label>Вузол (drop)</label>
+                <select id="pt_drop_sel" onchange="document.getElementById('pt_drop').value=this.value">
+                    <option value="">— оберіть —</option>
+                </select>
+                <input type="hidden" id="pt_drop">
             </div>
             <div class="field">
                 <label>Система (system)</label>
-                <input type="text" id="pt_system" placeholder="heating">
+                <select id="pt_system_sel" onchange="document.getElementById('pt_system').value=this.value">
+                    <option value="">— оберіть —</option>
+                </select>
+                <input type="hidden" id="pt_system">
             </div>
             <div class="field">
                 <label>Назва (pointname)</label>
@@ -1857,14 +1866,27 @@ async function savePerms() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Points
 // ─────────────────────────────────────────────────────────────────────────────
-let _allPoints = [];
-let _pointEditId = null; // null = create mode, number = edit mode
+let _allPoints  = [];
+let _allObjects = [];
+let _allDrops   = [];
+let _allSystems = [];
+let _pointEditId = null;
 
 async function loadPoints() {
-    const res = await fetch("/adm/api/points", { headers: authHeaders() });
-    if (!res.ok) { console.error("loadPoints failed", res.status); return; }
-    _allPoints = await res.json();
+    const h = authHeaders();
+    const [rPts, rObj, rDrp, rSys] = await Promise.all([
+        fetch("/adm/api/points",  { headers: h }),
+        fetch("/adm/api/objects", { headers: h }),
+        fetch("/adm/api/drops",   { headers: h }),
+        fetch("/adm/api/systems", { headers: h }),
+    ]);
+    if (!rPts.ok) { console.error("loadPoints failed", rPts.status); return; }
+    _allPoints  = await rPts.json();
+    _allObjects = rObj.ok ? await rObj.json() : [];
+    _allDrops   = rDrp.ok ? await rDrp.json() : [];
+    _allSystems = rSys.ok ? await rSys.json() : [];
     _buildPointFilters();
+    _populateModalSelects();
     _renderPoints(_allPoints);
 }
 
@@ -1873,12 +1895,22 @@ function _buildPointFilters() {
     const sysSel = document.getElementById("ptFilterSys");
     const curObj = objSel.value;
     const curSys = sysSel.value;
-    const objects = [...new Set(_allPoints.map(p => p.object).filter(Boolean))].sort();
-    const systems = [...new Set(_allPoints.map(p => p.system).filter(Boolean))].sort();
     objSel.innerHTML = `<option value="">Всі об'єкти</option>` +
-        objects.map(o => `<option value="${_esc(o)}"${o === curObj ? " selected" : ""}>${_esc(o)}</option>`).join("");
+        _allObjects.map(o => `<option value="${_esc(o.id)}"${o.id === curObj ? " selected" : ""}>${_esc(o.name || o.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">Всі системи</option>` +
-        systems.map(s => `<option value="${_esc(s)}"${s === curSys ? " selected" : ""}>${_esc(s)}</option>`).join("");
+        _allSystems.map(s => `<option value="${_esc(s.id)}"${s.id === curSys ? " selected" : ""}>${_esc(s.name || s.id)}</option>`).join("");
+}
+
+function _populateModalSelects() {
+    const objSel = document.getElementById("pt_object_sel");
+    const drpSel = document.getElementById("pt_drop_sel");
+    const sysSel = document.getElementById("pt_system_sel");
+    objSel.innerHTML = `<option value="">— оберіть —</option>` +
+        _allObjects.map(o => `<option value="${_esc(o.id)}">${_esc(o.name || o.id)}</option>`).join("");
+    drpSel.innerHTML = `<option value="">— оберіть —</option>` +
+        _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
+    sysSel.innerHTML = `<option value="">— оберіть —</option>` +
+        _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
 }
 
 function _archiveMode(p) {
@@ -2013,8 +2045,11 @@ function _pointFormDefaults() {
     document.getElementById("pt_type").value           = "analog";
     document.getElementById("pt_hb_service").value     = "";
     document.getElementById("pt_unit").value           = "";
+    document.getElementById("pt_object_sel").value      = "";
     document.getElementById("pt_object").value         = "";
+    document.getElementById("pt_drop_sel").value       = "";
     document.getElementById("pt_drop").value           = "";
+    document.getElementById("pt_system_sel").value     = "";
     document.getElementById("pt_system").value         = "";
     document.getElementById("pt_pointname").value      = "";
     document.getElementById("pt_min").value            = "0";
@@ -2032,8 +2067,11 @@ function _fillPointForm(p) {
     document.getElementById("pt_type").value           = p.type || "analog";
     document.getElementById("pt_hb_service").value     = p.hb_service || "";
     document.getElementById("pt_unit").value           = p.unit ?? "";
+    document.getElementById("pt_object_sel").value      = p.object ?? "";
     document.getElementById("pt_object").value         = p.object ?? "";
+    document.getElementById("pt_drop_sel").value       = p.drop ?? "";
     document.getElementById("pt_drop").value           = p.drop ?? "";
+    document.getElementById("pt_system_sel").value     = p.system ?? "";
     document.getElementById("pt_system").value         = p.system ?? "";
     document.getElementById("pt_pointname").value      = p.pointname ?? "";
     document.getElementById("pt_min").value            = p.min ?? 0;
