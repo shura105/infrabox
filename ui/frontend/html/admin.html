@@ -1969,7 +1969,7 @@ function _renderPoints(points) {
                 <td style="font-size:11px;color:#8b949e">${archiveLabel}</td>
                 <td>
                     <div class="actions">
-                        <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
+                        ${isSystem ? "" : `<button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>`}
                         ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
                     </div>
                 </td>`;
