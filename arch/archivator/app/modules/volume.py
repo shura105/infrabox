@@ -15,7 +15,7 @@ class Volume:
         self.data_dir = data_dir
         self.max_records = config["volume"]["max_records"]
         self.max_duration_hours = config["volume"]["max_duration_hours"]
-        self.max_volumes = config["volume"].get("max_volumes", 30)
+        self.max_days = config["volume"].get("max_days", 30)
         self.compression = config["compression"]["enabled"]
 
         self.current_dir = None
@@ -111,19 +111,27 @@ class Volume:
         )
 
     def prune_old_volumes(self):
-        """Видаляє найстаріші томи, якщо їх більше ніж max_volumes. Повертає кількість видалених."""
-        if self.max_volumes <= 0:
+        """Видаляє томи старші за max_days днів. Повертає кількість видалених."""
+        if self.max_days <= 0:
             return 0
+        cutoff = datetime.now().timestamp() - self.max_days * 86400
         current = os.path.basename(self.current_dir)
         try:
-            all_dirs = sorted([
+            all_dirs = [
                 d for d in os.listdir(self.data_dir)
                 if os.path.isdir(os.path.join(self.data_dir, d)) and d != current
-            ])
+            ]
         except Exception as e:
             self.log.error(f"prune_old_volumes list error: {e}")
             return 0
-        to_delete = all_dirs[:-self.max_volumes] if len(all_dirs) > self.max_volumes else []
+        to_delete = []
+        for d in all_dirs:
+            try:
+                vol_ts = datetime.strptime(d, "%Y-%m-%d_%H-%M-%S").timestamp()
+                if vol_ts < cutoff:
+                    to_delete.append(d)
+            except ValueError:
+                pass  # не наш формат — пропускаємо
         deleted = set()
         for v in to_delete:
             try:

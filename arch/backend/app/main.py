@@ -279,11 +279,11 @@ async def arch_config():
 
 
 class DepthBody(BaseModel):
-    max_volumes: int
+    max_days: int
 
 @app.post("/arch-config/depth")
 async def arch_config_depth(body: DepthBody):
-    return await set_arch_depth(body.max_volumes)
+    return await set_arch_depth(body.max_days)
 
 
 # --- POINTS ---

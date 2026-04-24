@@ -111,8 +111,8 @@ async def get_arch_config():
     return r.json()
 
 
-async def set_arch_depth(max_volumes: int):
+async def set_arch_depth(max_days: int):
     r = await _status_client.post("/arch-config/depth",
-                                  json={"max_volumes": max_volumes})
+                                  json={"max_days": max_days})
     r.raise_for_status()
     return r.json()

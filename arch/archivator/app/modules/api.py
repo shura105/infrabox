@@ -322,28 +322,28 @@ def get_arch_config():
         cfg = json.load(f)
     vol = cfg.get("volume", {})
     return {
-        "max_volumes":        vol.get("max_volumes", 30),
+        "max_days":           vol.get("max_days", 30),
         "max_records":        vol.get("max_records", 100000),
         "max_duration_hours": vol.get("max_duration_hours", 24),
     }
 
 
 class DepthIn(BaseModel):
-    max_volumes: int
+    max_days: int
 
 
 @app.post("/arch-config/depth")
 def set_arch_depth(body: DepthIn):
-    if body.max_volumes < 1:
-        raise HTTPException(status_code=400, detail="max_volumes must be >= 1")
+    if body.max_days < 1:
+        raise HTTPException(status_code=400, detail="max_days must be >= 1")
     with open(CONFIG_PATH) as f:
         cfg = json.load(f)
-    cfg["volume"]["max_volumes"] = body.max_volumes
+    cfg["volume"]["max_days"] = body.max_days
     with open(CONFIG_PATH, "w") as f:
         json.dump(cfg, f, indent=4)
     if _volume is not None:
-        _volume.max_volumes = body.max_volumes
+        _volume.max_days = body.max_days
         pruned = _volume.prune_old_volumes()
     else:
         pruned = 0
-    return {"max_volumes": body.max_volumes, "pruned": pruned}
+    return {"max_days": body.max_days, "pruned": pruned}

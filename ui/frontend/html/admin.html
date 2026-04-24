@@ -704,9 +704,9 @@
         <div style="margin-top:18px">
             <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Налаштування глибини</div>
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                <div style="color:#c9d1d9;font-size:13px">Максимальна кількість томів:</div>
-                <input type="number" id="archMaxVolumes" min="1" style="width:80px"
-                    placeholder="30">
+                <div style="color:#c9d1d9;font-size:13px">Глибина архівування (днів):</div>
+                <input type="number" id="archMaxDays" min="1"
+                    class="host-input" style="width:80px" placeholder="30">
                 <button class="btn btn-blue" onclick="applyArchDepth()">Застосувати</button>
                 <span id="archDepthMsg" style="font-size:12px;color:#8b949e"></span>
             </div>
@@ -2451,7 +2451,7 @@ async function loadArchives() {
 
     if (rCfg.ok) {
         const cfg = await rCfg.json();
-        document.getElementById("archMaxVolumes").value = cfg.max_volumes ?? 30;
+        document.getElementById("archMaxDays").value = cfg.max_days ?? 30;
         let info = `Макс. записів у томі: <b>${cfg.max_records ?? "—"}</b> &nbsp;|&nbsp; `;
         info    += `Макс. тривалість тому: <b>${cfg.max_duration_hours ?? "—"} год</b>`;
         document.getElementById("archCurrentInfo").innerHTML = info;
@@ -2506,14 +2506,14 @@ async function toggleArchVolumes() {
 }
 
 async function applyArchDepth() {
-    const val = parseInt(document.getElementById("archMaxVolumes").value);
+    const val = parseInt(document.getElementById("archMaxDays").value);
     const msg = document.getElementById("archDepthMsg");
     if (!val || val < 1) { msg.textContent = "Введіть коректне значення"; msg.style.color="#f47067"; return; }
     msg.textContent = "…"; msg.style.color = "#8b949e";
     const res = await fetch("/arch/api/arch-config/depth", {
         method: "POST",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ max_volumes: val })
+        body: JSON.stringify({ max_days: val })
     });
     if (res.ok) {
         const j = await res.json();
