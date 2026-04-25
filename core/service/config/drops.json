@@ -1,8 +1,8 @@
 [
   {
     "id": "homeServ-1",
-    "object": "home",
-    "name": "Сервер будинку"
+    "name": "Сервер на балконі",
+    "object": "home"
   },
   {
     "id": "garageServ-1",
@@ -18,10 +18,5 @@
     "id": "solarServ-1",
     "object": "solar",
     "name": "Сервер сонячної станції"
-  },
-  {
-    "id": "infrabox",
-    "object": "home",
-    "name": "Infrabox (система)"
   }
 ]

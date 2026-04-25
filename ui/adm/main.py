@@ -324,7 +324,7 @@ def sub_build_stream(sub_id: str):
             wd = shlex.quote(workdir)
 
             for cmd in [
-                f"cd {wd} && docker-compose --no-ansi build --no-cache",
+                f"cd {wd} && docker compose build --no-cache",
                 f"cd {wd} && docker compose up -d",
             ]:
                 proc = subprocess.Popen(
@@ -518,7 +518,6 @@ POINTS_PATH   = "/app/config/points.json"
 OBJECTS_PATH  = "/app/config/objects.json"
 DROPS_PATH    = "/app/config/drops.json"
 SYSTEMS_PATH  = "/app/config/systems.json"
-SERVICES_PATH = "/app/config/services.json"
 
 
 def _read_points():
@@ -546,10 +545,149 @@ def get_systems():
     with open(SYSTEMS_PATH) as f:
         return json.load(f)
 
-@app.get("/services")
-def get_services():
-    with open(SERVICES_PATH) as f:
+SYS_PARAMS_PATH     = "/app/config/sys_params.json"
+SUBSYSTEMS_CFG_PATH = "/app/config/serv_subsystems.json"
+
+
+@app.get("/sys-params")
+def get_sys_params():
+    with open(SYS_PARAMS_PATH) as f:
         return json.load(f)
+
+
+# ── Objects CRUD ───────────────────────────────────────────────────────────────
+class ObjectIn(BaseModel):
+    id: str
+    name: str
+
+
+def _rw_json(path: str, mutate):
+    with open(path) as f:
+        data = json.load(f)
+    result = mutate(data)
+    with open(path, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return result
+
+
+@app.post("/objects")
+def create_object(body: ObjectIn):
+    def m(items):
+        if any(x["id"] == body.id for x in items):
+            raise HTTPException(409, f"Object {body.id!r} already exists")
+        items.append(body.model_dump())
+    _rw_json(OBJECTS_PATH, m)
+    return {"ok": True}
+
+
+@app.put("/objects/{obj_id}")
+def update_object(obj_id: str, body: ObjectIn):
+    def m(items):
+        for i, x in enumerate(items):
+            if x["id"] == obj_id:
+                items[i] = body.model_dump()
+                return
+        raise HTTPException(404, f"Object {obj_id!r} not found")
+    _rw_json(OBJECTS_PATH, m)
+    return {"ok": True}
+
+
+@app.delete("/objects/{obj_id}")
+def delete_object(obj_id: str):
+    def m(items):
+        new = [x for x in items if x["id"] != obj_id]
+        if len(new) == len(items):
+            raise HTTPException(404, f"Object {obj_id!r} not found")
+        items[:] = new
+    _rw_json(OBJECTS_PATH, m)
+    return {"ok": True}
+
+
+# ── Systems CRUD ───────────────────────────────────────────────────────────────
+class SystemIn(BaseModel):
+    id: str
+    name: str
+    drop: str   # was "object" — now system belongs to a node/drop
+
+
+@app.post("/systems")
+def create_system(body: SystemIn):
+    def m(items):
+        if any(x["id"] == body.id for x in items):
+            raise HTTPException(409, f"System {body.id!r} already exists")
+        items.append(body.model_dump())
+    _rw_json(SYSTEMS_PATH, m)
+    return {"ok": True}
+
+
+@app.put("/systems/{sys_id}")
+def update_system(sys_id: str, body: SystemIn):
+    def m(items):
+        for i, x in enumerate(items):
+            if x["id"] == sys_id:
+                items[i] = body.model_dump()
+                return
+        raise HTTPException(404, f"System {sys_id!r} not found")
+    _rw_json(SYSTEMS_PATH, m)
+    return {"ok": True}
+
+
+@app.delete("/systems/{sys_id}")
+def delete_system(sys_id: str):
+    def m(items):
+        new = [x for x in items if x["id"] != sys_id]
+        if len(new) == len(items):
+            raise HTTPException(404, f"System {sys_id!r} not found")
+        items[:] = new
+    _rw_json(SYSTEMS_PATH, m)
+    return {"ok": True}
+
+
+# ── Drops CRUD ─────────────────────────────────────────────────────────────────
+class DropIn(BaseModel):
+    id: str
+    name: str
+    object: str
+
+
+@app.post("/drops")
+def create_drop(body: DropIn):
+    def m(items):
+        if any(x["id"] == body.id for x in items):
+            raise HTTPException(409, f"Drop {body.id!r} already exists")
+        items.append(body.model_dump())
+    _rw_json(DROPS_PATH, m)
+    return {"ok": True}
+
+
+@app.put("/drops/{drop_id}")
+def update_drop(drop_id: str, body: DropIn):
+    def m(items):
+        for i, x in enumerate(items):
+            if x["id"] == drop_id:
+                items[i] = body.model_dump()
+                return
+        raise HTTPException(404, f"Drop {drop_id!r} not found")
+    _rw_json(DROPS_PATH, m)
+    return {"ok": True}
+
+
+@app.delete("/drops/{drop_id}")
+def delete_drop(drop_id: str):
+    def m(items):
+        new = [x for x in items if x["id"] != drop_id]
+        if len(new) == len(items):
+            raise HTTPException(404, f"Drop {drop_id!r} not found")
+        items[:] = new
+    _rw_json(DROPS_PATH, m)
+    return {"ok": True}
+
+
+@app.get("/config/subsystems")
+def get_config_subsystems():
+    with open(SUBSYSTEMS_CFG_PATH) as f:
+        return json.load(f)
+
 
 @app.get("/points")
 def get_points():

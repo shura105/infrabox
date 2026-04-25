@@ -1,0 +1,147 @@
+[
+  {
+    "drop": "homeServ-1",
+    "subsystems": [
+      {
+        "id": "infrabox-core",
+        "name": "Core",
+        "elements": [
+          {
+            "id": "core-heartbeat",
+            "name": "Core Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-auth",
+        "name": "Auth",
+        "elements": [
+          {
+            "id": "auth-heartbeat",
+            "name": "Auth Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-backend",
+        "name": "Backend",
+        "elements": [
+          {
+            "id": "backend-heartbeat",
+            "name": "Backend Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-adm",
+        "name": "ADM",
+        "elements": [
+          {
+            "id": "adm-heartbeat",
+            "name": "ADM Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-simulator",
+        "name": "Simulator",
+        "elements": [
+          {
+            "id": "simulator-heartbeat",
+            "name": "Simulator Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "selfdiagnostic",
+        "name": "Selfdiagnostic",
+        "elements": [
+          {
+            "id": "selfDiag",
+            "name": "Selfdiagnostic"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-arch",
+        "name": "Archivator",
+        "elements": [
+          {
+            "id": "arch-heartbeat",
+            "name": "Archivator Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-arch-backend",
+        "name": "Arch Backend",
+        "elements": [
+          {
+            "id": "arch-backend-heartbeat",
+            "name": "Arch Backend Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-arch-ui",
+        "name": "Arch UI",
+        "elements": [
+          {
+            "id": "arch-ui-heartbeat",
+            "name": "Arch UI Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-redis",
+        "name": "Redis",
+        "elements": [
+          {
+            "id": "redis-heartbeat",
+            "name": "Redis Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-mosquitto-real",
+        "name": "MQTT Real",
+        "elements": [
+          {
+            "id": "mqtt-real-heartbeat",
+            "name": "MQTT Real Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-mosquitto-sim",
+        "name": "MQTT Sim",
+        "elements": [
+          {
+            "id": "mqtt-sim-heartbeat",
+            "name": "MQTT Sim Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "infrabox-web",
+        "name": "Web",
+        "elements": [
+          {
+            "id": "web-heartbeat",
+            "name": "Web Heartbeat"
+          }
+        ]
+      },
+      {
+        "id": "portainer",
+        "name": "Portainer",
+        "elements": [
+          {
+            "id": "portainer-heartbeat",
+            "name": "Portainer Heartbeat"
+          }
+        ]
+      }
+    ]
+  }
+]

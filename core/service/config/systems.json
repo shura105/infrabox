@@ -1,32 +1,27 @@
 [
   {
-    "id": "heating",
-    "object": "home",
-    "name": "Опалення"
+    "id": "reserv_power",
+    "name": "Резервне електропостачання",
+    "drop": "homeServ-1"
   },
   {
     "id": "water",
-    "object": "garage",
-    "name": "Водопостачання"
+    "name": "Водопостачання",
+    "drop": "garageServ-1"
   },
   {
     "id": "gas",
-    "object": "boiler",
-    "name": "Газ"
+    "name": "Газ",
+    "drop": "boilerServ-1"
   },
   {
     "id": "power",
-    "object": "solar",
-    "name": "Електроживлення"
+    "name": "Електроживлення",
+    "drop": "solarServ-1"
   },
   {
-    "id": "selfDiag",
-    "object": "home",
-    "name": "Самодіагностика"
-  },
-  {
-    "id": "heartbeat",
-    "object": "home",
-    "name": "Хартбіт сервісів"
+    "id": "res_battary1",
+    "name": "Батареї резервного живлення",
+    "drop": "homeServ-1"
   }
 ]

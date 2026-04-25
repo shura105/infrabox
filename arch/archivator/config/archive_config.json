@@ -7,7 +7,7 @@
     "volume": {
         "max_records": 100000,
         "max_duration_hours": 24,
-        "max_days": 30
+        "max_days": 7
     },
     "api": {
         "port": 8100

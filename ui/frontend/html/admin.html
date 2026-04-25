@@ -484,6 +484,129 @@
             grid-template-columns: 1fr 1fr 1fr;
             gap: 0 12px;
         }
+
+        /* ── btn-xs / btn-purple ── */
+        .btn-xs { font-size: 11px; padding: 2px 8px; }
+        .btn-purple { background: #2d1a4a; color: #a371f7; border: 1px solid #4a2a7a; }
+        .btn-purple:hover:not(:disabled) { background: #3d2060; }
+        .btn-teal   { background: #0e2e2e; color: #39d0d8; border: 1px solid #1a4040; }
+        .btn-teal:hover:not(:disabled)   { background: #1a4040; }
+
+        /* ── meta tree ── */
+        .meta-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            flex-wrap: wrap; margin-bottom: 16px;
+        }
+        .meta-toolbar-title { font-size: 18px; color: #e6edf3; font-weight: 600; margin-right: 8px; }
+
+        /* Object — blue */
+        .meta-obj {
+            border: 1px solid #1f4a7a;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .meta-obj-hdr {
+            display: flex; align-items: center; gap: 8px;
+            background: #161b22; padding: 10px 14px;
+            border-bottom: 1px solid #1f4a7a;
+        }
+        .meta-obj-name { font-weight: 600; color: #58a6ff; font-size: 14px; }
+
+        /* Drop/Node — orange */
+        .meta-drop-card {
+            border: 1px solid #4a3000;
+            border-radius: 6px;
+            margin: 8px 14px;
+            overflow: hidden;
+        }
+        .meta-drop-hdr {
+            display: flex; align-items: center; gap: 8px;
+            background: #161b22; padding: 8px 12px;
+            border-bottom: 1px solid #4a3000;
+        }
+        .meta-drop-name { font-weight: 600; color: #e3b341; font-size: 13px; }
+
+        /* System — green */
+        .meta-sys-section {
+            border: 1px solid #1e4a1e;
+            border-radius: 5px;
+            margin: 6px 12px;
+            overflow: hidden;
+        }
+        .meta-sys-hdr {
+            display: flex; align-items: center; gap: 8px;
+            background: #161b22; padding: 5px 10px;
+            border-bottom: 1px solid #1e4a1e;
+        }
+        .meta-sys-title {
+            font-size: 11px; color: #56d364;
+            text-transform: uppercase; letter-spacing: .5px; font-weight: 600;
+        }
+        .meta-sys-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 10px; border-bottom: 1px solid #21262d;
+            font-size: 12px;
+        }
+        .meta-sys-item:last-of-type { border-bottom: none; }
+
+        /* Service — purple */
+        .meta-svc-section {
+            border: 1px solid #30363d;
+            border-radius: 5px;
+            margin: 6px 12px 10px;
+            overflow: hidden;
+        }
+        .meta-svc-toggle {
+            display: flex; align-items: center; gap: 8px;
+            background: #161b22; padding: 5px 10px;
+            cursor: pointer; user-select: none;
+            border-bottom: 1px solid #30363d;
+        }
+        .meta-svc-toggle:hover { background: #1c2128; }
+        .meta-svc-toggle-title {
+            font-size: 11px; color: #6e7681;
+            text-transform: uppercase; letter-spacing: .5px; font-weight: 600;
+        }
+        .meta-svc-toggle-arrow { color: #6e7681; font-size: 10px; transition: transform .15s; }
+        .meta-svc-toggle-arrow.open { transform: rotate(90deg); }
+        .meta-svc-body { display: none; }
+        .meta-svc-body.open { display: block; }
+
+        .meta-svc-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 10px; border-bottom: 1px solid #21262d;
+        }
+        .meta-svc-item:last-child { border-bottom: none; }
+        .meta-svc-item-name { font-size: 13px; color: #8b949e; }
+        .meta-svc-item-hb   { font-size: 11px; color: #484f58; font-family: monospace; }
+
+        /* Element — teal */
+        .meta-elem-list { padding: 2px 10px 6px 22px; }
+        .meta-elem-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 0; border-bottom: 1px solid #21262d;
+            font-size: 12px;
+        }
+        .meta-elem-item:last-of-type { border-bottom: none; }
+
+        /* shared */
+        .meta-item-id   { font-family: monospace; font-size: 12px; color: #8b949e; }
+        .meta-item-name { color: #c9d1d9; }
+        .meta-hdr-info  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; }
+        .meta-actions   { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+        .meta-add-row   { padding: 6px 10px; }
+
+        .meta-readonly-inp {
+            padding: 5px 8px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            color: #8b949e;
+            font-size: 13px;
+            width: 100%;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
@@ -738,8 +861,13 @@
 
     <!-- ══════════════════════════════ META TAB ══════════════════════════════════ -->
     <div class="tab-panel" id="tab-meta">
-        <h1>Метадані</h1>
-        <p style="color:#8b949e;margin-top:12px">Розділ у розробці.</p>
+        <div class="meta-toolbar">
+            <span class="meta-toolbar-title">Метадані</span>
+            <button class="btn btn-blue   btn-xs" onclick="_metaAddObj()">+ Об'єкт</button>
+            <button class="btn btn-orange btn-xs" onclick="_metaAddDrop()">+ Вузол</button>
+            <button class="btn btn-green  btn-xs" onclick="_metaAddSys()">+ Система</button>
+        </div>
+        <div id="metaTree"><p style="color:#8b949e">Завантаження...</p></div>
     </div>
 
 </main>
@@ -1033,6 +1161,19 @@ cat ~/.ssh/infrabox_id</pre>
         <div id="sshKeysList"></div>
         <div class="modal-footer">
             <button class="btn btn-gray" onclick="closeSshKeys()">Закрити</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════ META EDIT MODAL ════════════════════════════ -->
+<div class="overlay" id="metaEditOverlay">
+    <div class="modal">
+        <h2 id="metaEditTitle">Редагування</h2>
+        <div class="modal-error" id="metaEditError"></div>
+        <div id="metaEditFields"></div>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="closeMetaEdit()">Скасувати</button>
+            <button class="btn btn-green" onclick="_metaSave()">Зберегти</button>
         </div>
     </div>
 </div>
@@ -1871,6 +2012,12 @@ document.getElementById("hostConfirmOverlay").addEventListener("keydown",
     e => { if (e.key === "Escape") closeHostConfirm(); });
 document.getElementById("subLogOverlay").addEventListener("keydown",
     e => { if (e.key === "Escape") closeSubLog(); });
+document.getElementById("metaEditOverlay").addEventListener("click",
+    e => { if (e.target === e.currentTarget) closeMetaEdit(); });
+document.getElementById("metaEditOverlay").addEventListener("keydown", e => {
+    if (e.key === "Enter") _metaSave();
+    if (e.key === "Escape") closeMetaEdit();
+});
 document.addEventListener("keydown",
     e => { if (e.key === "Escape") closePermsModal(); });
 
@@ -2003,11 +2150,11 @@ let _pointEditId = null;
 async function loadPoints() {
     const h = authHeaders();
     const [rPts, rObj, rDrp, rSys, rSvc] = await Promise.all([
-        fetch("/adm/api/points",   { headers: h }),
-        fetch("/adm/api/objects",  { headers: h }),
-        fetch("/adm/api/drops",    { headers: h }),
-        fetch("/adm/api/systems",  { headers: h }),
-        fetch("/adm/api/services", { headers: h }),
+        fetch("/adm/api/points",            { headers: h }),
+        fetch("/adm/api/objects",           { headers: h }),
+        fetch("/adm/api/drops",             { headers: h }),
+        fetch("/adm/api/systems",           { headers: h }),
+        fetch("/adm/api/config/subsystems", { headers: h }),
     ]);
     if (!rPts.ok) { console.error("loadPoints failed", rPts.status); return; }
     _allPoints   = await rPts.json();
@@ -2041,7 +2188,7 @@ function _populateModalSelects() {
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">— оберіть —</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
-    // system drop selector — unique drops from services.json
+    // system drop selector — unique drops from serv_subsystems.json
     const sysDropSel = document.getElementById("pt_sys_drop_sel");
     const sysDrops = [...new Map(_allServices.map(s => [s.drop, s.drop])).keys()];
     sysDropSel.innerHTML = `<option value="">— оберіть —</option>` +
@@ -2263,12 +2410,12 @@ function onPointTypeChange() {
     document.getElementById("pt_section_tech").style.display   = isSystem ? "none" : "";
 }
 
-// helpers to navigate services.json hierarchy
+// helpers to navigate serv_subsystems.json hierarchy
 function _svcNode(drop) {
     return _allServices.find(n => n.drop === drop);
 }
 function _svcServices(drop) {
-    return _svcNode(drop)?.services || [];
+    return _svcNode(drop)?.subsystems || [];
 }
 function _svcElements(drop, svcId) {
     return _svcServices(drop).find(s => s.id === svcId)?.elements || [];
@@ -2555,9 +2702,342 @@ async function applyArchDepth() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Meta (placeholder)
+// Meta tab
 // ─────────────────────────────────────────────────────────────────────────────
-function loadMeta() { /* TODO */ }
+let _metaObjects = [], _metaSystems = [], _metaDrops = [], _metaServices = [], _metaSubsystems = [];
+let _mr = [];           // meta refs, reset on each render
+let _metaEditState = null;
+let _metaSvcOpen   = new Set();  // set of dropIds with services expanded
+
+async function loadMeta() {
+    const tree = document.getElementById("metaTree");
+    tree.innerHTML = '<p style="color:#8b949e;padding:8px">Завантаження...</p>';
+    try {
+        const h = authHeaders();
+        const [obj, sys, drp, svc, sub] = await Promise.all([
+            fetch("/adm/api/objects",           {headers: h}).then(r => r.json()),
+            fetch("/adm/api/systems",           {headers: h}).then(r => r.json()),
+            fetch("/adm/api/drops",             {headers: h}).then(r => r.json()),
+            fetch("/adm/api/services",          {headers: h}).then(r => r.json()),
+            fetch("/adm/api/config/subsystems", {headers: h}).then(r => r.json()),
+        ]);
+        _metaObjects    = obj;
+        _metaSystems    = sys;
+        _metaDrops      = drp;
+        _metaServices   = svc;
+        _metaSubsystems = sub;
+        _renderMetaTree();
+    } catch(e) {
+        tree.innerHTML = `<p style="color:#f47067;padding:8px">Помилка: ${_esc(String(e))}</p>`;
+    }
+}
+
+function _toggleMetaSvc(dropId) {
+    const body  = document.getElementById(`msb-${dropId}`);
+    const arrow = document.getElementById(`msa-${dropId}`);
+    if (!body) return;
+    const open = body.classList.toggle("open");
+    if (arrow) arrow.classList.toggle("open", open);
+    if (open) _metaSvcOpen.add(dropId); else _metaSvcOpen.delete(dropId);
+}
+
+function _renderMetaTree() {
+    _mr = [];
+    let h = "";
+    for (const obj of _metaObjects) {
+        const ei  = _mr.length; _mr.push({type:"object", mode:"edit", data:{...obj}});
+        const di  = _mr.length; _mr.push({type:"object", mode:"del",  data:{...obj}});
+
+        h += `<div class="meta-obj">
+          <div class="meta-obj-hdr">
+            <div class="meta-hdr-info">
+              <span class="meta-obj-name">${_esc(obj.name)}</span>
+              <span class="meta-item-id">${_esc(obj.id)}</span>
+            </div>
+            <div class="meta-actions">
+              <button class="btn btn-gray btn-xs" onclick="_mr_dispatch(${ei})">✎</button>
+              <button class="btn btn-red  btn-xs" onclick="_mr_dispatch(${di})">✕</button>
+            </div>
+          </div>`;
+
+        const dropList = _metaDrops.filter(d => d.object === obj.id);
+        for (const drp of dropList) {
+            const sysList  = _metaSystems.filter(s => s.drop === drp.id);
+            const subEntry = _metaSubsystems.find(s => s.drop === drp.id);
+            const subList  = subEntry ? subEntry.subsystems : [];
+            const subCount = subList.length;
+            const isOpen   = _metaSvcOpen.has(drp.id);
+
+            const dei = _mr.length; _mr.push({type:"drop", mode:"edit", data:{...drp}});
+            const ddx = _mr.length; _mr.push({type:"drop", mode:"del",  data:{...drp}});
+
+            h += `<div class="meta-drop-card">
+              <div class="meta-drop-hdr">
+                <div class="meta-hdr-info">
+                  <span class="meta-drop-name">${_esc(drp.name)}</span>
+                  <span class="meta-item-id">${_esc(drp.id)}</span>
+                </div>
+                <div class="meta-actions">
+                  <button class="btn btn-gray btn-xs" onclick="_mr_dispatch(${dei})">✎</button>
+                  <button class="btn btn-red  btn-xs" onclick="_mr_dispatch(${ddx})">✕</button>
+                </div>
+              </div>`;
+
+            // Systems (green)
+            h += `<div class="meta-sys-section">
+              <div class="meta-sys-hdr">
+                <span class="meta-sys-title">Системи</span>
+              </div>`;
+            for (const sys of sysList) {
+                const si = _mr.length; _mr.push({type:"system", mode:"edit", data:{...sys}, ctx:{drop:drp.id}});
+                const sx = _mr.length; _mr.push({type:"system", mode:"del",  data:{...sys}, ctx:{drop:drp.id}});
+                h += `<div class="meta-sys-item">
+                  <div class="meta-hdr-info">
+                    <span class="meta-item-name">${_esc(sys.name)}</span>
+                    <span class="meta-item-id">${_esc(sys.id)}</span>
+                  </div>
+                  <div class="meta-actions">
+                    <button class="btn btn-gray btn-xs" onclick="_mr_dispatch(${si})">✎</button>
+                    <button class="btn btn-red  btn-xs" onclick="_mr_dispatch(${sx})">✕</button>
+                  </div>
+                </div>`;
+            }
+            if (!sysList.length) {
+                h += `<div style="padding:6px 10px;font-size:12px;color:#484f58">немає систем</div>`;
+            }
+            h += `</div>`;  // meta-sys-section
+
+            // Підсистеми (purple, collapsible) — only if count > 0
+            if (subCount > 0) {
+            h += `<div class="meta-svc-section">
+              <div class="meta-svc-toggle" onclick="_toggleMetaSvc('${drp.id}')">
+                <span class="meta-svc-toggle-arrow${isOpen?" open":""}" id="msa-${drp.id}">▶</span>
+                <span class="meta-svc-toggle-title">Серверні підсистеми</span>
+                <span style="font-size:11px;color:#6e7681;margin-left:4px">(${subCount})</span>
+              </div>
+              <div class="meta-svc-body${isOpen?" open":""}" id="msb-${drp.id}">`;
+
+            for (const sub of subList) {
+                const hbId = sub.elements?.[0]?.id || "";
+                h += `<div class="meta-svc-item">
+                  <span class="meta-svc-item-name">${_esc(sub.name)}</span>
+                  ${hbId ? `<span class="meta-svc-item-hb">${_esc(hbId)}</span>` : ""}
+                </div>`;
+            }
+            h += `</div></div>`;  // meta-svc-body / meta-svc-section
+            } // end if subCount > 0
+            h += `</div>`;        // meta-drop-card
+        }
+        if (!dropList.length) {
+            h += `<div style="padding:8px 14px;font-size:12px;color:#484f58">немає вузлів</div>`;
+        }
+        h += `</div>`;  // meta-obj
+    }
+    document.getElementById("metaTree").innerHTML =
+        h || '<p style="color:#8b949e">Немає об\'єктів</p>';
+}
+
+function _mr_dispatch(idx) {
+    const ref = _mr[idx];
+    if (!ref) return;
+    if (ref.mode === "del") _metaDelRef(ref);
+    else                    _metaOpenModal(ref);
+}
+
+// ── global add buttons ────────────────────────────────────────────────────────
+function _metaAddObj()  { _metaOpenModal({type:"object",  mode:"add", data:{}, ctx:{}}); }
+function _metaAddDrop() { _metaOpenModal({type:"drop",    mode:"add", data:{}, ctx:{}}); }
+function _metaAddSys()  { _metaOpenModal({type:"system",  mode:"add", data:{}, ctx:{}}); }
+
+function _metaDropOptions(selected) {
+    return _metaDrops.map(d =>
+        `<option value="${_esc(d.id)}"${d.id===selected?" selected":""}>${_esc(d.name)} (${_esc(d.id)})</option>`
+    ).join("");
+}
+
+function _metaDropChanged() {
+    const dropSel = document.getElementById("metaFldDrop");
+    const subSel  = document.getElementById("metaFldSvc");
+    if (!dropSel || !subSel) return;
+    const dropId = dropSel.value;
+    const entry  = _metaSubsystems.find(s => s.drop === dropId);
+    const subs   = entry ? entry.subsystems : [];
+    subSel.innerHTML = subs.length
+        ? subs.map(s => `<option value="${_esc(s.id)}">${_esc(s.name)} (${_esc(s.id)})</option>`).join("")
+        : `<option value="">— немає підсистем —</option>`;
+}
+
+function _metaOpenModal(ref) {
+    _metaEditState = ref;
+    const isAdd   = ref.mode === "add";
+    const labels  = {object:"Об'єкт", system:"Система", drop:"Вузол", subsystem:"Підсистема", element:"Елемент"};
+    document.getElementById("metaEditTitle").textContent =
+        (isAdd ? "Додати " : "Редагувати ") + (labels[ref.type] || ref.type);
+
+    const err = document.getElementById("metaEditError");
+    err.style.display = "none";
+
+    const d   = ref.data || {};
+    const ctx = ref.ctx  || {};
+    let flds  = "";
+
+    flds += `<div class="field">
+        <label>ID</label>
+        <input type="text" id="metaFldId" value="${_esc(d.id||"")}">
+    </div>
+    <div class="field">
+        <label>Назва</label>
+        <input type="text" id="metaFldName" value="${_esc(d.name||"")}">
+    </div>`;
+
+    if (ref.type === "drop") {
+        const cur = d.object || ctx.object || "";
+        flds += `<div class="field"><label>Об'єкт</label><select id="metaFldObject">` +
+            _metaObjects.map(o => `<option value="${_esc(o.id)}"${o.id===cur?" selected":""}>${_esc(o.name)} (${_esc(o.id)})</option>`).join("") +
+            `</select></div>`;
+    }
+    if (ref.type === "system") {
+        const curDrop = d.drop || ctx.drop || "";
+        if (ctx.drop) {
+            flds += `<div class="field"><label>Вузол</label>
+                <input class="meta-readonly-inp" value="${_esc(ctx.drop)}" readonly></div>`;
+        } else {
+            flds += `<div class="field"><label>Вузол</label><select id="metaFldDrop">` +
+                _metaDropOptions(curDrop) + `</select></div>`;
+        }
+    }
+    if (ref.type === "subsystem") {
+        const curDrop = ctx.drop || "";
+        if (curDrop) {
+            flds += `<div class="field"><label>Вузол</label>
+                <input class="meta-readonly-inp" value="${_esc(curDrop)}" readonly></div>`;
+        } else {
+            flds += `<div class="field"><label>Вузол</label><select id="metaFldDrop" onchange="_metaDropChanged()">` +
+                _metaDropOptions("") + `</select></div>`;
+        }
+    }
+    if (ref.type === "element") {
+        const curDrop = ctx.drop || "";
+        const curSub  = ctx.sub  || "";
+        if (curDrop && curSub) {
+            flds += `<div class="field"><label>Вузол / Підсистема</label>
+                <input class="meta-readonly-inp" value="${_esc(curDrop + " / " + curSub)}" readonly></div>`;
+        } else {
+            const firstDrop  = _metaDrops[0]?.id || "";
+            const firstEntry = _metaSubsystems.find(s => s.drop === firstDrop);
+            const firstSubs  = firstEntry ? firstEntry.subsystems : [];
+            flds += `<div class="field"><label>Вузол</label><select id="metaFldDrop" onchange="_metaDropChanged()">` +
+                _metaDropOptions(curDrop || firstDrop) + `</select></div>`;
+            flds += `<div class="field"><label>Підсистема</label><select id="metaFldSvc">` +
+                firstSubs.map(s => `<option value="${_esc(s.id)}">${_esc(s.name)} (${_esc(s.id)})</option>`).join("") +
+                `</select></div>`;
+        }
+    }
+
+    document.getElementById("metaEditFields").innerHTML = flds;
+    document.getElementById("metaEditOverlay").classList.add("open");
+    // init cascading if element global add
+    if (ref.type === "element" && !ctx.drop) _metaDropChanged();
+    setTimeout(() => document.getElementById("metaFldName").focus(), 50);
+}
+
+async function _metaSave() {
+    const st = _metaEditState;
+    if (!st) return;
+
+    const id   = document.getElementById("metaFldId").value.trim();
+    const name = document.getElementById("metaFldName").value.trim();
+
+    if (!id || !name) {
+        const err = document.getElementById("metaEditError");
+        err.textContent = "ID та Назва обов'язкові";
+        err.style.display = "block";
+        return;
+    }
+
+    const isAdd  = st.mode === "add";
+    const ctx    = st.ctx  || {};
+    const origId = st.data?.id || id;
+    const H      = {...authHeaders(), "Content-Type": "application/json"};
+
+    const _v = id => { const el = document.getElementById(id); return el ? el.value : ""; };
+    const drop  = ctx.drop || _v("metaFldDrop");
+    const sub   = ctx.sub  || _v("metaFldSvc");
+    const objId = _v("metaFldObject");
+
+    let url, method, body;
+    switch (st.type) {
+        case "object":
+            url = isAdd ? "/adm/api/objects" : `/adm/api/objects/${origId}`;
+            method = isAdd ? "POST" : "PUT";
+            body = {id, name};
+            break;
+        case "system":
+            url = isAdd ? "/adm/api/systems" : `/adm/api/systems/${origId}`;
+            method = isAdd ? "POST" : "PUT";
+            body = {id, name, drop};
+            break;
+        case "drop":
+            url = isAdd ? "/adm/api/drops" : `/adm/api/drops/${origId}`;
+            method = isAdd ? "POST" : "PUT";
+            body = {id, name, object: objId};
+            break;
+        case "subsystem":
+            url = isAdd ? `/adm/api/config/subsystems/${drop}` : `/adm/api/config/subsystems/${drop}/${origId}`;
+            method = isAdd ? "POST" : "PUT";
+            body = {id, name};
+            break;
+        case "element":
+            url = isAdd ? `/adm/api/config/subsystems/${drop}/${sub}/elements` : `/adm/api/config/subsystems/${drop}/${sub}/elements/${origId}`;
+            method = isAdd ? "POST" : "PUT";
+            body = {id, name};
+            break;
+        default: return;
+    }
+
+    const res = await fetch(url, {method, headers: H, body: JSON.stringify(body)});
+    if (res.ok) {
+        document.getElementById("metaEditOverlay").classList.remove("open");
+        await loadMeta();
+    } else {
+        const j   = await res.json().catch(() => ({}));
+        const err = document.getElementById("metaEditError");
+        err.textContent = j.detail || "Помилка збереження";
+        err.style.display = "block";
+    }
+}
+
+async function _metaDelRef(ref) {
+    const d   = ref.data || {};
+    const ctx = ref.ctx  || {};
+    const labels = {object:"Об'єкт",system:"Систему",drop:"Вузол",subsystem:"Підсистему",element:"Елемент"};
+
+    _openConfirm(
+        `Видалити ${labels[ref.type]||ref.type}`,
+        `Видалити "${d.name||d.id}"?`,
+        "btn-red",
+        async () => {
+            let url;
+            switch (ref.type) {
+                case "object":  url = `/adm/api/objects/${d.id}`; break;
+                case "system":  url = `/adm/api/systems/${d.id}`; break;
+                case "drop":    url = `/adm/api/drops/${d.id}`;   break;
+                case "subsystem": url = `/adm/api/config/subsystems/${ctx.drop}/${d.id}`; break;
+                case "element": url = `/adm/api/config/subsystems/${ctx.drop}/${ctx.sub}/elements/${d.id}`; break;
+            }
+            const res = await fetch(url, {method:"DELETE", headers: authHeaders()});
+            if (res.ok) await loadMeta();
+            else {
+                const j = await res.json().catch(()=>({}));
+                _openConfirm("Помилка", j.detail||"Помилка видалення", "btn-gray", ()=>{});
+            }
+        }
+    );
+}
+
+function closeMetaEdit() {
+    document.getElementById("metaEditOverlay").classList.remove("open");
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Start
