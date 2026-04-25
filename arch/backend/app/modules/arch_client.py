@@ -116,7 +116,8 @@ async def get_arch_config():
 
 
 async def set_arch_depth(max_days: int):
-    r = await _status_client.post("/arch-config/depth",
-                                  json={"max_days": max_days})
+    # використовуємо _client (read=60s) — видалення томів може займати >5s на ARM
+    r = await _client.post("/arch-config/depth",
+                           json={"max_days": max_days})
     r.raise_for_status()
     return r.json()
