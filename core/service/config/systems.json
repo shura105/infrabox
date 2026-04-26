@@ -5,21 +5,6 @@
     "drop": "homeServ-1"
   },
   {
-    "id": "water",
-    "name": "Водопостачання",
-    "drop": "garageServ-1"
-  },
-  {
-    "id": "gas",
-    "name": "Газ",
-    "drop": "boilerServ-1"
-  },
-  {
-    "id": "power",
-    "name": "Електроживлення",
-    "drop": "solarServ-1"
-  },
-  {
     "id": "res_battary1",
     "name": "Батареї резервного живлення",
     "drop": "homeServ-1"

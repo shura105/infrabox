@@ -28,7 +28,7 @@ def _heartbeat_thread():
             r = None
         time.sleep(5)
 OBJECT = os.environ.get("OBJECT", "home")
-SYSTEM = "selfDiag"
+SOCKET = "selfDiag"
 POINTS_PATH = os.environ.get("POINTS_PATH", "/app/config/points.json")
 
 
@@ -59,11 +59,11 @@ def setup_logger():
 def load_points():
     with open(POINTS_PATH) as f:
         all_points = json.load(f)
-    return [p for p in all_points if p.get("system") == SYSTEM]
+    return [p for p in all_points if p.get("socket") == SOCKET]
 
 
 def build_topic(p):
-    return f"{p['object']}/{p['system']}/{p['pointname']}/{p['id']}"
+    return f"{OBJECT}/{p['socket']}/{p['pointname']}/{p['id']}"
 
 
 def get_metrics(prev_net, prev_time):
@@ -131,7 +131,7 @@ def main():
         for p in points:
             interval = p.get("interval", 1)
             if now - last_pub[p["id"]] >= interval:
-                value = metrics.get(p["pointname"])
+                value = metrics.get(p.get("param") or p["pointname"])
                 if value is not None:
                     publish(client, log, p, value, ts)
                     last_pub[p["id"]] = now

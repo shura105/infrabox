@@ -1,0 +1,28 @@
+[
+  {
+    "drop": "homeServ-1",
+    "hardware": [
+      {
+        "id": "selfDiag",
+        "name": "Selfdiagnostic",
+        "params": ["cpu_load", "mem_used", "disk_space", "net_rx", "net_tx"]
+      }
+    ],
+    "software": [
+      {"id": "Selfdiagnostic", "name": "infrabox-selfdiagnostic",    "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Core",         "name": "infrabox-core-hb",           "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Auth",         "name": "infrabox-auth-hb",           "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Backend",      "name": "infrabox-backend-hb",        "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "ADM",          "name": "infrabox-adm-hb",            "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Simulator",    "name": "infrabox-simulator-hb",      "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Archivator",   "name": "infrabox-arch-hb",           "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Arch Backend", "name": "infrabox-arch-backend-hb",   "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Arch UI",      "name": "infrabox-arch-ui-hb",        "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Redis",        "name": "infrabox-redis-hb",          "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "MQTT Real",    "name": "infrabox-mosquitto-real-hb", "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "MQTT Sim",     "name": "infrabox-mosquitto-sim-hb",  "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Web",          "name": "infrabox-web-hb",            "type": "heartbeat", "params": ["heartbeat"]},
+      {"id": "Portainer",    "name": "portainer-hb",               "type": "heartbeat", "params": ["heartbeat"]}
+    ]
+  }
+]

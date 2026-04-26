@@ -3,8 +3,11 @@ __pycache__/
 venv/
 
 # Logs
-log/*.log
+log/
 core/service/log/
+
+# Config backups (runtime)
+core/service/config/backup/
 
 # Mosquitto runtime data
 core/mosquitto/mosquitto-real/data/

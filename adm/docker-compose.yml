@@ -11,6 +11,7 @@ services:
       HOSTNAME: infrabox-adm
       REDIS_HOST: infrabox-redis
       REDIS_PORT: 6379
+      TZ: Europe/Kyiv
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker:ro
@@ -24,6 +25,8 @@ services:
       - /home/shura/infrabox/core/service/config/systems.json:/app/config/systems.json
       - /home/shura/infrabox/core/service/config/sys_params.json:/app/config/sys_params.json
       - /home/shura/infrabox/core/service/config/serv_subsystems.json:/app/config/serv_subsystems.json
+      - /home/shura/infrabox/core/service/config/sockets.json:/app/config/sockets.json
+      - /home/shura/infrabox/core/service/config/backup:/app/config/backup
 
 networks:
   infrabox-net:

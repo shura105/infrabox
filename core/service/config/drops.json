@@ -3,20 +3,5 @@
     "id": "homeServ-1",
     "name": "Сервер на балконі",
     "object": "home"
-  },
-  {
-    "id": "garageServ-1",
-    "object": "garage",
-    "name": "Сервер гаражу"
-  },
-  {
-    "id": "boilerServ-1",
-    "object": "boiler",
-    "name": "Сервер котельні"
-  },
-  {
-    "id": "solarServ-1",
-    "object": "solar",
-    "name": "Сервер сонячної станції"
   }
 ]

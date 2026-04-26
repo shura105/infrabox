@@ -395,6 +395,52 @@
         .app-dot.loading  { background: #58a6ff; }
 
         /* ── points tab ── */
+        .points-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .points-header h1 { margin: 0; }
+        .points-header { margin-bottom: 16px; }
+        .sockets-dropdown {
+            margin-bottom: 12px;
+        }
+        .sockets-dropdown summary {
+            list-style: none; cursor: pointer;
+            background: #161b22; border: 1px solid #30363d;
+            border-radius: 6px; padding: 5px 12px;
+            font-size: 13px; color: #e6edf3;
+            user-select: none; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .sockets-dropdown summary::before { content: "▶"; font-size: 9px; color: #484f58; transition: transform .15s; }
+        .sockets-dropdown[open] summary::before { transform: rotate(90deg); }
+        .sockets-dropdown summary::-webkit-details-marker { display: none; }
+        .sockets-dropdown[open] summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+        .sockets-dropdown-panel {
+            background: #161b22; border: 1px solid #30363d;
+            border-top: none; border-radius: 0 0 6px 6px;
+            padding: 8px 12px 8px;
+            display: inline-block; min-width: 100%;
+        }
+        .sockets-group { margin-bottom: 8px; }
+        .sockets-group:last-child { margin-bottom: 0; }
+        .sockets-group-label {
+            font-size: 10px; color: #484f58;
+            text-transform: uppercase; letter-spacing: .5px;
+            margin-bottom: 4px;
+        }
+        .sockets-list {
+            display: flex; flex-wrap: wrap; gap: 4px;
+        }
+        .socket-chip {
+            background: #1c2128; border: 1px solid #30363d;
+            border-radius: 4px; padding: 2px 8px;
+            font-size: 12px; color: #8b949e;
+        }
+        .socket-chip span.socket-id {
+            font-size: 10px; color: #484f58; margin-left: 4px;
+        }
         .points-toolbar {
             display: flex;
             align-items: center;
@@ -439,7 +485,7 @@
         }
         .pt-table th { color: #8b949e; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
         .pt-table tr:hover td { background: #161b22; }
-        .pt-table tr.pt-heartbeat td { opacity: 0.55; }
+        .pt-col-header th { background:#0d1117; color:#484f58; font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:.5px; padding:6px 8px 4px; border-bottom:1px solid #161b22; }
         .pt-group-header td {
             background: #0d1117;
             color: #58a6ff;
@@ -456,17 +502,6 @@
         .pt-name { font-weight: 500; color: #e6edf3; }
         .pt-unit { color: #8b949e; }
         .pt-minmax { font-family: monospace; font-size: 11px; white-space: nowrap; }
-        .pt-hb-badge {
-            display: inline-block;
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-size: 10px;
-            background: #21262d;
-            color: #8b949e;
-            border: 1px solid #30363d;
-            margin-left: 4px;
-            vertical-align: middle;
-        }
 
         /* points modal is wider */
         .modal-wide {
@@ -498,6 +533,7 @@
             flex-wrap: wrap; margin-bottom: 16px;
         }
         .meta-toolbar-title { font-size: 18px; color: #e6edf3; font-weight: 600; margin-right: 8px; }
+        .meta-toolbar .spacer { flex: 1; }
 
         /* Object — blue */
         .meta-obj {
@@ -579,7 +615,6 @@
         }
         .meta-svc-item:last-child { border-bottom: none; }
         .meta-svc-item-name { font-size: 13px; color: #8b949e; }
-        .meta-svc-item-hb   { font-size: 11px; color: #484f58; font-family: monospace; }
 
         /* Element — teal */
         .meta-elem-list { padding: 2px 10px 6px 22px; }
@@ -626,9 +661,9 @@
     <button class="tab-btn"        id="tab-perms-btn"  onclick="switchTab('perms')">Права доступу</button>
     <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
     <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
+    <button class="tab-btn"        id="tab-meta-btn"     onclick="switchTab('meta')">Метадані</button>
     <button class="tab-btn"        id="tab-points-btn"   onclick="switchTab('points')">Параметри</button>
     <button class="tab-btn"        id="tab-archives-btn" onclick="switchTab('archives')">Архіви</button>
-    <button class="tab-btn"        id="tab-meta-btn"     onclick="switchTab('meta')">Метадані</button>
 </div>
 
 <main>
@@ -702,7 +737,15 @@
 
     <!-- ══════════════════════════════ POINTS TAB ════════════════════════════════ -->
     <div class="tab-panel" id="tab-points">
-        <h1>Управління параметрами</h1>
+        <div class="points-header">
+            <h1>Управління параметрами</h1>
+            <button class="btn btn-gray" onclick="_backupConfigs()">💾 Резервувати</button>
+        </div>
+
+        <details class="sockets-dropdown">
+            <summary>Сокети системи</summary>
+            <div class="sockets-dropdown-panel" id="socketsTree"><span style="color:#484f58;font-size:12px">Завантаження...</span></div>
+        </details>
         <div class="points-toolbar">
             <input type="number" id="ptSearchId" placeholder="ID" oninput="filterPoints()">
             <select id="ptFilterObj" onchange="filterPoints()">
@@ -723,19 +766,6 @@
             <button class="btn btn-orange" onclick="reloadPoints()">↺ Застосувати зміни</button>
         </div>
         <table class="pt-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Об'єкт</th>
-                    <th>Система</th>
-                    <th>Назва</th>
-                    <th>Од.</th>
-                    <th>min / max</th>
-                    <th>Deadband</th>
-                    <th>Архів</th>
-                    <th></th>
-                </tr>
-            </thead>
             <tbody id="pointsBody"></tbody>
         </table>
     </div>
@@ -866,6 +896,8 @@
             <button class="btn btn-blue   btn-xs" onclick="_metaAddObj()">+ Об'єкт</button>
             <button class="btn btn-orange btn-xs" onclick="_metaAddDrop()">+ Вузол</button>
             <button class="btn btn-green  btn-xs" onclick="_metaAddSys()">+ Система</button>
+            <div class="spacer"></div>
+            <button class="btn btn-gray   btn-xs" onclick="_backupConfigs()">💾 Резервувати</button>
         </div>
         <div id="metaTree"><p style="color:#8b949e">Завантаження...</p></div>
     </div>
@@ -891,42 +923,79 @@
                     <option value="discrete">Дискретний</option>
                     <option value="calculated">Розрахунковий</option>
                     <option value="external">Від зовнішніх систем</option>
-                    <option value="selfdiag">Самодіагностика</option>
-                    <option value="system">Системний</option>
+                    <option value="diagnostic">Діагностика</option>
                 </select>
             </div>
         </div>
 
-        <!-- ── Системний: вузол → сервіс → елемент ── -->
+        <!-- ── Системний: об'єкт / вузол / система / назва ── -->
         <div id="pt_section_system">
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Прив'язка</div>
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>Об'єкт</label>
+                    <select id="pt_sys2_object_sel" onchange="document.getElementById('pt_object').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Вузол</label>
+                    <select id="pt_sys2_drop_sel" onchange="document.getElementById('pt_drop').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Система</label>
+                    <select id="pt_sys2_system_sel" onchange="document.getElementById('pt_system').value=this.value">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Назва (pointname)</label>
+                    <input type="text" id="pt_pointname" placeholder="selfDiag">
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Діагностика ── -->
+        <div id="pt_section_diag" style="display:none">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
             <div class="field">
                 <label>Вузол</label>
-                <select id="pt_sys_drop_sel" onchange="onSysDropChange()">
-                    <option value="">— оберіть —</option>
-                </select>
-                <input type="hidden" id="pt_drop">
-            </div>
-            <div class="field" style="margin-top:10px">
-                <label>Сервіс</label>
-                <select id="pt_sys_svc_sel" onchange="onSysSvcChange()">
+                <select id="pt_diag_drop" onchange="_onDiagDropChange()">
                     <option value="">— оберіть —</option>
                 </select>
             </div>
-            <div class="field" style="margin-top:10px">
-                <label>Елемент</label>
-                <select id="pt_hb_service_sel" onchange="onSysElemChange()">
+            <div class="field">
+                <label>Тип сокету</label>
+                <select id="pt_diag_socktype" onchange="_onDiagSockTypeChange()">
+                    <option value="">— оберіть —</option>
+                    <option value="hardware">Апаратний</option>
+                    <option value="software">Програмний</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Об'єкт діагностики</label>
+                <select id="pt_diag_socket" onchange="_onDiagSocketChange()">
                     <option value="">— оберіть —</option>
                 </select>
-                <input type="hidden" id="pt_hb_service">
             </div>
-            <div class="field" style="margin-top:10px">
-                <label>Назва (pointname)</label>
-                <input type="text" id="pt_pointname" placeholder="infrabox-core">
+            <div class="field">
+                <label>Параметр</label>
+                <select id="pt_diag_param" onchange="_onDiagParamChange()">
+                    <option value="">— оберіть —</option>
+                </select>
             </div>
+            <div class="field">
+                <label>Назва параметра</label>
+                <input type="text" id="pt_diag_name" placeholder="Наприклад: Завантаження CPU">
+            </div>
+            <input type="hidden" id="pt_socket">
+            <input type="hidden" id="pt_socket_drop">
+            <input type="hidden" id="pt_socket_object">
         </div>
 
-        <!-- ── Технологічний: ідентифікація + одиниця ── -->
+        <!-- ── Технологічний: тільки ідентифікація ── -->
         <div id="pt_section_tech">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
             <div class="form-grid">
@@ -944,7 +1013,7 @@
                     </select>
                     <input type="hidden" id="pt_drop">
                 </div>
-                <div class="field">
+                <div class="field" id="pt_system_field">
                     <label>Система</label>
                     <select id="pt_system_sel" onchange="document.getElementById('pt_system').value=this.value">
                         <option value="">— оберіть —</option>
@@ -955,6 +1024,12 @@
                     <label>Назва (pointname)</label>
                     <input type="text" id="pt_pointname_tech" placeholder="inputTemperature">
                 </div>
+            </div>
+        </div>
+
+        <!-- ── Спільне: одиниця, діапазони, архів (завжди видимі) ── -->
+        <div id="pt_section_common">
+            <div class="form-grid">
                 <div class="field">
                     <label>Одиниця (unit)</label>
                     <input type="text" id="pt_unit" placeholder="°C">
@@ -1107,6 +1182,16 @@
         <div class="modal-footer">
             <button class="btn btn-gray" onclick="closeHostConfirm()">Скасувати</button>
             <button class="btn btn-red"  id="hostConfirmOk">Виконати</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="alertOverlay">
+    <div class="modal">
+        <h2 id="alertTitle"></h2>
+        <p class="confirm-msg" id="alertMsg"></p>
+        <div class="modal-footer">
+            <button class="btn btn-gray" onclick="document.getElementById('alertOverlay').classList.remove('open')">OK</button>
         </div>
     </div>
 </div>
@@ -1440,6 +1525,12 @@ async function simStop() {
 // Generic styled confirm (reuses hostConfirmOverlay)
 // ─────────────────────────────────────────────────────────────────────────────
 let _confirmOkCb = null;
+
+function _openAlert(title, msg) {
+    document.getElementById("alertTitle").textContent = title;
+    document.getElementById("alertMsg").textContent   = msg;
+    document.getElementById("alertOverlay").classList.add("open");
+}
 
 function _openConfirm(title, msg, btnClass, cb) {
     _confirmOkCb = cb;
@@ -2144,27 +2235,58 @@ let _allPoints   = [];
 let _allObjects  = [];
 let _allDrops    = [];
 let _allSystems  = [];
-let _allServices = [];
+let _allSocketIds   = new Set();
+let _allSocketsData = [];   // raw sockets.json array
 let _pointEditId = null;
 
 async function loadPoints() {
     const h = authHeaders();
-    const [rPts, rObj, rDrp, rSys, rSvc] = await Promise.all([
-        fetch("/adm/api/points",            { headers: h }),
-        fetch("/adm/api/objects",           { headers: h }),
-        fetch("/adm/api/drops",             { headers: h }),
-        fetch("/adm/api/systems",           { headers: h }),
-        fetch("/adm/api/config/subsystems", { headers: h }),
+    const [rPts, rObj, rDrp, rSys] = await Promise.all([
+        fetch("/adm/api/points",   { headers: h }),
+        fetch("/adm/api/objects",  { headers: h }),
+        fetch("/adm/api/drops",    { headers: h }),
+        fetch("/adm/api/systems",  { headers: h }),
     ]);
     if (!rPts.ok) { console.error("loadPoints failed", rPts.status); return; }
-    _allPoints   = await rPts.json();
-    _allObjects  = rObj.ok ? await rObj.json() : [];
-    _allDrops    = rDrp.ok ? await rDrp.json() : [];
-    _allSystems  = rSys.ok ? await rSys.json() : [];
-    _allServices = rSvc.ok ? await rSvc.json() : [];
+    _allPoints  = await rPts.json();
+    _allObjects = rObj.ok ? await rObj.json() : [];
+    _allDrops   = rDrp.ok ? await rDrp.json() : [];
+    _allSystems = rSys.ok ? await rSys.json() : [];
     _buildPointFilters();
     _populateModalSelects();
+    await loadSockets();
     _renderPoints(_allPoints);
+}
+
+async function loadSockets() {
+    const r = await fetch("/adm/api/config/sockets", { headers: authHeaders() });
+    const tree = document.getElementById("socketsTree");
+    if (!r.ok) { tree.innerHTML = `<span style="color:#6e7681;font-size:12px">Помилка</span>`; return; }
+    const data = await r.json();
+    const dropNames = Object.fromEntries(_allDrops.map(d => [d.id, d.name]));
+    let h = "";
+    for (const node of data) {
+        if (node.hardware?.length) {
+            h += `<div class="sockets-group"><div class="sockets-group-label">Hardware</div><div class="sockets-list">`;
+            for (const s of node.hardware)
+                h += `<div class="socket-chip">${_esc(s.name)}<span class="socket-id">${_esc(s.id)}</span></div>`;
+            h += `</div></div>`;
+        }
+        if (node.software?.length) {
+            h += `<div class="sockets-group"><div class="sockets-group-label">Software</div><div class="sockets-list">`;
+            for (const s of node.software)
+                h += `<div class="socket-chip">${_esc(s.name)}<span class="socket-id">${_esc(s.id)}</span></div>`;
+            h += `</div></div>`;
+        }
+    }
+    tree.innerHTML = h || `<span style="color:#484f58;font-size:12px">Немає сокетів</span>`;
+    // collect all socket IDs for point grouping
+    _allSocketsData = data;
+    _allSocketIds = new Set();
+    for (const node of data) {
+        for (const s of (node.hardware || [])) _allSocketIds.add(s.id);
+        for (const s of (node.software || [])) _allSocketIds.add(s.id);
+    }
 }
 
 function _buildPointFilters() {
@@ -2175,6 +2297,7 @@ function _buildPointFilters() {
     objSel.innerHTML = `<option value="">Об'єкти</option>` +
         _allObjects.map(o => `<option value="${_esc(o.id)}"${o.id === curObj ? " selected" : ""}>${_esc(o.name || o.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">Системи</option>` +
+        `<option value="__sockets__"${"__sockets__" === curSys ? " selected" : ""}>Підключені до сокетів системи</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}"${s.id === curSys ? " selected" : ""}>${_esc(s.name || s.id)}</option>`).join("");
 }
 
@@ -2188,15 +2311,16 @@ function _populateModalSelects() {
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
     sysSel.innerHTML = `<option value="">— оберіть —</option>` +
         _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
-    // system drop selector — unique drops from serv_subsystems.json
-    const sysDropSel = document.getElementById("pt_sys_drop_sel");
-    const sysDrops = [...new Map(_allServices.map(s => [s.drop, s.drop])).keys()];
-    sysDropSel.innerHTML = `<option value="">— оберіть —</option>` +
-        sysDrops.map(d => {
-            const match = _allDrops.find(x => x.id === d);
-            const label = match ? match.name : d;
-            return `<option value="${_esc(d)}">${_esc(label)}</option>`;
-        }).join("");
+    // system-type section selects (same data as tech section)
+    const opts_o = objSel.innerHTML;
+    const opts_d = drpSel.innerHTML;
+    const opts_s = sysSel.innerHTML;
+    document.getElementById("pt_sys2_object_sel").innerHTML = opts_o;
+    document.getElementById("pt_sys2_drop_sel").innerHTML   = opts_d;
+    document.getElementById("pt_sys2_system_sel").innerHTML = opts_s;
+    // diagnostic chain — drop selector
+    document.getElementById("pt_diag_drop").innerHTML = `<option value="">— оберіть —</option>` +
+        _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
 }
 
 function _archiveMode(p) {
@@ -2214,7 +2338,8 @@ function filterPoints() {
     const filtered = _allPoints.filter(p => {
         if (id  && String(p.id) !== id) return false;
         if (obj && p.object !== obj) return false;
-        if (sys && p.system !== sys) return false;
+        if (sys === "__sockets__") { if (!_allSocketIds.has(p.system)) return false; }
+        else if (sys && p.system !== sys) return false;
         if (arc && _archiveMode(p) !== arc) return false;
         return true;
     });
@@ -2234,32 +2359,55 @@ function _togglePtGroup(gkey) {
 
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
-    const GROUP_ORDER  = ["selfdiag", "analog", "discrete", "calculated", "external", "system"];
-    const GROUP_LABELS = { selfdiag: "Самодіагностика", analog: "Аналогові",
+    const GROUP_ORDER  = ["sockets", "analog", "discrete", "calculated", "external"];
+    const GROUP_LABELS = { sockets: "Підключені до сокетів системи", analog: "Аналогові",
                            discrete: "Дискретні", calculated: "Розрахункові",
-                           external: "Від зовнішніх систем", system: "Системні" };
+                           external: "Від зовнішніх систем" };
 
     tbody.innerHTML = "";
 
-    // bucket by type
+    // bucket: diagnostic + system + socket-linked → "sockets"; rest by type
     const groups = {};
     for (const p of points) {
-        const t = p.type || "analog";
+        let t = p.type || "analog";
+        if (t === "diagnostic" || t === "system" || t === "hardware" || t === "software" || t === "selfdiag" || _allSocketIds.has(p.system)) t = "sockets";
         (groups[t] = groups[t] || []).push(p);
     }
 
-    // all groups in fixed order, always rendered
     const allKeys = [...GROUP_ORDER];
     for (const k of Object.keys(groups)) {
         if (!allKeys.includes(k)) allKeys.push(k);
     }
 
+    const objIds = new Set(_allObjects.map(o => o.id));
+    const drpIds = new Set(_allDrops.map(d => d.id));
+    const sysIds = new Set(_allSystems.map(s => s.id));
+    const _inv = (val, set) =>
+        val && !set.has(val) ? " style=\"color:#ff7b9c\"" : "";
+
+    let regularHeaderAdded = false;
+
     for (const gkey of allKeys) {
         const gpoints = groups[gkey] || [];
-        const open = !!_ptGroupOpen[gkey];
+        const isSockGroup = gkey === "sockets";
+        const open  = !!_ptGroupOpen[gkey];
         const label = GROUP_LABELS[gkey] || gkey;
         const arrow = open ? "▾" : "▸";
-        const count = gpoints.length ? `<span style="color:#8b949e;font-weight:400">(${gpoints.length})</span>` : `<span style="color:#8b949e;font-weight:400">(0)</span>`;
+        const count = `<span style="color:#8b949e;font-weight:400">(${gpoints.length})</span>`;
+
+        // section col-header
+        if (isSockGroup) {
+            const ch = document.createElement("tr");
+            ch.className = "pt-col-header";
+            ch.innerHTML = `<th>ID</th><th>Вузол</th><th>Сокет</th><th>Назва</th><th>Од.</th><th>min / max</th><th>Deadband</th><th>Архів</th><th></th>`;
+            tbody.appendChild(ch);
+        } else if (!regularHeaderAdded) {
+            regularHeaderAdded = true;
+            const ch = document.createElement("tr");
+            ch.className = "pt-col-header";
+            ch.innerHTML = `<th>ID</th><th>Об'єкт</th><th>Система</th><th>Назва</th><th>Од.</th><th>min / max</th><th>Deadband</th><th>Архів</th><th></th>`;
+            tbody.appendChild(ch);
+        }
 
         const hdr = document.createElement("tr");
         hdr.className = "pt-group-header";
@@ -2270,22 +2418,28 @@ function _renderPoints(points) {
         tbody.appendChild(hdr);
 
         for (const p of gpoints) {
-            const isSystem = p.type === "system";
-            const hbBadge  = isSystem ? `<span class="pt-hb-badge">💓</span>` : "";
+            const isSock = isSockGroup;   // all points in sockets group treated as sockets
             let archiveLabel;
             if (!parseInt(p.onArchive))                  archiveLabel = "—";
             else if (!parseInt(p.archive_on_change))     archiveLabel = `⏱${p.archive_interval}с`;
             else if (parseInt(p.archive_interval) > 0)  archiveLabel = `зм+⏱${p.archive_interval}с`;
             else                                          archiveLabel = "зм";
+
+            const col2 = isSock
+                ? `<td${_inv(p.drop,   drpIds)}>${_esc(p.drop   || "")}</td>`
+                : `<td${_inv(p.object, objIds)}>${_esc(p.object || "")}</td>`;
+            const col3 = isSock
+                ? `<td${_inv(p.socket, _allSocketIds)}>${_esc(p.socket || "")}</td>`
+                : `<td${_inv(p.system, sysIds)}>${_esc(p.system || "")}</td>`;
+
             const tr = document.createElement("tr");
             tr.dataset.ptg = gkey;
             tr.style.display = open ? "" : "none";
-            if (isSystem) tr.classList.add("pt-heartbeat");
             tr.innerHTML = `
                 <td class="pt-id">${p.id}</td>
-                <td>${_esc(p.object || "")}</td>
-                <td>${_esc(isSystem ? (() => { for (const node of _allServices) for (const svc of (node.services||[])) if ((svc.elements||[]).some(e=>e.id===p.hb_service)) return svc.name||svc.id; return p.system||""; })() : (p.system || ""))}</td>
-                <td class="pt-name">${_esc(p.pointname || "")}${hbBadge}</td>
+                ${col2}
+                ${col3}
+                <td class="pt-name">${_esc(p.pointname || "")}</td>
                 <td class="pt-unit">${_esc(p.unit || "")}</td>
                 <td class="pt-minmax">${p.min} / ${p.max}</td>
                 <td class="pt-unit">${p.deadband ?? "—"}</td>
@@ -2293,7 +2447,7 @@ function _renderPoints(points) {
                 <td>
                     <div class="actions">
                         <button class="btn btn-blue" title="Редагувати" onclick="openPointEdit(${p.id})">✏</button>
-                        ${isSystem ? "" : `<button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>`}
+                        <button class="btn btn-red" title="Видалити" onclick="deletePoint(${p.id})">🗑</button>
                     </div>
                 </td>`;
             tbody.appendChild(tr);
@@ -2328,20 +2482,20 @@ function onArchiveModeChange() {
 }
 
 function _pointFormDefaults() {
-    document.getElementById("pt_id").value              = "";
-    document.getElementById("pt_type").value            = "analog";
-    document.getElementById("pt_sys_drop_sel").value    = "";
-    document.getElementById("pt_hb_service_sel").value  = "";
-    document.getElementById("pt_hb_service").value      = "";
-    document.getElementById("pt_pointname").value       = "";
-    document.getElementById("pt_unit").value            = "";
-    document.getElementById("pt_object_sel").value      = "";
-    document.getElementById("pt_object").value          = "";
-    document.getElementById("pt_drop_sel").value        = "";
-    document.getElementById("pt_drop").value            = "";
-    document.getElementById("pt_system_sel").value      = "";
-    document.getElementById("pt_system").value          = "";
-    document.getElementById("pt_pointname_tech").value  = "";
+    document.getElementById("pt_id").value                 = "";
+    document.getElementById("pt_type").value               = "analog";
+    document.getElementById("pt_sys2_object_sel").value    = "";
+    document.getElementById("pt_sys2_drop_sel").value      = "";
+    document.getElementById("pt_sys2_system_sel").value    = "";
+    document.getElementById("pt_pointname").value          = "";
+    document.getElementById("pt_unit").value               = "";
+    document.getElementById("pt_object_sel").value         = "";
+    document.getElementById("pt_object").value             = "";
+    document.getElementById("pt_drop_sel").value           = "";
+    document.getElementById("pt_drop").value               = "";
+    document.getElementById("pt_system_sel").value         = "";
+    document.getElementById("pt_system").value             = "";
+    document.getElementById("pt_pointname_tech").value     = "";
     document.getElementById("pt_min").value             = "0";
     document.getElementById("pt_max").value             = "100";
     document.getElementById("pt_deadband").value        = "0";
@@ -2354,37 +2508,26 @@ function _pointFormDefaults() {
 
 function _fillPointForm(p) {
     const isSystem = (p.type || "analog") === "system";
-    document.getElementById("pt_id").value              = p.id;
-    document.getElementById("pt_type").value            = p.type || "analog";
-    // for system: find drop+svc that contains this hb_service element
-    let sysDrop = p.drop || "";
-    let sysSvc  = "";
-    if (p.hb_service) {
-        outer: for (const node of _allServices) {
-            for (const svc of (node.services || [])) {
-                if ((svc.elements || []).some(e => e.id === p.hb_service)) {
-                    sysDrop = node.drop;
-                    sysSvc  = svc.id;
-                    break outer;
-                }
-            }
-        }
-    }
-    document.getElementById("pt_sys_drop_sel").value = sysDrop;
-    document.getElementById("pt_drop").value          = sysDrop;
-    _fillSysSvcSel(sysDrop);
-    document.getElementById("pt_sys_svc_sel").value  = sysSvc;
-    _fillSysElemSel(sysDrop, sysSvc);
-    document.getElementById("pt_hb_service_sel").value = p.hb_service || "";
-    document.getElementById("pt_hb_service").value     = p.hb_service || "";
-    document.getElementById("pt_pointname").value       = p.pointname ?? "";
-    document.getElementById("pt_unit").value            = p.unit ?? "";
-    document.getElementById("pt_object_sel").value      = p.object ?? "";
-    document.getElementById("pt_object").value          = p.object ?? "";
-    document.getElementById("pt_drop_sel").value        = p.drop ?? "";
-    document.getElementById("pt_drop").value            = p.drop ?? "";
-    document.getElementById("pt_system_sel").value      = p.system ?? "";
-    document.getElementById("pt_system").value          = p.system ?? "";
+    document.getElementById("pt_id").value               = p.id;
+    document.getElementById("pt_type").value             = p.type || "analog";
+    // system-type section
+    document.getElementById("pt_sys2_object_sel").value  = p.object ?? "";
+    document.getElementById("pt_sys2_drop_sel").value    = p.drop   ?? "";
+    document.getElementById("pt_sys2_system_sel").value  = p.system ?? "";
+    document.getElementById("pt_pointname").value        = p.pointname ?? "";
+    // diagnostic section
+    document.getElementById("pt_socket").value        = p.socket ?? "";
+    document.getElementById("pt_socket_drop").value   = p.drop   ?? "";
+    document.getElementById("pt_socket_object").value = p.object ?? "";
+    document.getElementById("pt_diag_name").value     = p.name   ?? "";
+    // tech-type section
+    document.getElementById("pt_unit").value             = p.unit ?? "";
+    document.getElementById("pt_object_sel").value       = p.object ?? "";
+    document.getElementById("pt_object").value           = p.object ?? "";
+    document.getElementById("pt_drop_sel").value         = p.drop ?? "";
+    document.getElementById("pt_drop").value             = p.drop ?? "";
+    document.getElementById("pt_system_sel").value       = p.system ?? "";
+    document.getElementById("pt_system").value           = p.system ?? "";
     document.getElementById("pt_pointname_tech").value  = p.pointname ?? "";
     document.getElementById("pt_min").value            = p.min ?? 0;
     document.getElementById("pt_max").value            = p.max ?? 100;
@@ -2405,53 +2548,77 @@ function _fillPointForm(p) {
 }
 
 function onPointTypeChange() {
-    const isSystem = document.getElementById("pt_type").value === "system";
+    const type   = document.getElementById("pt_type").value;
+    const isSystem = type === "system";
+    const isDiag   = type === "diagnostic";
     document.getElementById("pt_section_system").style.display = isSystem ? "" : "none";
-    document.getElementById("pt_section_tech").style.display   = isSystem ? "none" : "";
+    document.getElementById("pt_section_diag").style.display   = isDiag   ? "" : "none";
+    document.getElementById("pt_section_tech").style.display   = (isSystem || isDiag) ? "none" : "";
+    if (isDiag) _diagResetFrom(1);
+    else if (!isSystem) {
+        document.getElementById("pt_object").value = document.getElementById("pt_object_sel").value;
+        document.getElementById("pt_drop").value   = document.getElementById("pt_drop_sel").value;
+        document.getElementById("pt_system").value = document.getElementById("pt_system_sel").value;
+    }
 }
 
-// helpers to navigate serv_subsystems.json hierarchy
-function _svcNode(drop) {
-    return _allServices.find(n => n.drop === drop);
-}
-function _svcServices(drop) {
-    return _svcNode(drop)?.subsystems || [];
-}
-function _svcElements(drop, svcId) {
-    return _svcServices(drop).find(s => s.id === svcId)?.elements || [];
-}
-
-function _fillSysSvcSel(drop) {
-    const sel = document.getElementById("pt_sys_svc_sel");
-    sel.innerHTML = `<option value="">— оберіть —</option>` +
-        _svcServices(drop).map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
-}
-function _fillSysElemSel(drop, svcId) {
-    const sel = document.getElementById("pt_hb_service_sel");
-    sel.innerHTML = `<option value="">— оберіть —</option>` +
-        _svcElements(drop, svcId).map(e => `<option value="${_esc(e.id)}">${_esc(e.name || e.id)}</option>`).join("");
+// ── Diagnostic selects ───────────────────────────────────────────────────────
+function _diagResetFrom(level) {
+    if (level <= 1) document.getElementById("pt_diag_drop").value     = "";
+    if (level <= 2) document.getElementById("pt_diag_socktype").value  = "";
+    if (level <= 3) {
+        document.getElementById("pt_diag_socket").innerHTML = `<option value="">— оберіть —</option>`;
+        document.getElementById("pt_socket").value = "";
+        document.getElementById("pt_socket_drop").value = "";
+    }
+    if (level <= 4) {
+        document.getElementById("pt_diag_param").innerHTML = `<option value="">— оберіть —</option>`;
+    }
+    if (level <= 5) document.getElementById("pt_diag_name").value = "";
 }
 
-function onSysDropChange() {
-    const drop = document.getElementById("pt_sys_drop_sel").value;
-    document.getElementById("pt_drop").value = drop;
-    _fillSysSvcSel(drop);
-    document.getElementById("pt_sys_svc_sel").value  = "";
-    document.getElementById("pt_hb_service_sel").innerHTML = `<option value="">— оберіть —</option>`;
-    document.getElementById("pt_hb_service").value = "";
+function _onDiagDropChange() {
+    _onDiagSockTypeChange();
 }
-function onSysSvcChange() {
-    const drop  = document.getElementById("pt_sys_drop_sel").value;
-    const svcId = document.getElementById("pt_sys_svc_sel").value;
-    _fillSysElemSel(drop, svcId);
-    document.getElementById("pt_hb_service_sel").value = "";
-    document.getElementById("pt_hb_service").value = "";
+
+function _onDiagSockTypeChange() {
+    const drop     = document.getElementById("pt_diag_drop").value;
+    const socktype = document.getElementById("pt_diag_socktype").value;
+    const node     = _allSocketsData.find(n => n.drop === drop);
+    const sockets  = (socktype && node) ? (node[socktype] || []) : [];
+    document.getElementById("pt_diag_socket").innerHTML =
+        `<option value="">— оберіть —</option>` +
+        sockets.map(s => `<option value="${_esc(s.id)}">${_esc(s.id)}</option>`).join("");
+    _onDiagSocketChange();
 }
+
+function _onDiagSocketChange() {
+    const socketId = document.getElementById("pt_diag_socket").value;
+    const socktype = document.getElementById("pt_diag_socktype").value;
+    const drop     = document.getElementById("pt_diag_drop").value;
+    const node     = _allSocketsData.find(n => n.drop === drop);
+    const sockets  = node?.[socktype] || [];
+    const socket   = sockets.find(s => s.id === socketId);
+    const params   = socket?.params || [];
+    const dropObj  = _allDrops.find(d => d.id === drop);
+    document.getElementById("pt_socket").value        = socketId;
+    document.getElementById("pt_socket_drop").value   = drop;
+    document.getElementById("pt_socket_object").value = dropObj?.object || "";
+    document.getElementById("pt_diag_param").innerHTML =
+        `<option value="">— оберіть —</option>` +
+        params.map(p => `<option value="${_esc(p)}">${_esc(p)}</option>`).join("");
+    _onDiagParamChange();
+}
+
+function _onDiagParamChange() {
+    if (_pointEditId !== null) return;
+    const socketId = document.getElementById("pt_diag_socket").value;
+    const param    = document.getElementById("pt_diag_param").value;
+    if (!socketId || !param) return;
+    document.getElementById("pt_diag_name").value = `${socketId}-${param}`;
+}
+
 function onSysElemChange() {
-    const elem = document.getElementById("pt_hb_service_sel").value;
-    document.getElementById("pt_hb_service").value = elem;
-    if (elem && !document.getElementById("pt_pointname").value)
-        document.getElementById("pt_pointname").value = elem;
 }
 
 function _setPointModalMode(isSystem) {
@@ -2477,6 +2644,23 @@ function openPointEdit(id) {
     document.getElementById("pt_id").disabled = false;
     _fillPointForm(p);
     _setPointModalMode(p.type === "system");
+    if (p.type === "diagnostic") {
+        // restore chain state
+        document.getElementById("pt_diag_drop").value = p.drop ?? "";
+        _onDiagDropChange();
+        // find socktype from socket id
+        let socktype = "";
+        for (const node of _allSocketsData) {
+            if ((node.hardware||[]).find(s => s.id === p.socket)) { socktype = "hardware"; break; }
+            if ((node.software||[]).find(s => s.id === p.socket)) { socktype = "software"; break; }
+        }
+        document.getElementById("pt_diag_socktype").value = socktype;
+        _onDiagSockTypeChange();
+        document.getElementById("pt_diag_socket").value = p.socket ?? "";
+        _onDiagSocketChange();
+        document.getElementById("pt_diag_param").value = p.param ?? "";
+        document.getElementById("pt_diag_name").value  = p.pointname ?? "";
+    }
     document.getElementById("pointOverlay").classList.add("open");
 }
 
@@ -2486,16 +2670,24 @@ function closePointModal() {
 }
 
 function _readPointForm() {
+    const type = document.getElementById("pt_type").value;
+    const isDiag = type === "diagnostic";
     return {
         id:                  parseInt(document.getElementById("pt_id").value),
-        type:                document.getElementById("pt_type").value,
-        hb_service:          document.getElementById("pt_hb_service").value.trim(),
-        object:              document.getElementById("pt_object").value.trim(),
-        drop:                document.getElementById("pt_drop").value.trim(),
-        system:              document.getElementById("pt_system").value.trim(),
-        pointname:           (document.getElementById("pt_type").value === "system"
-                                ? document.getElementById("pt_pointname").value
-                                : document.getElementById("pt_pointname_tech").value).trim(),
+        type,
+        ...(isDiag ? {
+            socket:    document.getElementById("pt_socket").value.trim(),
+            drop:      document.getElementById("pt_socket_drop").value.trim(),
+            param:     document.getElementById("pt_diag_param").value.trim(),
+            pointname: document.getElementById("pt_diag_name").value.trim(),
+        } : {
+            object:    document.getElementById("pt_object").value.trim(),
+            drop:      document.getElementById("pt_drop").value.trim(),
+            system:    document.getElementById("pt_system").value.trim(),
+            pointname: (type === "system"
+                          ? document.getElementById("pt_pointname").value
+                          : document.getElementById("pt_pointname_tech").value).trim(),
+        }),
         unit:                document.getElementById("pt_unit").value.trim(),
         min:                 parseFloat(document.getElementById("pt_min").value) || 0,
         max:                 parseFloat(document.getElementById("pt_max").value) || 100,
@@ -2538,7 +2730,10 @@ async function savePoint() {
     }
     if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        errEl.textContent = j.detail || `Помилка ${res.status}`;
+        const det = j.detail;
+        errEl.textContent = Array.isArray(det)
+            ? det.map(e => e.msg || JSON.stringify(e)).join("; ")
+            : (typeof det === "string" ? det : `Помилка ${res.status}`);
         errEl.style.display = "block";
         return;
     }
@@ -2547,18 +2742,23 @@ async function savePoint() {
 }
 
 async function deletePoint(id) {
-    if (!confirm(`Видалити параметр #${id}?`)) return;
-    const res = await fetch(`/adm/api/points/${id}`, {
-        method: "DELETE",
-        headers: authHeaders()
-    });
-    if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        document.getElementById("pointModalError").textContent = j.detail || `Помилка ${res.status}`;
-        document.getElementById("pointModalError").style.display = "block";
-        return;
-    }
-    await loadPoints();
+    _openConfirm(
+        "Видалення параметра",
+        `Видалити параметр #${id}?`,
+        "btn-red",
+        async () => {
+            const res = await fetch(`/adm/api/points/${id}`, {
+                method: "DELETE",
+                headers: authHeaders()
+            });
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                _openConfirm("Помилка", j.detail || `Помилка ${res.status}`, "btn-gray", () => {});
+                return;
+            }
+            await loadPoints();
+        }
+    );
 }
 
 async function reloadPoints() {
@@ -2714,17 +2914,15 @@ async function loadMeta() {
     tree.innerHTML = '<p style="color:#8b949e;padding:8px">Завантаження...</p>';
     try {
         const h = authHeaders();
-        const [obj, sys, drp, svc, sub] = await Promise.all([
+        const [obj, sys, drp, sub] = await Promise.all([
             fetch("/adm/api/objects",           {headers: h}).then(r => r.json()),
             fetch("/adm/api/systems",           {headers: h}).then(r => r.json()),
             fetch("/adm/api/drops",             {headers: h}).then(r => r.json()),
-            fetch("/adm/api/services",          {headers: h}).then(r => r.json()),
             fetch("/adm/api/config/subsystems", {headers: h}).then(r => r.json()),
         ]);
         _metaObjects    = obj;
         _metaSystems    = sys;
         _metaDrops      = drp;
-        _metaServices   = svc;
         _metaSubsystems = sub;
         _renderMetaTree();
     } catch(e) {
@@ -2740,6 +2938,7 @@ function _toggleMetaSvc(dropId) {
     if (arrow) arrow.classList.toggle("open", open);
     if (open) _metaSvcOpen.add(dropId); else _metaSvcOpen.delete(dropId);
 }
+
 
 function _renderMetaTree() {
     _mr = [];
@@ -2809,23 +3008,21 @@ function _renderMetaTree() {
 
             // Підсистеми (purple, collapsible) — only if count > 0
             if (subCount > 0) {
-            h += `<div class="meta-svc-section">
-              <div class="meta-svc-toggle" onclick="_toggleMetaSvc('${drp.id}')">
-                <span class="meta-svc-toggle-arrow${isOpen?" open":""}" id="msa-${drp.id}">▶</span>
-                <span class="meta-svc-toggle-title">Серверні підсистеми</span>
-                <span style="font-size:11px;color:#6e7681;margin-left:4px">(${subCount})</span>
-              </div>
-              <div class="meta-svc-body${isOpen?" open":""}" id="msb-${drp.id}">`;
-
-            for (const sub of subList) {
-                const hbId = sub.elements?.[0]?.id || "";
-                h += `<div class="meta-svc-item">
-                  <span class="meta-svc-item-name">${_esc(sub.name)}</span>
-                  ${hbId ? `<span class="meta-svc-item-hb">${_esc(hbId)}</span>` : ""}
-                </div>`;
+                h += `<div class="meta-svc-section">
+                  <div class="meta-svc-toggle" onclick="_toggleMetaSvc('${drp.id}')">
+                    <span class="meta-svc-toggle-arrow${isOpen?" open":""}" id="msa-${drp.id}">▶</span>
+                    <span class="meta-svc-toggle-title">Серверні підсистеми</span>
+                    <span style="font-size:11px;color:#6e7681;margin-left:4px">(${subCount})</span>
+                  </div>
+                  <div class="meta-svc-body${isOpen?" open":""}" id="msb-${drp.id}">`;
+                for (const sub of subList) {
+                    h += `<div class="meta-svc-item">
+                      <span class="meta-svc-item-name">${_esc(sub.name)}</span>
+                      <span class="meta-item-id">${_esc(sub.id)}</span>
+                    </div>`;
+                }
+                h += `</div></div>`;
             }
-            h += `</div></div>`;  // meta-svc-body / meta-svc-section
-            } // end if subCount > 0
             h += `</div>`;        // meta-drop-card
         }
         if (!dropList.length) {
@@ -3037,6 +3234,23 @@ async function _metaDelRef(ref) {
 
 function closeMetaEdit() {
     document.getElementById("metaEditOverlay").classList.remove("open");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Backup
+// ─────────────────────────────────────────────────────────────────────────────
+async function _backupConfigs() {
+    _openConfirm(
+        "Резервне копіювання",
+        "Створити резервну копію конфігурацій?",
+        "btn-blue",
+        async () => {
+            const res = await fetch("/adm/api/config/backup", {method:"POST", headers: authHeaders()});
+            const j   = await res.json().catch(()=>({}));
+            if (res.ok) _openAlert("Резервна копія", `Збережено: ${j.backup}`);
+            else        _openAlert("Помилка", j.detail||"Помилка резервування");
+        }
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

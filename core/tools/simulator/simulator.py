@@ -57,7 +57,7 @@ def setup_logger():
 def load_points():
     with open(CONFIG_PATH) as f:
         points = json.load(f)
-    return [p for p in points if p["id"] >= 100]
+    return [p for p in points if p["id"] >= 100 and p.get("type") != "diagnostic"]
 
 
 def build_topic(p):

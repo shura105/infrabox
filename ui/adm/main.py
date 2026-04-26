@@ -518,6 +518,37 @@ POINTS_PATH   = "/app/config/points.json"
 OBJECTS_PATH  = "/app/config/objects.json"
 DROPS_PATH    = "/app/config/drops.json"
 SYSTEMS_PATH  = "/app/config/systems.json"
+SOCKETS_PATH  = "/app/config/sockets.json"
+BACKUP_DIR    = pathlib.Path("/app/config/backup")
+
+BACKUP_FILES  = {
+    "points.json":          POINTS_PATH,
+    "objects.json":         OBJECTS_PATH,
+    "drops.json":           DROPS_PATH,
+    "systems.json":         SYSTEMS_PATH,
+    "sys_params.json":      "/app/config/sys_params.json",
+    "serv_subsystems.json": "/app/config/serv_subsystems.json",
+}
+
+
+@app.post("/config/backup")
+def create_backup():
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    dest = BACKUP_DIR / ts
+    dest.mkdir(parents=True, exist_ok=True)
+    for fname, src in BACKUP_FILES.items():
+        try:
+            import shutil
+            shutil.copy2(src, dest / fname)
+        except Exception as e:
+            raise HTTPException(500, f"Failed to backup {fname}: {e}")
+    return {"ok": True, "backup": ts}
+
+
+@app.get("/config/sockets")
+def get_sockets():
+    with open(SOCKETS_PATH) as f:
+        return json.load(f)
 
 
 def _read_points():
@@ -600,6 +631,8 @@ def delete_object(obj_id: str):
             raise HTTPException(404, f"Object {obj_id!r} not found")
         items[:] = new
     _rw_json(OBJECTS_PATH, m)
+    _rw_json(DROPS_PATH,   lambda d: d.__setitem__(slice(None), [x for x in d if x.get("object") != obj_id]))
+    _rw_json(POINTS_PATH,  lambda d: d.__setitem__(slice(None), [x for x in d if x.get("object") != obj_id]))
     return {"ok": True}
 
 
@@ -640,6 +673,7 @@ def delete_system(sys_id: str):
             raise HTTPException(404, f"System {sys_id!r} not found")
         items[:] = new
     _rw_json(SYSTEMS_PATH, m)
+    _rw_json(POINTS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("system") != sys_id]))
     return {"ok": True}
 
 
@@ -680,6 +714,7 @@ def delete_drop(drop_id: str):
             raise HTTPException(404, f"Drop {drop_id!r} not found")
         items[:] = new
     _rw_json(DROPS_PATH, m)
+    _rw_json(POINTS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("drop") != drop_id]))
     return {"ok": True}
 
 
@@ -694,13 +729,49 @@ def get_points():
     return _read_points()
 
 
+@app.get("/points/values")
+def get_point_values():
+    """Current values from Redis: {point_id: {v, q}} + heartbeat states."""
+    try:
+        r = redis_sync.Redis(host="infrabox-redis", port=6379, decode_responses=True)
+        pts = _read_points()
+        result = {}
+        # analog/diagnostic values from point:{id} hash
+        for p in pts:
+            pid = p["id"]
+            d = r.hgetall(f"point:{pid}")
+            if d:
+                result[str(pid)] = {"v": d.get("value"), "q": d.get("quality", "INIT")}
+        # heartbeat states: derive from heartbeat:{svc_name} TTL
+        with open(SOCKETS_PATH) as f:
+            socks_data = json.load(f)
+        for node in socks_data:
+            for s in (node.get("software") or []):
+                svc_name = s.get("name", "")
+                if not svc_name:
+                    continue
+                ttl = r.ttl(f"heartbeat:{svc_name}")
+                alive = ttl > 0
+                for p in pts:
+                    if p.get("socket") == s["id"] and p.get("param") == "heartbeat":
+                        result[str(p["id"])] = {
+                            "v": "1" if alive else "0",
+                            "q": "GOOD" if alive else "NODATA"
+                        }
+        return result
+    except Exception as e:
+        raise HTTPException(503, str(e))
+
+
 class PointIn(BaseModel):
     id: int
     type: str = "analog"
     hb_service: str = ""
-    object: str
-    drop: str
-    system: str
+    socket: str = ""
+    param: str = ""
+    object: str = ""
+    drop: str = ""
+    system: str = ""
     pointname: str
     unit: str = ""
     min: float = 0
@@ -716,12 +787,16 @@ class PointIn(BaseModel):
     archive_on_change: int = 1
 
 
+def _point_dict(p: PointIn) -> dict:
+    return {k: v for k, v in p.model_dump().items() if v != ""}
+
+
 @app.post("/points")
 def create_point(p: PointIn):
     points = _read_points()
     if any(x["id"] == p.id for x in points):
         raise HTTPException(409, f"Point id={p.id} already exists")
-    points.append(p.model_dump())
+    points.append(_point_dict(p))
     _write_points(points)
     return {"ok": True}
 
@@ -731,7 +806,7 @@ def update_point(point_id: int, p: PointIn):
     points = _read_points()
     for i, x in enumerate(points):
         if x["id"] == point_id:
-            points[i] = p.model_dump()
+            points[i] = _point_dict(p)
             _write_points(points)
             return {"ok": True}
     raise HTTPException(404, f"Point {point_id} not found")

@@ -13,9 +13,9 @@ def load_points():
         pid = p["id"]
 
         meta_cache[pid] = {
-            "object": p["object"],
-            "drop": p["drop"],
-            "system": p["system"],
+            "object": p.get("object", ""),
+            "drop": p.get("drop", ""),
+            "system": p.get("system", p.get("socket", "")),
             "pointname": p["pointname"],
             "id": p["id"],
             "unit": p.get("unit", ""),
