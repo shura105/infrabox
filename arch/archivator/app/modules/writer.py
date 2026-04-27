@@ -104,7 +104,9 @@ class Writer:
                     if meta.get("onArchive", 1) == 0:
                         continue
 
-                    stream = "selfdiag" if event.get("system") == "selfDiag" else "events"
+                    is_selfdiag = (meta.get("type") == "diagnostic"
+                                   and meta.get("socket") == "selfDiag")
+                    stream = "selfdiag" if is_selfdiag else "events"
                     self.volume.write(stream, event)
             except Exception as e:
                 self.log.error(f"Writer events error: {e}")

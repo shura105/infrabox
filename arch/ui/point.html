@@ -21,7 +21,7 @@
     <!-- POINT INFO -->
     <div class="point-info" x-show="points.length > 0">
         <template x-for="p in points" :key="p.id">
-            <span x-text="`${p.pointname} (${p.id}) | ${p.object} / ${p.system} | ${p.unit}`"></span>
+            <span x-text="`${p.pointname} (${p.id}) | ${p.object || p.drop || ''} / ${p.system || p.socket || ''} | ${p.unit || ''}`"></span>
         </template>
     </div>
 

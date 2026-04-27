@@ -19,14 +19,14 @@
 
     <div class="filters">
         <select x-model="filterObject" @change="onObjectChange()">
-            <option value="">All objects</option>
+            <option value="">All objects / drops</option>
             <template x-for="obj in objects">
                 <option :value="obj" x-text="obj"></option>
             </template>
         </select>
 
         <select x-model="filterSystem" @change="applyFilters()">
-            <option value="">All systems</option>
+            <option value="">All systems / sockets</option>
             <template x-for="sys in filteredSystems">
                 <option :value="sys" x-text="sys"></option>
             </template>
@@ -45,10 +45,10 @@
         <thead>
             <tr>
                 <th></th>
-                <th>Object</th>
-                <th>System</th>
-                <th>Pointname</th>
                 <th>ID</th>
+                <th>Pointname</th>
+                <th>Object / Drop</th>
+                <th>System / Socket</th>
             </tr>
         </thead>
         <tbody>
@@ -57,10 +57,10 @@
                     <td>
                         <input type="checkbox" :checked="selected.includes(p.id)" @change="toggleSelect(p.id, $event)">
                     </td>
-                    <td x-text="p.object"></td>
-                    <td x-text="p.system"></td>
-                    <td x-text="p.pointname"></td>
                     <td x-text="p.id"></td>
+                    <td x-text="p.pointname"></td>
+                    <td x-text="p.object || p.drop || ''"></td>
+                    <td x-text="p.system || p.socket || ''"></td>
                 </tr>
             </template>
         </tbody>
@@ -81,14 +81,17 @@
                 selected: [],
                 status: "Loading...",
 
+                _loc(p) { return p.object || p.drop || ""; },
+                _sys(p) { return p.system || p.socket || ""; },
+
                 async init() {
                     for (let attempt = 1; attempt <= 5; attempt++) {
                         try {
                             const data = await fetchStatus();
                             this.status = `Volume: ${data.current_volume.volume} | Records: ${data.current_volume.record_count}`;
                             this.points = await fetchPoints();
-                            this.objects = [...new Set(this.points.map(p => p.object))];
-                            this.allSystems = [...new Set(this.points.map(p => p.system))];
+                            this.objects = [...new Set(this.points.map(p => this._loc(p)).filter(Boolean))];
+                            this.allSystems = [...new Set(this.points.map(p => this._sys(p)).filter(Boolean))];
                             this.filteredSystems = this.allSystems;
                             this.filtered = this.points;
                             return;
@@ -102,14 +105,14 @@
                 },
 
                 onObjectChange() {
-                    // фільтруємо системи під обраний об'єкт
+                    // фільтруємо системи під обраний об'єкт/дроп
                     if (this.filterObject) {
                         this.filteredSystems = [...new Set(
                             this.points
-                                .filter(p => p.object === this.filterObject)
-                                .map(p => p.system)
+                                .filter(p => this._loc(p) === this.filterObject)
+                                .map(p => this._sys(p))
+                                .filter(Boolean)
                         )];
-                        // скидаємо систему якщо вона не в списку
                         if (!this.filteredSystems.includes(this.filterSystem)) {
                             this.filterSystem = "";
                         }
@@ -121,8 +124,8 @@
 
                 applyFilters() {
                     this.filtered = this.points.filter(p => {
-                        const matchObj = !this.filterObject || p.object === this.filterObject;
-                        const matchSys = !this.filterSystem || p.system === this.filterSystem;
+                        const matchObj = !this.filterObject || this._loc(p) === this.filterObject;
+                        const matchSys = !this.filterSystem || this._sys(p) === this.filterSystem;
                         const matchId = !this.searchId || String(p.id).includes(this.searchId);
                         return matchObj && matchSys && matchId;
                     });

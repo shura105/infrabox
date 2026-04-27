@@ -488,6 +488,20 @@
       "borderColorAlarm": "#b03030",
       "colorUncert": "#8b949e",
       "borderColorUncert": "#555e68"
+    },
+    {
+      "id": "el_1777230787841",
+      "type": "value",
+      "x": 0.47214285714285714,
+      "y": 0.295,
+      "w": 0.12857142857142856,
+      "h": 0.065,
+      "point_id": 1,
+      "fontSize": 22,
+      "color": "#7eb8f7",
+      "showLabel": true,
+      "label": "CPU",
+      "labelFontSize": 14
     }
   ]
 }

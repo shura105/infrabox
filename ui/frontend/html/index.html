@@ -658,6 +658,10 @@
 </footer>
 
 <script>
+// Per-element memo for gauge data — keyed by el (WeakMap, GC-safe).
+// Bypasses Alpine reactivity, so storing here doesn't trigger re-renders.
+const _gaugeMemo = new WeakMap();
+
 function app() {
     return {
         theme:       localStorage.getItem('ib-theme') || 'dark',
@@ -903,44 +907,67 @@ function app() {
         _gaugeValAngle(mn, mx, v) {
             return 135 + Math.min(1, Math.max(0, (v - mn) / ((mx - mn) || 1))) * 270;
         },
-        _gZones(el) {
+        // Computes ALL gauge-related data for `el` in one pass and memoizes by
+        // (value, quality, limits, colors) signature. Re-rendering bindings hit
+        // the WeakMap cache instead of recomputing 11x per gauge.
+        gaugeData(el) {
             const pt = this.points[String(el.point_id)];
-            const mn=this._ptLim(pt,el,'min'), mx=this._ptLim(pt,el,'max');
-            const cG=el.colorGood||'#56d364', cW=el.colorWarn||'#f0ad4e', cA=el.colorAlarm||'#f47067';
-            const aMin=Math.max(mn,this._ptLim(pt,el,'alarm_min'));
-            const wMin=Math.max(aMin,this._ptLim(pt,el,'warn_min'));
-            const wMax=Math.min(mx,this._ptLim(pt,el,'warn_max'));
-            const aMax=Math.min(mx,this._ptLim(pt,el,'alarm_max'));
-            const raw=[];
-            if(aMin>mn)   raw.push([mn,aMin,cA]);
-            if(wMin>aMin) raw.push([aMin,wMin,cW]);
-            raw.push([wMin,wMax,cG]);
-            if(aMax>wMax) raw.push([wMax,aMax,cW]);
-            if(mx>aMax)   raw.push([aMax,mx,cA]);
-            return raw.map(([f,t,c])=>({
-                d: this._gaugeArcPath(50,56,36,this._gaugeValAngle(mn,mx,f),this._gaugeValAngle(mn,mx,t))||'',
-                c
-            }));
+            const sig = `${pt?.value}|${pt?.quality}|${pt?.unit}|${pt?.min}|${pt?.max}|${pt?.warn_min}|${pt?.warn_max}|${pt?.alarm_min}|${pt?.alarm_max}|${el.min}|${el.max}|${el.warn_min}|${el.warn_max}|${el.alarm_min}|${el.alarm_max}|${el.colorGood}|${el.colorWarn}|${el.colorAlarm}|${el.color}|${el.needleColor}|${el.arcWidth}`;
+            const cached = _gaugeMemo.get(el);
+            if (cached && cached.sig === sig) return cached.data;
+
+            const mn = this._ptLim(pt, el, 'min'),  mx = this._ptLim(pt, el, 'max');
+            const cG = el.colorGood||'#56d364', cW = el.colorWarn||'#f0ad4e', cA = el.colorAlarm||'#f47067';
+            const aMin = Math.max(mn,   this._ptLim(pt, el, 'alarm_min'));
+            const wMin = Math.max(aMin, this._ptLim(pt, el, 'warn_min'));
+            const wMax = Math.min(mx,   this._ptLim(pt, el, 'warn_max'));
+            const aMax = Math.min(mx,   this._ptLim(pt, el, 'alarm_max'));
+            const raw = [];
+            if (aMin > mn)   raw.push([mn, aMin, cA]);
+            if (wMin > aMin) raw.push([aMin, wMin, cW]);
+            raw.push([wMin, wMax, cG]);
+            if (aMax > wMax) raw.push([wMax, aMax, cW]);
+            if (mx > aMax)   raw.push([aMax, mx, cA]);
+
+            const d = ['', '', '', '', ''];
+            const c = ['none', 'none', 'none', 'none', 'none'];
+            for (let i = 0; i < raw.length && i < 5; i++) {
+                d[i] = this._gaugeArcPath(50, 56, 36,
+                    this._gaugeValAngle(mn, mx, raw[i][0]),
+                    this._gaugeValAngle(mn, mx, raw[i][1])) || '';
+                c[i] = raw[i][2];
+            }
+
+            const v = pt ? parseFloat(pt.value) : NaN;
+            const ang = this._gaugeValAngle(mn, mx, isNaN(v) ? mn : v) * Math.PI / 180;
+            const nLen = 36 - (el.arcWidth||10)/2 - 2;
+            const cosA = Math.cos(ang), sinA = Math.sin(ang);
+
+            const q = this.ptQuality(el.point_id);
+            const data = {
+                d, c,
+                nx1: (50 - 5*cosA).toFixed(2),
+                ny1: (56 - 5*sinA).toFixed(2),
+                nx2: (50 + nLen*cosA).toFixed(2),
+                ny2: (56 + nLen*sinA).toFixed(2),
+                needleColor: this._qColor(q, el.needleColor || '#e6edf3'),
+                textColor:   this._qColor(q, el.color       || '#e6edf3'),
+                valueText: pt
+                    ? (isNaN(v) ? '—' : String(parseFloat(v.toFixed(2)))) + (pt.unit ? ' '+pt.unit : '')
+                    : '—',
+            };
+            _gaugeMemo.set(el, { sig, data });
+            return data;
         },
-        gaugeZoneD(el,i)       { return this._gZones(el)[i]?.d||''; },
-        gaugeZoneC(el,i)       { return this._gZones(el)[i]?.c||'none'; },
-        gaugeNeedleCoord(el,i) {
-            const pt=this.points[String(el.point_id)];
-            const mn=this._ptLim(pt,el,'min'), mx=this._ptLim(pt,el,'max');
-            const v=pt?parseFloat(pt.value):NaN;
-            const ang=this._gaugeValAngle(mn,mx,isNaN(v)?mn:v)*Math.PI/180;
-            const nLen=36-(el.arcWidth||10)/2-2;
-            return [(50-5*Math.cos(ang)).toFixed(2),(56-5*Math.sin(ang)).toFixed(2),
-                    (50+nLen*Math.cos(ang)).toFixed(2),(56+nLen*Math.sin(ang)).toFixed(2)][i];
+        gaugeZoneD(el, i)       { return this.gaugeData(el).d[i]; },
+        gaugeZoneC(el, i)       { return this.gaugeData(el).c[i]; },
+        gaugeNeedleCoord(el, i) {
+            const g = this.gaugeData(el);
+            return [g.nx1, g.ny1, g.nx2, g.ny2][i];
         },
-        gaugeNeedleColor(el) { return this._qColor(this.ptQuality(el.point_id),el.needleColor||'#e6edf3'); },
-        gaugeTextColor(el)   { return this._qColor(this.ptQuality(el.point_id),el.color||'#e6edf3'); },
-        gaugeValueText(el) {
-            const pt=this.points[String(el.point_id)];
-            if(!pt) return '—';
-            const v=parseFloat(pt.value);
-            return (isNaN(v)?'—':String(parseFloat(v.toFixed(2))))+(pt.unit?' '+pt.unit:'');
-        },
+        gaugeNeedleColor(el) { return this.gaugeData(el).needleColor; },
+        gaugeTextColor(el)   { return this.gaugeData(el).textColor; },
+        gaugeValueText(el)   { return this.gaugeData(el).valueText; },
         // ── shape SVG helpers ──────────────────────────────────────────────────
         svgEllipse(el) {
             const sw = el.strokeWidth || 0, h = sw / 2;

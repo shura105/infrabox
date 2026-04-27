@@ -19,6 +19,10 @@ from pydantic import BaseModel
 REDIS_HOST = os.environ.get("REDIS_HOST", "infrabox-redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 
+# shared sync Redis client (uses connection pool internally) — avoids creating
+# a fresh socket on every request
+_redis = redis_sync.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
 
 # containers that cannot write their own heartbeat (no Python runtime)
 _PROXY_CONTAINERS = [
@@ -733,31 +737,44 @@ def get_points():
 def get_point_values():
     """Current values from Redis: {point_id: {v, q}} + heartbeat states."""
     try:
-        r = redis_sync.Redis(host="infrabox-redis", port=6379, decode_responses=True)
         pts = _read_points()
-        result = {}
-        # analog/diagnostic values from point:{id} hash
-        for p in pts:
-            pid = p["id"]
-            d = r.hgetall(f"point:{pid}")
-            if d:
-                result[str(pid)] = {"v": d.get("value"), "q": d.get("quality", "INIT")}
-        # heartbeat states: derive from heartbeat:{svc_name} TTL
         with open(SOCKETS_PATH) as f:
             socks_data = json.load(f)
+
+        # pre-build socket_id → [heartbeat points] (avoid O(N²) inner scan)
+        sock_pts = {}
+        for p in pts:
+            if p.get("param") == "heartbeat" and p.get("socket"):
+                sock_pts.setdefault(p["socket"], []).append(p)
+
+        # collect every redis op into one pipeline
+        pipe = _redis.pipeline()
+        pids = []
+        for p in pts:
+            pids.append(p["id"])
+            pipe.hgetall(f"point:{p['id']}")
+        svcs = []
         for node in socks_data:
             for s in (node.get("software") or []):
-                svc_name = s.get("name", "")
-                if not svc_name:
+                name = s.get("name")
+                if not name:
                     continue
-                ttl = r.ttl(f"heartbeat:{svc_name}")
-                alive = ttl > 0
-                for p in pts:
-                    if p.get("socket") == s["id"] and p.get("param") == "heartbeat":
-                        result[str(p["id"])] = {
-                            "v": "1" if alive else "0",
-                            "q": "GOOD" if alive else "NODATA"
-                        }
+                svcs.append((s["id"], name))
+                pipe.ttl(f"heartbeat:{name}")
+        results = pipe.execute()
+
+        n = len(pids)
+        result = {}
+        for pid, d in zip(pids, results[:n]):
+            if d:
+                result[str(pid)] = {"v": d.get("value"), "q": d.get("quality", "INIT")}
+        for (sid, _name), ttl in zip(svcs, results[n:]):
+            alive = ttl > 0
+            for p in sock_pts.get(sid, []):
+                result[str(p["id"])] = {
+                    "v": "1" if alive else "0",
+                    "q": "GOOD" if alive else "NODATA"
+                }
         return result
     except Exception as e:
         raise HTTPException(503, str(e))

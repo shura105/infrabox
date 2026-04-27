@@ -2385,8 +2385,6 @@ function _renderPoints(points) {
     const _inv = (val, set) =>
         val && !set.has(val) ? " style=\"color:#ff7b9c\"" : "";
 
-    let regularHeaderAdded = false;
-
     for (const gkey of allKeys) {
         const gpoints = groups[gkey] || [];
         const isSockGroup = gkey === "sockets";
@@ -2395,17 +2393,11 @@ function _renderPoints(points) {
         const arrow = open ? "▾" : "▸";
         const count = `<span style="color:#8b949e;font-weight:400">(${gpoints.length})</span>`;
 
-        // section col-header
+        // section col-header — only for sockets (different columns)
         if (isSockGroup) {
             const ch = document.createElement("tr");
             ch.className = "pt-col-header";
             ch.innerHTML = `<th>ID</th><th>Вузол</th><th>Сокет</th><th>Назва</th><th>Од.</th><th>min / max</th><th>Deadband</th><th>Архів</th><th></th>`;
-            tbody.appendChild(ch);
-        } else if (!regularHeaderAdded) {
-            regularHeaderAdded = true;
-            const ch = document.createElement("tr");
-            ch.className = "pt-col-header";
-            ch.innerHTML = `<th>ID</th><th>Об'єкт</th><th>Система</th><th>Назва</th><th>Од.</th><th>min / max</th><th>Deadband</th><th>Архів</th><th></th>`;
             tbody.appendChild(ch);
         }
 

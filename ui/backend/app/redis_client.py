@@ -18,28 +18,36 @@ class RedisClient:
         await self._pubsub.subscribe("bus:data")
 
     async def listen(self, batch_interval=0.2):
-        """Collect changed point_ids over batch_interval seconds, then read+yield as one batch."""
+        """Collect changed point_ids over batch_interval seconds, then read+yield as one batch.
+
+        Uses get_message(timeout=...) so flushes happen on a timer even during
+        quiet periods — single update no longer waits for a follow-up message.
+        """
         import asyncio
         pending = set()
-        deadline = asyncio.get_event_loop().time() + batch_interval
 
-        async for msg in self._pubsub.listen():
-            if msg["type"] != "message":
-                continue
-            raw = msg["data"]
-            pending.add(raw.decode() if isinstance(raw, bytes) else str(raw))
+        while True:
+            deadline = asyncio.get_event_loop().time() + batch_interval
+            while True:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    break
+                msg = await self._pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=remaining
+                )
+                if msg is None:
+                    break
+                if msg.get("type") != "message":
+                    continue
+                raw = msg["data"]
+                pending.add(raw.decode() if isinstance(raw, bytes) else str(raw))
 
-            now = asyncio.get_event_loop().time()
-            if now < deadline:
-                continue
-
-            deadline = now + batch_interval
             if not pending:
                 continue
 
-            pipe = self.redis.pipeline()
             ids = list(pending)
             pending.clear()
+            pipe = self.redis.pipeline()
             for pid in ids:
                 pipe.hgetall(f"point:{pid}")
             results = await pipe.execute()
@@ -61,21 +69,25 @@ class RedisClient:
 
     async def get_all_points(self):
         keys = await self.redis.keys("point:*")
+        if not keys:
+            return []
+
+        pipe = self.redis.pipeline()
+        for key in keys:
+            pipe.hgetall(key)
+        results = await pipe.execute()
 
         result = []
-
-        for key in keys:
-            data = await self.redis.hgetall(key)
-
+        for key, data in zip(keys, results):
+            if not data:
+                continue
             decoded = {
-                k.decode(): v.decode()
+                (k.decode() if isinstance(k, bytes) else k):
+                (v.decode() if isinstance(v, bytes) else v)
                 for k, v in data.items()
             }
-
-            # include numeric id from key "point:NNN"
             key_str = key.decode() if isinstance(key, bytes) else key
             decoded['id'] = key_str.split(':', 1)[1]
-
             result.append(decoded)
 
         return result

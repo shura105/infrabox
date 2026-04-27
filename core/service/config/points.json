@@ -13,10 +13,10 @@
     "warn_max": 70.0,
     "alarm_min": 0.0,
     "alarm_max": 90.0,
-    "deadband": 1.0,
+    "deadband": 3.0,
     "interval": 1,
     "onArchive": 1,
-    "archive_interval": 60,
+    "archive_interval": 0,
     "archive_on_change": 1
   },
   {

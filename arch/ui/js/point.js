@@ -68,7 +68,9 @@ function pointApp() {
 
             if (this.points.length === 1) {
                 const p = this.points[0];
-                this.title = `${p.object} / ${p.system} / ${p.pointname} (${p.id})`;
+                const loc = p.object || p.drop || "";
+                const sys = p.system || p.socket || "";
+                this.title = `${loc} / ${sys} / ${p.pointname} (${p.id})`;
             } else {
                 this.title = this.points.map(p => `${p.pointname} (${p.id})`).join(", ");
             }

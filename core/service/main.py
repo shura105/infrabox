@@ -199,6 +199,8 @@ def main():
 
             # --- PROCESS BATCH ---
             passed = 0
+            batch_pipe = r.pipeline()
+            batch_has = False
 
             for point_id, data in updates:
 
@@ -241,12 +243,10 @@ def main():
                     meta["state"] = result["new_state"]
                     meta["last_change_ts"] = result["ts"]
 
-                # --- REDIS WRITE + PUB DATA ---
+                # --- REDIS WRITE + PUB DATA (queued; flushed once after loop) ---
                 key = f"point:{point_id}"
-
-                pipe = r.pipeline()
                 lim = meta["limits"]
-                pipe.hset(key, mapping={
+                batch_pipe.hset(key, mapping={
                     "value": value,
                     "ts": ts,
                     "quality": meta["state"],
@@ -261,15 +261,18 @@ def main():
                     "alarm_min": lim["alarm_min"],
                     "alarm_max": lim["alarm_max"],
                 })
-                pipe.publish("bus:data", point_id)
+                batch_pipe.publish("bus:data", point_id)
 
                 if result:
-                    pipe.publish("bus:event", json.dumps(result))
+                    batch_pipe.publish("bus:event", json.dumps(result))
 
-                pipe.execute()
+                batch_has = True
 
                 # if result:
                 #    log.info(f"[EVENT] {result}")
+
+            if batch_has:
+                batch_pipe.execute()
 
             # --- DESYNC GUARD ---
             if config["system"]["desync_guard"]:
