@@ -154,3 +154,19 @@ tr.selected:hover {
     transition: background 0.15s;
 }
 .back-btn:hover { background: #21262d; }
+
+.table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── responsive (≤ 768px) ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    body { padding: 8px; }
+    header { margin-bottom: 12px; padding-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+    header h1 { font-size: 1.05rem; }
+    .status { font-size: 0.72rem; padding: 2px 5px; }
+    .filters { gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .filters select, .filters input, .filters button { font-size: 0.8rem; padding: 6px 8px; }
+    .filters input { flex: 1; min-width: 100px; }
+    table { font-size: 0.82rem; }
+    th, td { padding: 7px 8px; white-space: nowrap; }
+    th:first-child, td:first-child { width: 28px; padding: 7px 4px; }
+}

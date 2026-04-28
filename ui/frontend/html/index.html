@@ -318,6 +318,27 @@
         .ws-error   { background: #f47067; }
         .ftr-text   { font-size: 11px; color: var(--text-dim); }
         .ftr-right  { margin-left: auto; font-size: 11px; color: var(--text-dim); }
+
+        /* ── responsive (≤ 768px) ──────────────────────────────────────────
+           Compact header so everything fits in a phone viewport. */
+        @media (max-width: 768px) {
+            header { padding: 0 8px; gap: 6px; }
+            .hdr-sep { display: none; }
+            .hdr-logo { font-size: 0; }
+            .hdr-logo::before { content: "⬡"; font-size: 22px; }
+            .hdr-breadcrumb { flex: 1 1 auto; min-width: 0; }
+            .hdr-screen { font-size: 13px; }
+            .hdr-user .u-name { display: none; }
+            .hdr-user { padding: 4px 6px; gap: 0; }
+            .hdr-clock .date { display: none; }
+            .hdr-clock .time { font-size: 13px; }
+            .hdr-right { gap: 6px; }
+            .btn { padding: 5px 8px; }
+            .btn-menu-label { display: none; }
+            #canvas-area { padding: 6px; }
+            footer { padding: 0 8px; gap: 8px; }
+            .ftr-right { font-size: 10px; }
+        }
     </style>
 </head>
 
@@ -360,9 +381,9 @@
 
         <!-- menu -->
         <div class="settings-wrap" @click.stop>
-            <button class="btn" @click="menuOpen ? (menuOpen=false, menuPage='main') : (menuOpen=true); userMenuOpen=false"
+            <button class="btn btn-menu" @click="menuOpen ? (menuOpen=false, menuPage='main') : (menuOpen=true); userMenuOpen=false"
                     style="gap:5px;display:flex;align-items:center;">
-                ☰ Меню
+                ☰<span class="btn-menu-label"> Меню</span>
             </button>
             <div class="settings-drop" x-show="menuOpen" x-transition style="min-width:200px">
 
@@ -662,10 +683,35 @@
 // Bypasses Alpine reactivity, so storing here doesn't trigger re-renders.
 const _gaugeMemo = new WeakMap();
 
+// Validate JWT in localStorage; clear stale entries so we don't show a
+// previous login (e.g. expired admin token) as still active.
+function _readAuth() {
+    const t = localStorage.getItem('token');
+    const clear = () => ['token','role','display_name','permissions']
+                          .forEach(k => localStorage.removeItem(k));
+    if (!t) return { isLoggedIn: false, role: '', name: '' };
+    try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            clear();
+            return { isLoggedIn: false, role: '', name: '' };
+        }
+        return {
+            isLoggedIn: true,
+            role: localStorage.getItem('role') || payload.role || '',
+            name: localStorage.getItem('display_name') || payload.display_name || '',
+        };
+    } catch {
+        clear();
+        return { isLoggedIn: false, role: '', name: '' };
+    }
+}
+
 function app() {
+    const _auth = _readAuth();
     return {
         theme:       localStorage.getItem('ib-theme') || 'dark',
-        isLoggedIn:  !!localStorage.getItem('token'),
+        isLoggedIn:  _auth.isLoggedIn,
         project:     { screens: [] },
         sc:          null,
         els:         [],
@@ -713,10 +759,37 @@ function app() {
             try {
                 const r = await fetch('/api/pub/project');
                 if (r.ok) this.project = await r.json();
-                const startId = this._rootForDevice(this.deviceType) || 'root';
-                await this.loadScreen(startId);
+                // try mobile/desktop preference, fall back across candidates
+                const candidates = [];
+                const seen = new Set();
+                const add = id => { if (id && !seen.has(id)) { seen.add(id); candidates.push(id); } };
+                add(this._pickStartScreen());
+                add(this._rootForDevice(this.deviceType));
+                add('root');
+                for (const id of candidates) {
+                    if (await this.loadScreen(id)) break;
+                }
             } catch(e) { console.error(e); }
             this.loading = false;
+        },
+
+        _isMobile() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        },
+
+        _pickStartScreen() {
+            // First-load only: pick lowest-screenNum screen matching the
+            // current viewport (mobile vs desktop). After this, user navigates
+            // via buttons; nav code blocks cross-type so we won't drift.
+            const wantMobile = this._isMobile();
+            const dt = this.deviceType;
+            const matches = (this.project.screens || []).filter(s => {
+                const isMob = (s.screenType || 'pc') === 'mobile';
+                return wantMobile === isMob && (s.deviceType || 1) === dt;
+            });
+            if (!matches.length) return null;
+            matches.sort((a, b) => (a.screenNum || 0) - (b.screenNum || 0));
+            return matches[0].id;
         },
 
         _rootForDevice(dt) {
@@ -752,17 +825,18 @@ function app() {
         },
 
         async loadScreen(id) {
-            if (!id) return;
+            if (!id) return false;
             try {
                 const path = this.getScreenPath(id);
                 const r = await fetch(`/api/pub/screens/${path}`);
-                if (!r.ok) return;
+                if (!r.ok) return false;
                 const data = await r.json();
                 this.sc  = data.screen;
                 this.els = data.elements || [];
                 this.screenId = id;
                 this.$nextTick(() => this._updateScale());
-            } catch(e) { console.error(e); }
+                return true;
+            } catch(e) { console.error(e); return false; }
         },
 
         async navigate(targetId) {
@@ -830,9 +904,7 @@ function app() {
         },
 
         userName() {
-            return this.isLoggedIn
-                ? (localStorage.getItem('display_name') || localStorage.getItem('role') || 'user')
-                : 'operator';
+            return this.isLoggedIn ? (_auth.name || _auth.role || 'user') : 'operator';
         },
 
         toggleTheme() {

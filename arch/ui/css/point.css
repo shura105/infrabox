@@ -177,6 +177,24 @@ button.active {
     border-bottom: 1px solid #1e2130;
 }
 
+/* ── responsive (≤ 768px) ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .point-info { gap: 8px; padding: 8px 10px; font-size: 0.75rem; flex-wrap: wrap; margin-bottom: 12px; }
+    .controls { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 12px; }
+    .period { gap: 6px; }
+    .period input { padding: 5px 8px; font-size: 0.78rem; flex: 1; min-width: 130px; }
+    .view-toggle { justify-content: flex-end; }
+    button { padding: 5px 10px; font-size: 0.78rem; }
+    .chart-toolbar { gap: 8px; margin-bottom: 8px; }
+    .point-buttons { margin-left: 0; gap: 5px; }
+    .point-btn-group { padding: 2px 5px 2px 3px; }
+    .chart-container { padding: 8px; height: 280px; margin-bottom: 12px; }
+    .table-container { padding: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-container table { font-size: 0.78rem; }
+    .table-container th, .table-container td { padding: 5px 8px; white-space: nowrap; }
+    .view-toolbar { margin-bottom: 6px; }
+}
+
 @media print {
 
     header,

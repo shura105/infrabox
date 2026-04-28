@@ -1,11 +1,8 @@
 FROM nginx:stable-alpine
 
-# openssl для self-signed cert
-RUN apk add --no-cache openssl
-
-# генеруємо self-signed cert при білді (10 років, CN=infrabox)
-RUN mkdir -p /etc/nginx/ssl && \
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-      -keyout /etc/nginx/ssl/infrabox.key \
-      -out    /etc/nginx/ssl/infrabox.crt \
-      -subj   "/C=UA/O=infrabox/CN=infrabox"
+# Cert and key are mounted at runtime from ./ssl/ — see docker-compose.
+# To regenerate locally:
+#   mkdir -p ssl && cd ssl && \
+#   mkcert -cert-file infrabox.crt -key-file infrabox.key \
+#          homeServ2.local homeServ2 localhost 127.0.0.1 <LAN_IP>
+RUN mkdir -p /etc/nginx/ssl

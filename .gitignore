@@ -29,3 +29,6 @@ core/redis/data/dump.rdb
 core/tools/agent/.env
 infrabox-agent/.env
 ui/data/
+# TLS — environment-specific (each install regenerates with mkcert)
+ui/frontend/ssl/*
+!ui/frontend/ssl/README.md

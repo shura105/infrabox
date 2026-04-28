@@ -41,30 +41,32 @@
         </button>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th></th>
-                <th>ID</th>
-                <th>Pointname</th>
-                <th>Object / Drop</th>
-                <th>System / Socket</th>
-            </tr>
-        </thead>
-        <tbody>
-            <template x-for="p in filtered" :key="p.id">
-                <tr :class="{selected: selected.includes(p.id)}">
-                    <td>
-                        <input type="checkbox" :checked="selected.includes(p.id)" @change="toggleSelect(p.id, $event)">
-                    </td>
-                    <td x-text="p.id"></td>
-                    <td x-text="p.pointname"></td>
-                    <td x-text="p.object || p.drop || ''"></td>
-                    <td x-text="p.system || p.socket || ''"></td>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>ID</th>
+                    <th>Pointname</th>
+                    <th>Object / Drop</th>
+                    <th>System / Socket</th>
                 </tr>
-            </template>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <template x-for="p in filtered" :key="p.id">
+                    <tr :class="{selected: selected.includes(p.id)}">
+                        <td>
+                            <input type="checkbox" :checked="selected.includes(p.id)" @change="toggleSelect(p.id, $event)">
+                        </td>
+                        <td x-text="p.id"></td>
+                        <td x-text="p.pointname"></td>
+                        <td x-text="p.object || p.drop || ''"></td>
+                        <td x-text="p.system || p.socket || ''"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
 
     <script src="js/api.js"></script>
     <script>

@@ -8,5 +8,10 @@
     "id": "res_battary1",
     "name": "Батареї резервного живлення",
     "drop": "homeServ-1"
+  },
+  {
+    "id": "electric",
+    "name": "Електропостачання",
+    "drop": "garageServ1"
   }
 ]
