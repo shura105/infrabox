@@ -211,18 +211,62 @@ function pointApp() {
             const isSingle = this.points.length === 1;
 
             const datasets = this.points.map((p, i) => {
-                const data = this.records[p.id] || [];
-                const isActive = p.id === this.activePointId;
+                const records   = this.records[p.id] || [];
+                const isActive   = p.id === this.activePointId;
+                const isDiscrete = p.type === "discrete";
+                const baseColor  = colors[i];
+
+                // For discrete: glitch (out-of-range) values become null in the
+                // dataset — combined with spanGaps:false this breaks the line
+                // at unreliable moments.
+                let dataPoints, pointBg, pointBorder, pointRad;
+                if (isDiscrete) {
+                    dataPoints = records.map(r => {
+                        const v = r.value;
+                        const valid = (v === 0 || v === 1);
+                        return { x: r.ts * 1000, y: valid ? v : null };
+                    });
+
+                    // Mark transition points around gaps: last valid before
+                    // gap → red, first valid after gap → green, both ~2× size
+                    const baseRad   = isActive ? 2 : 0;
+                    const accentRad = isActive ? 4 : 0;
+                    const bg = [], br = [], rad = [];
+                    for (let k = 0; k < dataPoints.length; k++) {
+                        const cur  = dataPoints[k].y;
+                        const prev = k > 0 ? dataPoints[k-1].y : undefined;
+                        const next = k < dataPoints.length - 1 ? dataPoints[k+1].y : undefined;
+                        if (cur == null) {
+                            bg.push(baseColor); br.push(baseColor); rad.push(0);
+                        } else if (next === null && isActive) {
+                            bg.push("#f47067"); br.push("#f47067"); rad.push(accentRad);
+                        } else if (prev === null && isActive) {
+                            bg.push("#56d364"); br.push("#56d364"); rad.push(accentRad);
+                        } else {
+                            bg.push(baseColor); br.push(baseColor); rad.push(baseRad);
+                        }
+                    }
+                    pointBg = bg; pointBorder = br; pointRad = rad;
+                } else {
+                    dataPoints = records.map(r => ({ x: r.ts * 1000, y: r.value ?? null }));
+                    pointBg = baseColor;
+                    pointBorder = baseColor;
+                    pointRad = isActive ? 0.75 : 0;
+                }
+
                 return {
                     label: p.pointname,
-                    data: data.map(r => ({ x: r.ts * 1000, y: r.value ?? null })),
+                    data: dataPoints,
                     spanGaps: false,
-                    borderColor: colors[i],
+                    borderColor: baseColor,
                     backgroundColor: isSingle ? "rgba(126,184,247,0.08)" : "transparent",
                     borderWidth: isActive ? 2 : 1,
-                    pointRadius: isActive ? 0.75 : 0,
+                    pointBackgroundColor: pointBg,
+                    pointBorderColor: pointBorder,
+                    pointRadius: pointRad,
                     pointHoverRadius: isActive ? 4 : 0,
-                    tension: 0.2,
+                    stepped: isDiscrete ? "before" : false,
+                    tension:  isDiscrete ? 0 : 0.2,
                     order: isActive ? 0 : 1,
                     yAxisID: `y_${p.id}`,
                     hidden: !this.pointVisible[p.id]
@@ -230,13 +274,15 @@ function pointApp() {
             });
 
             const annotations = {};
-            if (isSingle && this.points[0]) {
+
+            // Analog single-point: classic warn/alarm horizontal bands
+            if (isSingle && this.points[0] && this.points[0].type !== "discrete") {
                 const p = this.points[0];
                 annotations.alarmHigh = { type: "box", yMin: p.alarm_max, yMax: p.max, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
-                annotations.warnHigh = { type: "box", yMin: p.warn_max, yMax: p.alarm_max, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
-                annotations.good = { type: "box", yMin: p.warn_min, yMax: p.warn_max, backgroundColor: "rgba(60,200,60,0.08)", borderWidth: 0 };
-                annotations.warnLow = { type: "box", yMin: p.alarm_min, yMax: p.warn_min, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
-                annotations.alarmLow = { type: "box", yMin: p.min, yMax: p.alarm_min, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
+                annotations.warnHigh  = { type: "box", yMin: p.warn_max, yMax: p.alarm_max, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
+                annotations.good      = { type: "box", yMin: p.warn_min, yMax: p.warn_max, backgroundColor: "rgba(60,200,60,0.08)", borderWidth: 0 };
+                annotations.warnLow   = { type: "box", yMin: p.alarm_min, yMax: p.warn_min, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
+                annotations.alarmLow  = { type: "box", yMin: p.min, yMax: p.alarm_min, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
             }
 
             if (generation !== _renderGeneration) return;
@@ -279,16 +325,44 @@ function pointApp() {
             ].filter(Boolean);
 
             orderedPoints.forEach(p => {
-                const isActive = p.id === this.activePointId;
-                scales[`y_${p.id}`] = {
-                    display: this.pointVisible[p.id],
+                const isActive   = p.id === this.activePointId;
+                const isDiscrete = p.type === "discrete";
+                const tickColor  = isActive ? "#4caf50" : "#6b7280";
 
-                    position: "left",
-                    ticks: { color: isActive ? "#4caf50" : "#6b7280" },
-                    border: { color: isActive ? "#4caf50" : "#4b5563" },
-                    grid: { color: "#1e2130", drawOnChartArea: isActive },
-                    ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
-                };
+                if (isDiscrete) {
+                    // narrow range with only 0/1 ticks visible — glitches are
+                    // shown as vertical line markers (annotations), not values
+                    scales[`y_${p.id}`] = {
+                        display: this.pointVisible[p.id],
+                        position: "left",
+                        min: -0.15, max: 1.15,
+                        ticks: {
+                            color: tickColor,
+                            stepSize: 1,
+                            autoSkip: false,
+                            callback: function(value) {
+                                if (value === 0) return p.label_0 || "0";
+                                if (value === 1) return p.label_1 || "1";
+                                return "";
+                            }
+                        },
+                        afterBuildTicks: function(axis) {
+                            // keep only the {0, 1} ticks
+                            axis.ticks = axis.ticks.filter(t => t.value === 0 || t.value === 1);
+                        },
+                        border: { color: isActive ? "#4caf50" : "#4b5563" },
+                        grid:   { color: "#1e2130", drawOnChartArea: isActive },
+                    };
+                } else {
+                    scales[`y_${p.id}`] = {
+                        display: this.pointVisible[p.id],
+                        position: "left",
+                        ticks:  { color: tickColor },
+                        border: { color: isActive ? "#4caf50" : "#4b5563" },
+                        grid:   { color: "#1e2130", drawOnChartArea: isActive },
+                        ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
+                    };
+                }
             });
 
             const ctx = document.getElementById("pointChart").getContext("2d");
@@ -304,6 +378,21 @@ function pointApp() {
                     layout: { padding: { top: 16 } },
                     plugins: {
                         legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const p = self.points[ctx.datasetIndex];
+                                    const v = ctx.parsed.y;
+                                    if (p && p.type === "discrete") {
+                                        if (v === 0) return `${p.pointname}: ${p.label_0 || "0"}`;
+                                        if (v === 1) return `${p.pointname}: ${p.label_1 || "1"}`;
+                                        return `${p.pointname}: ${v} (UNCERT)`;
+                                    }
+                                    const unit = p?.unit ? ` ${p.unit}` : "";
+                                    return `${p?.pointname || ""}: ${v}${unit}`;
+                                }
+                            }
+                        },
                         zoom: {
                             zoom: {
                                 wheel: { enabled: true },

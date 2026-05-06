@@ -30,29 +30,21 @@ def load_points():
 
     for p in points:
         pid = p["id"]
+        ptype = p.get("type", "analog")
         socket = p.get("socket", "")
         # for diagnostic heartbeat points: derive hb_service from sockets.json
         hb_service = p.get("hb_service") or (
             sock_svc.get(socket, "") if p.get("param") == "heartbeat" else ""
         )
 
-        meta_cache[pid] = {
+        meta = {
+            "type": ptype,
             "object": p.get("object") or OBJECT_DEFAULT,
             "drop": p.get("drop", ""),
             "system": p.get("system", socket),
             "pointname": p["pointname"],
             "id": p["id"],
             "unit": p.get("unit", ""),
-
-            "limits": {
-                "min": p["min"],
-                "max": p["max"],
-                "warn_min": p["warn_min"],
-                "warn_max": p["warn_max"],
-                "alarm_min": p["alarm_min"],
-                "alarm_max": p["alarm_max"],
-            },
-
             "deadband": p.get("deadband", 0),
             "hb_service": hb_service,
             "last_value": None,
@@ -60,5 +52,39 @@ def load_points():
             "last_change_ts": 0,
             "last_update_ts": 0
         }
+
+        if ptype == "discrete":
+            # discrete signals: 0/1 only — synthetic limits so the rest of the
+            # pipeline (redis writes, deadband checks) keeps working uniformly
+            meta["limits"] = {
+                "min": 0, "max": 1,
+                "warn_min": 0, "warn_max": 1,
+                "alarm_min": 0, "alarm_max": 1,
+            }
+            meta["normal_value"] = int(p.get("normal_value", 0))
+            meta["severity"]     = p.get("severity", "none")
+            meta["label_0"]      = p.get("label_0", "")
+            meta["label_1"]      = p.get("label_1", "")
+        elif ptype == "calculated":
+            meta["formula"] = p.get("formula", "")
+            meta["limits"] = {
+                "min":       p.get("min", 0),
+                "max":       p.get("max", 100),
+                "warn_min":  p.get("warn_min", 0),
+                "warn_max":  p.get("warn_max", 100),
+                "alarm_min": p.get("alarm_min", 0),
+                "alarm_max": p.get("alarm_max", 100),
+            }
+        else:
+            meta["limits"] = {
+                "min":       p.get("min", 0),
+                "max":       p.get("max", 100),
+                "warn_min":  p.get("warn_min", 0),
+                "warn_max":  p.get("warn_max", 100),
+                "alarm_min": p.get("alarm_min", 0),
+                "alarm_max": p.get("alarm_max", 100),
+            }
+
+        meta_cache[pid] = meta
 
     return meta_cache

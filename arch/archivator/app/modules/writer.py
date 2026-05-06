@@ -47,6 +47,10 @@ class Writer:
         if meta.get("onArchive", 1) == 0:
             return False
 
+        # discrete: archive every transition only — no deadband, no interval
+        if meta.get("type") == "discrete":
+            return prev_value is None or value != prev_value
+
         archive_on_change = meta.get("archive_on_change", 1)
         archive_interval = meta.get("archive_interval", 0)
         deadband = meta.get("deadband", 0)
@@ -178,6 +182,10 @@ class Writer:
             now = time.time()
             for point_id, meta in self.points_meta.items():
                 if meta.get("onArchive", 1) == 0:
+                    continue
+
+                # discrete: stable state during silence is normal — no gap fill
+                if meta.get("type") == "discrete":
                     continue
 
                 interval = meta.get("interval", 60)

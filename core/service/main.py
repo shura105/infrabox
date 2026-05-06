@@ -1,4 +1,6 @@
 import json
+import math
+import re
 import time
 from threading import Lock
 
@@ -220,11 +222,15 @@ def main():
 
                 meta["last_update_ts"] = int(time.time() * 1000)
 
-                # --- DEADBAND ---
+                # --- DEADBAND / discrete change-only ---
                 deadband = meta.get("deadband", 0)
                 last_value = meta.get("last_value")
 
-                if last_value is not None and deadband > 0:
+                if meta.get("type") == "discrete":
+                    # discrete: write only on transitions (no deadband concept)
+                    if last_value is not None and value == last_value:
+                        continue
+                elif last_value is not None and deadband > 0:
                     if abs(value - last_value) < deadband:
                         continue
 
@@ -246,10 +252,11 @@ def main():
                 # --- REDIS WRITE + PUB DATA (queued; flushed once after loop) ---
                 key = f"point:{point_id}"
                 lim = meta["limits"]
-                batch_pipe.hset(key, mapping={
+                mapping = {
                     "value": value,
                     "ts": ts,
                     "quality": meta["state"],
+                    "type": meta.get("type", "analog"),
                     "object": meta["object"],
                     "system": meta["system"],
                     "pointname": meta["pointname"],
@@ -260,7 +267,13 @@ def main():
                     "warn_max":  lim["warn_max"],
                     "alarm_min": lim["alarm_min"],
                     "alarm_max": lim["alarm_max"],
-                })
+                }
+                if meta.get("type") == "discrete":
+                    mapping["label_0"]      = meta.get("label_0", "")
+                    mapping["label_1"]      = meta.get("label_1", "")
+                    mapping["normal_value"] = meta.get("normal_value", 0)
+                    mapping["severity"]     = meta.get("severity", "none")
+                batch_pipe.hset(key, mapping=mapping)
                 batch_pipe.publish("bus:data", point_id)
 
                 if result:
@@ -274,6 +287,88 @@ def main():
             if batch_has:
                 batch_pipe.execute()
 
+            # --- CALCULATED POINTS ---
+            _CALC_NS = {
+                "__builtins__": {},
+                "sin": math.sin,  "cos": math.cos,  "tan": math.tan,
+                "asin": math.asin,"acos": math.acos,"atan": math.atan,"atan2": math.atan2,
+                "sqrt": math.sqrt,"log": math.log,  "log10": math.log10,"log2": math.log2,
+                "exp": math.exp,  "pow": math.pow,  "abs": abs,
+                "round": round,   "floor": math.floor,"ceil": math.ceil,
+                "min": min,       "max": max,
+                "pi": math.pi,    "e": math.e,
+                "True": True,     "False": False,
+            }
+            _QRANK = {"GOOD": 0, "INIT": 1, "WARN": 2, "ALARM": 3}
+            now_ms_c = int(time.time() * 1000)
+            calc_pipe = r.pipeline()
+            calc_has  = False
+
+            for c_id, c_meta in meta_cache.items():
+                if c_meta.get("type") != "calculated":
+                    continue
+                formula = c_meta.get("formula", "").strip()
+                if not formula:
+                    continue
+
+                refs = [int(m) for m in re.findall(r'\$(\d+)', formula)]
+                worst_q = "GOOD"
+                valid   = True
+                for ref_id in set(refs):
+                    rm = meta_cache.get(ref_id)
+                    rq = rm.get("state", "NODATA") if rm else "NODATA"
+                    rv = rm.get("last_value")      if rm else None
+                    if rv is None or rq in ("UNCERT", "NODATA"):
+                        valid = False; break
+                    if _QRANK.get(rq, 3) > _QRANK.get(worst_q, 0):
+                        worst_q = rq
+
+                if not valid:
+                    new_val = None
+                    new_q   = "UNCERT"
+                else:
+                    try:
+                        expr = re.sub(
+                            r'\$(\d+)',
+                            lambda m: str(float(meta_cache[int(m.group(1))]["last_value"])),
+                            formula
+                        )
+                        if "__" in expr:
+                            continue
+                        result = eval(expr, _CALC_NS, {})
+                        new_val = round(float(result), 6)
+                        new_q   = worst_q
+                    except Exception:
+                        new_val = None
+                        new_q   = "UNCERT"
+
+                if new_val == c_meta.get("last_value") and new_q == c_meta.get("state"):
+                    continue
+
+                c_meta["last_value"]     = new_val
+                c_meta["state"]          = new_q
+                c_meta["last_update_ts"] = now_ms_c
+
+                lim = c_meta["limits"]
+                calc_pipe.hset(f"point:{c_id}", mapping={
+                    "value":     str(new_val) if new_val is not None else "",
+                    "ts":        str(now_ms_c),
+                    "quality":   new_q,
+                    "type":      "calculated",
+                    "object":    c_meta["object"],
+                    "system":    c_meta["system"],
+                    "pointname": c_meta["pointname"],
+                    "unit":      c_meta.get("unit", ""),
+                    "min":       lim["min"],  "max":       lim["max"],
+                    "warn_min":  lim["warn_min"], "warn_max":  lim["warn_max"],
+                    "alarm_min": lim["alarm_min"], "alarm_max": lim["alarm_max"],
+                })
+                calc_pipe.publish("bus:data", c_id)
+                calc_has = True
+
+            if calc_has:
+                calc_pipe.execute()
+
             # --- DESYNC GUARD ---
             if config["system"]["desync_guard"]:
                 now_ms = int(time.time() * 1000)
@@ -285,6 +380,10 @@ def main():
                         continue
 
                     if meta["state"] == "NODATA":
+                        continue
+
+                    # discrete and calculated signals are not MQTT-driven
+                    if meta.get("type") in ("discrete", "calculated"):
                         continue
 
                     if now_ms - meta["last_update_ts"] > timeout:

@@ -67,6 +67,15 @@
       "screenType": "render",
       "screenNum": 2,
       "deviceType": 2
+    },
+    {
+      "id": "M3",
+      "title": "Тест SVG",
+      "x": 480,
+      "y": 300,
+      "screenType": "mobile",
+      "screenNum": 3,
+      "deviceType": 1
     }
   ],
   "decos": [
@@ -122,7 +131,7 @@
       "x": 460,
       "y": 40,
       "w": 200,
-      "h": 260,
+      "h": 340,
       "fill": "rgba(30,40,60,0.5)",
       "borderColor": "#334",
       "borderWidth": 2,

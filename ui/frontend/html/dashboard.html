@@ -204,6 +204,15 @@ function renderTable() {
 
     tbody.innerHTML = rows.map(p => {
         const q = qInfo(p.quality);
+        // discrete: show label_0/label_1 if set, no unit
+        let valueText = p.value;
+        let unitText  = p.unit;
+        if (p.type === "discrete") {
+            const v = parseInt(p.value);
+            if (v === 0) valueText = p.label_0 || "0";
+            else if (v === 1) valueText = p.label_1 || "1";
+            unitText = "";
+        }
         return `<tr>
             <td class="sys-cell" style="text-align:right">${esc(p.id)}</td>
             <td>
@@ -211,8 +220,8 @@ function renderTable() {
                 <span class="sys-cell"> / ${esc(p.system)}</span>
             </td>
             <td class="name-cell">${esc(p.pointname)}</td>
-            <td class="value-cell">${esc(p.value)}</td>
-            <td class="unit-cell">${esc(p.unit)}</td>
+            <td class="value-cell">${esc(valueText)}</td>
+            <td class="unit-cell">${esc(unitText)}</td>
             <td>
                 <div class="q-cell">
                     <span class="q-dot ${q.dot}"></span>

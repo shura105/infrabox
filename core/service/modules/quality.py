@@ -14,13 +14,32 @@ def classify(value, limits):
     return "GOOD"
 
 
+def classify_discrete(value, meta):
+    """Discrete state: a valid discrete signal must be exactly 0 or 1.
+    Anything else (2, -1, 0.5…) is UNCERT — the source produced an invalid
+    value. For valid 0/1 — GOOD when matches normal_value, ALARM/WARN per
+    severity. severity=='none' is always GOOD (operational states like motor
+    on/off — no alarming concept)."""
+    if value != 0 and value != 1:
+        return "UNCERT"
+    severity = meta.get("severity", "none")
+    if severity == "none":
+        return "GOOD"
+    normal = int(meta.get("normal_value", 0))
+    return "GOOD" if int(value) == normal else (
+        "ALARM" if severity == "alarm" else "WARN"
+    )
+
+
 def process_quality(point_id, value, meta, config):
     now = int(time.time() * 1000)
 
-    limits = meta["limits"]
     old_state = meta["state"]
 
-    new_state = classify(value, limits)
+    if meta.get("type") == "discrete":
+        new_state = classify_discrete(value, meta)
+    else:
+        new_state = classify(value, meta["limits"])
 
     recovery_time = config["system"]["quality"]["recovery_time_ms"]
 

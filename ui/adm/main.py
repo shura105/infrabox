@@ -802,10 +802,35 @@ class PointIn(BaseModel):
     onArchive: int = 1
     archive_interval: int = 0
     archive_on_change: int = 1
+    # discrete-only fields
+    normal_value: int = 0
+    severity:     str = "none"   # "none" | "warn" | "alarm"
+    label_0:      str = ""
+    label_1:      str = ""
+    # calculated-only fields
+    formula:      str = ""
+
+
+_ANALOG_ONLY     = {"unit", "min", "max", "warn_min", "warn_max",
+                    "alarm_min", "alarm_max", "deadband",
+                    "archive_on_change", "archive_interval", "interval"}
+_DISCRETE_ONLY   = {"normal_value", "severity", "label_0", "label_1"}
+_CALCULATED_ONLY = {"formula"}
 
 
 def _point_dict(p: PointIn) -> dict:
-    return {k: v for k, v in p.model_dump().items() if v != ""}
+    d = {k: v for k, v in p.model_dump().items() if v != ""}
+    t = d.get("type", "analog")
+    if t == "discrete":
+        for k in _ANALOG_ONLY | _CALCULATED_ONLY:
+            d.pop(k, None)
+    elif t == "calculated":
+        for k in _DISCRETE_ONLY:
+            d.pop(k, None)
+    else:
+        for k in _DISCRETE_ONLY | _CALCULATED_ONLY:
+            d.pop(k, None)
+    return d
 
 
 @app.post("/points")

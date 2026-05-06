@@ -52,9 +52,13 @@
 
         /* ── left panel (elements mode) ── */
         .palette{width:154px;flex-shrink:0;background:#161b22;border-right:1px solid #30363d;padding:10px 8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto}
-        .pal-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;padding:0 2px}
+        .pal-title{font-size:13px;color:#58a6ff;font-weight:600;margin-bottom:4px;padding:3px 4px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;border-radius:4px}
+        .pal-title:hover{color:#79c0ff;background:#21262d}
+        .pal-title-arrow{font-size:10px;transition:transform .15s;display:inline-block;color:#8b949e}
+        .pal-title.collapsed .pal-title-arrow{transform:rotate(-90deg)}
         .pal-group{display:flex;flex-direction:column;gap:4px}
-        .pal-group+.pal-group{margin-top:8px}
+        .pal-group+.pal-group{margin-top:6px}
+        .pal-items{display:flex;flex-direction:column;gap:4px}
         .pal-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#1c2128;border:1px solid #30363d;border-radius:6px;cursor:grab;user-select:none;transition:background .12s,border-color .12s}
         .pal-item:hover{background:#21262d;border-color:#58a6ff;color:#58a6ff}
         .pal-item:active{cursor:grabbing;opacity:.7}
@@ -460,13 +464,20 @@
             <div class="palette">
                 <template x-for="group in paletteGroups" :key="group.group">
                     <div class="pal-group">
-                        <div class="pal-title" x-text="group.group"></div>
-                        <template x-for="item in group.items" :key="item.type">
-                            <div class="pal-item" draggable="true" @dragstart="palDrag($event,item.type)">
-                                <span class="pal-icon" x-text="item.icon"></span>
-                                <span x-text="item.label"></span>
-                            </div>
-                        </template>
+                        <div class="pal-title" :class="{ collapsed: !isPalOpen(group.group) }"
+                             @click="togglePalGroup(group.group)">
+                            <span class="pal-title-arrow">▾</span>
+                            <span x-text="group.group" style="flex:1"></span>
+                            <span style="font-size:10px;color:#484f58" x-text="group.items.length"></span>
+                        </div>
+                        <div class="pal-items" x-show="isPalOpen(group.group)">
+                            <template x-for="item in group.items" :key="item.type">
+                                <div class="pal-item" draggable="true" @dragstart="palDrag($event,item.type)">
+                                    <span class="pal-icon" x-text="item.icon"></span>
+                                    <span x-text="item.label"></span>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -481,7 +492,7 @@
                          @click.self="selectEl(null)">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.type==='group_box'?2:3};`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='line'||el.type==='arrow'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
                                 <template x-if="el.type==='group_box'">
                                     <div style="position:absolute;inset:0">
@@ -585,6 +596,33 @@
                                          x-html="cGaugeSVGHtml(el)">
                                     </div>
                                 </template>
+
+                                <!-- bistable: pump / motor / valve / relay / reed / optical / image -->
+                                <template x-if="el.type && el.type.startsWith('bi_')">
+                                    <div class="r-bistable" style="position:absolute;inset:0">
+                                        <div :style="`position:absolute;inset:0;border:${el.borderWidth||0}px solid ${el.colorBorder||'#8b949e'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${el.type==='bi_image' ? biImageBgStyle(biImagePreview(el)) : ''}`"
+                                             x-html="el.type==='bi_image' ? '' : bistableSvgPreview(el)"></div>
+                                        <div x-show="el.showLabel && bistableLabel(el)"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="bistableLabel(el)"></div>
+                                    </div>
+                                </template>
+
+                                <!-- calc_box: formula-driven calculated element -->
+                                <template x-if="el.type === 'calc_box'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div :style="`position:absolute;inset:0;border:${el.borderWidth||0}px solid ${el.colorBorder||'#58a6ff'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(el.imageGood || el.imageWarn || el.imageAlarm || el.imageUncert || el.imageInit || '')}`">
+                                            <template x-if="!el.imageGood && !el.imageWarn && !el.imageAlarm && !el.imageUncert && !el.imageInit">
+                                                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                                    <span style="font-size:20px;color:#8b949e">∑</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label || 'Розрахунок'"></div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -631,21 +669,41 @@
                 <template x-if="sel !== null">
                     <div>
                         <div class="pr-title" x-text="typeName(selEl.type)"></div>
-                        <div class="pr2">
+                        <!-- endpoint coords for line/arrow (replaces X/Y/W/H/Scale) -->
+                        <template x-if="selEl.type==='line' || selEl.type==='arrow'">
+                            <div>
+                                <div class="pr2">
+                                    <div><label>X1 (px)</label><input type="number" :value="epPx(selEl,'start','x')" @change="setEndpointPx(selEl,'start','x',+$event.target.value)" min="0" :max="sc.width"></div>
+                                    <div><label>Y1 (px)</label><input type="number" :value="epPx(selEl,'start','y')" @change="setEndpointPx(selEl,'start','y',+$event.target.value)" min="0" :max="sc.height"></div>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>X2 (px)</label><input type="number" :value="epPx(selEl,'end','x')" @change="setEndpointPx(selEl,'end','x',+$event.target.value)" min="0" :max="sc.width"></div>
+                                    <div><label>Y2 (px)</label><input type="number" :value="epPx(selEl,'end','y')" @change="setEndpointPx(selEl,'end','y',+$event.target.value)" min="0" :max="sc.height"></div>
+                                </div>
+                                <div class="pr-sep"></div>
+                            </div>
+                        </template>
+                        <div class="pr2" x-show="selEl.type!=='line' && selEl.type!=='arrow'">
                             <div><label>X</label><input type="number" :value="Math.round(selEl.x*sc.width)" @change="selEl.x=+$event.target.value/sc.width"></div>
                             <div><label>Y</label><input type="number" :value="Math.round(selEl.y*sc.height)" @change="selEl.y=+$event.target.value/sc.height"></div>
                         </div>
-                        <div class="pr2">
+                        <div class="pr2" x-show="selEl.type!=='line' && selEl.type!=='arrow'">
                             <div>
                                 <label x-text="selEl.type==='indicator'?'Розмір':'W'"></label>
                                 <input type="number" :value="Math.round(selEl.w*sc.width)"
-                                       @change="selEl.w=+$event.target.value/sc.width; if(selEl.type==='indicator')selEl.h=selEl.w">
+                                       @change="setElW(+$event.target.value)">
                             </div>
                             <div x-show="selEl.type!=='indicator'">
                                 <label>H</label>
                                 <input type="number" :value="Math.round(selEl.h*sc.height)"
-                                       @change="selEl.h=+$event.target.value/sc.height">
+                                       @change="setElH(+$event.target.value)">
                             </div>
+                        </div>
+                        <div class="pr" x-show="selEl.type!=='line' && selEl.type!=='arrow'">
+                            <label>Масштаб (%) — пропорційно</label>
+                            <input type="number" x-model.number="selEl.scale" min="1" max="1000" step="5"
+                                   title="Розмір відносно базового (фіксується при перетягуванні елемента та при ручній зміні W/H)"
+                                   @change="applyScale()">
                         </div>
                         <div class="pr-sep"></div>
                         <template x-if="selEl.type==='label'">
@@ -763,17 +821,8 @@
                         </template>
                         <template x-if="selEl.type==='line'">
                             <div>
-                                <div style="font-size:11px;color:#8b949e;margin-bottom:8px">Початок і кінець (0–100%)</div>
-                                <div class="pr2">
-                                    <div><label>X1 %</label><input type="number" x-model.number="selEl.x1" min="0" max="100"></div>
-                                    <div><label>Y1 %</label><input type="number" x-model.number="selEl.y1" min="0" max="100"></div>
-                                </div>
-                                <div class="pr2">
-                                    <div><label>X2 %</label><input type="number" x-model.number="selEl.x2" min="0" max="100"></div>
-                                    <div><label>Y2 %</label><input type="number" x-model.number="selEl.y2" min="0" max="100"></div>
-                                </div>
                                 <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color"></div>
-                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="20"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="100"></div>
                                 <div class="pr-inline">
                                     <input type="checkbox" x-model="selEl.dashed" id="lineDash">
                                     <label for="lineDash">Пунктир</label>
@@ -793,18 +842,9 @@
                         </template>
                         <template x-if="selEl.type==='arrow'">
                             <div>
-                                <div style="font-size:11px;color:#8b949e;margin-bottom:8px">Початок і кінець (0–100%)</div>
-                                <div class="pr2">
-                                    <div><label>X1 %</label><input type="number" x-model.number="selEl.x1" min="0" max="100"></div>
-                                    <div><label>Y1 %</label><input type="number" x-model.number="selEl.y1" min="0" max="100"></div>
-                                </div>
-                                <div class="pr2">
-                                    <div><label>X2 %</label><input type="number" x-model.number="selEl.x2" min="0" max="100"></div>
-                                    <div><label>Y2 %</label><input type="number" x-model.number="selEl.y2" min="0" max="100"></div>
-                                </div>
                                 <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color"></div>
-                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="20"></div>
-                                <div class="pr"><label>Розмір наконечника</label><input type="number" x-model.number="selEl.arrowSize" min="4" max="40"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="100"></div>
+                                <div class="pr"><label>Розмір наконечника</label><input type="number" x-model.number="selEl.arrowSize" min="4" max="100"></div>
                                 <div class="pr-inline">
                                     <input type="checkbox" x-model="selEl.dashed" id="arrowDash">
                                     <label for="arrowDash">Пунктир</label>
@@ -971,6 +1011,161 @@
                                 <div class="pr" x-show="selEl.showValue"><label>Розмір шрифту</label><input type="number" x-model.number="selEl.fontSize" min="8" max="60"></div>
                             </div>
                         </template>
+
+                        <!-- Bistable: pump / motor / valve / relay / reed / optical -->
+                        <template x-if="selEl.type && selEl.type.startsWith('bi_')">
+                            <div>
+                                <div class="pr">
+                                    <label>Дискретна точка</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void discretePoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in discretePoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+'/'+(p.system||'')+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="discretePoints.length === 0" style="font-size:11px;color:#f0ad4e;padding:4px 0">
+                                    Немає дискретних точок — створіть у адмінці (Параметри → + Додати, тип "Дискретний").
+                                </div>
+                                <div class="pr-sep"></div>
+
+                                <!-- bi_image: 4 image slots per state -->
+                                <template x-if="selEl.type === 'bi_image'">
+                                    <div>
+                                        <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Зображення для станів (SVG / PNG)</div>
+                                        <template x-for="slot in [
+                                            { key:'imageOff',    label:'OFF (стан 0)' },
+                                            { key:'imageOn',     label:'ON (стан 1)' },
+                                            { key:'imageAlarm',  label:'ALARM' },
+                                            { key:'imageUncert', label:'UNCERT / NODATA' }
+                                        ]" :key="slot.key">
+                                            <div class="pr">
+                                                <label x-text="slot.label"></label>
+                                                <div style="display:flex;gap:4px;align-items:center">
+                                                    <label class="btn" style="flex:1;text-align:center;cursor:pointer">
+                                                        <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
+                                                        <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
+                                                               @change="uploadBiImage(slot.key, $event)"
+                                                               style="display:none">
+                                                    </label>
+                                                    <button class="btn btn-red" x-show="selEl[slot.key]"
+                                                            @click="selEl[slot.key]=''" style="padding:3px 8px">✕</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div class="pr-sep"></div>
+                                    </div>
+                                </template>
+
+                                <div class="pr2">
+                                    <div>
+                                        <label>Товщина рамки</label>
+                                        <input type="number" x-model.number="selEl.borderWidth" min="0" max="20">
+                                    </div>
+                                    <div>
+                                        <label>Скруглення (px)</label>
+                                        <input type="number" x-model.number="selEl.borderRadius" min="0" max="100">
+                                    </div>
+                                </div>
+                                <div class="pr">
+                                    <label>Колір</label>
+                                    <select x-model="selBiColor"
+                                            x-effect="if (!bistableColorOptions.find(o => o.value === selBiColor)) selBiColor = bistableColorOptions[0].value">
+                                        <template x-for="opt in bistableColorOptions" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr">
+                                    <label>Значення</label>
+                                    <input type="color"
+                                           :value="selEl[selBiColor] || '#888888'"
+                                           @input="selEl[selBiColor] = $event.target.value">
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="biLblCb"><label for="biLblCb">Показати підпис</label></div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Підпис (порожній — ім'я точки)</label>
+                                    <input type="text" x-model="selEl.label" placeholder="">
+                                </div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Розмір шрифту</label>
+                                    <input type="number" x-model.number="selEl.fontSize" min="8" max="60">
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- calc_box property panel -->
+                        <template x-if="selEl.type === 'calc_box'">
+                            <div>
+                                <div class="pr">
+                                    <label>Розрахунковий параметр</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void calculatedPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in calculatedPoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="calculatedPoints.length === 0" style="font-size:11px;color:#f0ad4e;padding:4px 0">
+                                    Немає розрахункових точок — створіть у адмінці (Параметри → + Додати, тип "Розрахунковий").
+                                </div>
+                                <div style="font-size:11px;color:#8b949e;padding:4px 0 2px">Формула задається в налаштуваннях параметра (Адмінка → Параметри)</div>
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Зображення для станів (SVG / PNG)</div>
+                                <template x-for="slot in [
+                                    { key:'imageGood',   label:'GOOD (норма)' },
+                                    { key:'imageWarn',   label:'WARNING' },
+                                    { key:'imageAlarm',  label:'ALARM' },
+                                    { key:'imageUncert', label:'UNCERT / NODATA' },
+                                    { key:'imageInit',   label:'INIT (запуск)' }
+                                ]" :key="slot.key">
+                                    <div class="pr">
+                                        <label x-text="slot.label"></label>
+                                        <div style="display:flex;gap:4px;align-items:center">
+                                            <label class="btn" style="flex:1;text-align:center;cursor:pointer">
+                                                <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
+                                                <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
+                                                       @change="uploadBiImage(slot.key, $event)"
+                                                       style="display:none">
+                                            </label>
+                                            <button class="btn btn-red" x-show="selEl[slot.key]"
+                                                    @click="selEl[slot.key]=''" style="padding:3px 8px">✕</button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="pr-sep"></div>
+                                <div class="pr2">
+                                    <div>
+                                        <label>Товщина рамки</label>
+                                        <input type="number" x-model.number="selEl.borderWidth" min="0" max="20">
+                                    </div>
+                                    <div>
+                                        <label>Скруглення (px)</label>
+                                        <input type="number" x-model.number="selEl.borderRadius" min="0" max="100">
+                                    </div>
+                                </div>
+                                <div class="pr">
+                                    <label>Колір рамки</label>
+                                    <input type="color" :value="selEl.colorBorder||'#58a6ff'" @input="selEl.colorBorder=$event.target.value">
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="calcLblCb"><label for="calcLblCb">Показати підпис</label></div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Підпис</label>
+                                    <input type="text" x-model="selEl.label" placeholder="">
+                                </div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Розмір шрифту</label>
+                                    <input type="number" x-model.number="selEl.fontSize" min="8" max="60">
+                                </div>
+                            </div>
+                        </template>
+
                         <div class="pr-sep"></div>
                         <button class="btn btn-red" style="width:100%" @click="delEl">🗑 Видалити елемент</button>
                     </div>
@@ -1038,6 +1233,7 @@ function app() {
         selIndQ:      'GOOD',
         selLevelColor:'colorGood',
         selGaugeColor:'colorGood',
+        selBiColor:   'colorOn',
 
         // elements
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
@@ -1073,6 +1269,61 @@ function app() {
         _groupEls: [],       // elements inside dragged group_box (elements mode)
         _epdrag: null,       // { el, point:'start'|'end' } — endpoint drag for line/arrow
 
+        // Cached points list — used to populate point_id selectors (especially
+        // bistable elements which can only bind to type=discrete points).
+        allPoints: [],
+        // Collapsed/expanded state for palette groups (persisted in localStorage)
+        _palOpen: (() => {
+            try { return JSON.parse(localStorage.getItem('ib-pal-open') || '{}'); }
+            catch { return {}; }
+        })(),
+        isPalOpen(g) { return this._palOpen[g] !== false; },     // default open
+        togglePalGroup(g) {
+            this._palOpen[g] = !this.isPalOpen(g);
+            try { localStorage.setItem('ib-pal-open', JSON.stringify(this._palOpen)); } catch {}
+        },
+        get discretePoints() {
+            return this.allPoints.filter(p => p.type === "discrete");
+        },
+        get calculatedPoints() {
+            return this.allPoints.filter(p => p.type === "calculated");
+        },
+        // Severity of the discrete point currently bound to selEl, or null when
+        // unbound. Drives which colour-state options are offered.
+        get _biSeverity() {
+            const pid = this.selEl?.point_id;
+            if (!pid) return null;
+            const p = this.allPoints.find(x => x.id === pid);
+            return p?.severity ?? "none";
+        },
+        get bistableColorOptions() {
+            // bi_image uses uploaded SVGs for state visualization — only the
+            // frame border and label colour are configurable
+            if (this.selEl?.type === 'bi_image') {
+                return [
+                    { value: 'colorBorder', label: '□ Рамка' },
+                    { value: 'color',       label: 'T Текст підпису' },
+                ];
+            }
+            const sev = this._biSeverity;
+            const opts = [
+                { value: 'colorOn',  label: '● Стан ON (1)' },
+                { value: 'colorOff', label: '● Стан OFF (0)' },
+            ];
+            // unbound — show both quality severities so designer can preset all colors
+            if (sev === null) {
+                opts.push({ value: 'colorWarn',  label: '● WARN' });
+                opts.push({ value: 'colorAlarm', label: '● ALARM' });
+            } else {
+                if (sev === 'warn')  opts.push({ value: 'colorWarn',  label: '● WARN' });
+                if (sev === 'alarm') opts.push({ value: 'colorAlarm', label: '● ALARM' });
+            }
+            opts.push({ value: 'colorUncert', label: '● UNCERT / NODATA' });
+            opts.push({ value: 'colorBorder', label: '□ Рамка' });
+            opts.push({ value: 'color',       label: 'T Текст підпису' });
+            return opts;
+        },
+
         paletteGroups: [
             {
                 group: "Вузли системи",
@@ -1104,6 +1355,24 @@ function app() {
                     { type:"gauge",     icon:"⟳", label:"Прилад" },
                 ]
             },
+            {
+                group: "Бістабільні",
+                items: [
+                    { type:"bi_pump",    icon:"⊙", label:"Насос" },
+                    { type:"bi_motor",   icon:"M", label:"Мотор" },
+                    { type:"bi_valve",   icon:"⋈", label:"Засувка" },
+                    { type:"bi_relay",   icon:"⊟", label:"Реле" },
+                    { type:"bi_reed",    icon:"≡", label:"Геркон" },
+                    { type:"bi_optical", icon:"☉", label:"Опт. датчик" },
+                    { type:"bi_image",   icon:"▦", label:"Картинка" },
+                ]
+            },
+            {
+                group: "Розрахункові",
+                items: [
+                    { type:"calc_box", icon:"∑", label:"Розрахунковий" },
+                ]
+            },
         ],
 
         defaults: {
@@ -1126,6 +1395,21 @@ function app() {
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, label:"", labelColor:"#8b949e", labelFontSize:11, showValue:true, fontSize:13, color:"#e6edf3" },
+            // Bistable elements — bound only to discrete signals (type=discrete)
+            bi_pump:    { w:80,  h:80, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            bi_motor:   { w:80,  h:60, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            bi_valve:   { w:100, h:80, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            bi_relay:   { w:100, h:60, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            bi_reed:    { w:100, h:40, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            bi_optical: { w:120, h:50, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3", colorOn:"#56d364", colorOff:"#484f58", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorUncert:"#8b949e", colorBorder:"#8b949e", borderWidth:0, borderRadius:0 },
+            // image-driven bistable: 4 user-uploaded SVG/PNG per state
+            bi_image:   { w:120, h:120, point_id:0, label:"", showLabel:true, fontSize:11, color:"#e6edf3",
+                          colorBorder:"#8b949e", borderWidth:2, borderRadius:8,
+                          imageOn:"", imageOff:"", imageUncert:"", imageAlarm:"" },
+            // calculated element: formula over live point values, SVG images per state
+            calc_box:   { w:120, h:120, point_id:0, formula:"", label:"", showLabel:true, fontSize:11, color:"#e6edf3",
+                          colorBorder:"#58a6ff", borderWidth:2, borderRadius:8,
+                          imageGood:"", imageWarn:"", imageAlarm:"", imageUncert:"", imageInit:"" },
         },
 
         get gridImg() {
@@ -1144,7 +1428,19 @@ function app() {
             return sizes.join(',') || 'auto';
         },
         get selEl()     { return (this._selIdx >= 0 && this._selIdx < this.els.length) ? this.els[this._selIdx] : {}; },
-        selectEl(id)   { this.sel = id ?? null; this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1; this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood'; },
+        selectEl(id) {
+            this.sel = id ?? null;
+            this._selIdx = id ? this.els.findIndex(e => e.id === id) : -1;
+            // back-fill scale fields for legacy elements (treat current size
+            // as the 100% base — user can rescale relative from there)
+            if (this._selIdx >= 0) {
+                const e = this.els[this._selIdx];
+                if (e.baseW == null) e.baseW = e.w;
+                if (e.baseH == null) e.baseH = e.h;
+                if (e.scale == null) e.scale = 100;
+            }
+            this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood';
+        },
         screenType(s)    { return s?.screenType || 'pc'; },
         screenTypeCfg(s) { return this.SCREEN_TYPES[this.screenType(s)] || this.SCREEN_TYPES.pc; },
         screenColor(s)   { return this.screenTypeCfg(s).color; },
@@ -1217,7 +1513,44 @@ function app() {
                     if (this.mode==="elements" && this.sel) this.delEl();
                 }
             });
-            await this.loadProject();
+            // load project and points list in parallel — points needed for
+            // bistable point_id dropdown to show the bound point on first click
+            await Promise.all([this.loadProject(), this.loadAllPoints()]);
+        },
+
+        async loadAllPoints() {
+            try {
+                const res = await fetch("/adm/api/points", { headers: authHeaders() });
+                if (res.ok) this.allPoints = await res.json();
+            } catch(e) { console.error("loadAllPoints:", e); }
+        },
+
+        // Apply selEl.scale (%) to baseW/baseH proportionally. Direct W/H
+        // edits should call setElW/setElH which re-anchor the base.
+        applyScale() {
+            if (this._selIdx < 0) return;
+            const el = this.els[this._selIdx];
+            const k = (el.scale || 100) / 100;
+            if (!(k > 0)) return;
+            if (el.baseW == null) el.baseW = el.w;
+            if (el.baseH == null) el.baseH = el.h;
+            el.w = Math.min(1, Math.max(0.005, el.baseW * k));
+            el.h = Math.min(1, Math.max(0.005, el.baseH * k));
+        },
+        // Direct W/H edits re-anchor the base and reset scale to 100% so the
+        // percentage field always reflects "from current size".
+        setElW(px) {
+            if (this._selIdx < 0) return;
+            const el = this.els[this._selIdx];
+            el.w = px / this.sc.width;
+            if (el.type === 'indicator') el.h = el.w;
+            el.baseW = el.w; el.baseH = el.h; el.scale = 100;
+        },
+        setElH(px) {
+            if (this._selIdx < 0) return;
+            const el = this.els[this._selIdx];
+            el.h = px / this.sc.height;
+            el.baseW = el.w; el.baseH = el.h; el.scale = 100;
         },
 
         setStatus(msg, ok=true) { this.status = { msg, ok }; },
@@ -1238,6 +1571,173 @@ function app() {
         indBorder(el, q) { const [, k] = this._indKeys(q);  return el[k]   || '#555'; },
         setIndFill(el, q, v)   { const [k] = this._indKeys(q);   el[k] = v; },
         setIndBorder(el, q, v) { const [, k] = this._indKeys(q); el[k] = v; },
+
+        // ── bistable helpers ──────────────────────────────────────────────────
+        // Constructor has no live point data — render in OFF state with quality
+        // colours that show what user will see at runtime. Same renderer is
+        // shared by the runtime viewer (index.html) which passes real value/q.
+        bistableSvg(el, value, quality) {
+            // value: 0|1|null  quality: GOOD|WARN|ALARM|UNCERT|NODATA|INIT
+            const isOn = value === 1;
+            const valid = (value === 0 || value === 1);
+            const isAlarm = quality === "ALARM";
+            const isWarn  = quality === "WARN";
+            const noData  = !valid || quality === "NODATA" || quality === "UNCERT" || quality === "INIT";
+
+            // colors from element (with safe fallbacks for legacy elements)
+            const cOn     = el.colorOn     || "#56d364";
+            const cOff    = el.colorOff    || "#484f58";
+            const cWarn   = el.colorWarn   || "#f0ad4e";
+            const cAlarm  = el.colorAlarm  || "#f47067";
+            const cUncert = el.colorUncert || "#8b949e";
+            const cStroke = el.colorBorder || "#8b949e";
+
+            const accent = noData    ? cUncert
+                         : isAlarm   ? cAlarm
+                         : isWarn    ? cWarn
+                         : isOn      ? cOn
+                                     : cOff;
+            const stroke = noData ? cUncert : cStroke;
+            const bg = "#161b22";
+            const pipe = "#6e7681";
+            const dash = noData ? `stroke-dasharray="3,3"` : ``;
+
+            switch (el.type) {
+                case "bi_pump": return `
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <line x1="0" y1="50" x2="18" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        <line x1="82" y1="50" x2="100" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        <circle cx="50" cy="50" r="32" fill="${bg}" stroke="${accent}" stroke-width="3" ${dash}/>
+                        <path d="M50,22 Q70,50 50,78" stroke="${accent}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+                        <path d="M22,50 Q50,30 78,50" stroke="${accent}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+                        <circle cx="50" cy="50" r="4" fill="${accent}"/>
+                    </svg>`;
+
+                case "bi_motor": return `
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <line x1="0" y1="50" x2="22" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        <line x1="78" y1="50" x2="100" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        <rect x="22" y="22" width="56" height="56" rx="6" fill="${bg}" stroke="${accent}" stroke-width="3" ${dash}/>
+                        <text x="50" y="62" text-anchor="middle" fill="${accent}" font-size="34" font-weight="700" font-family="system-ui">M</text>
+                    </svg>`;
+
+                case "bi_valve": {
+                    // butterfly valve — closed position is two filled triangles meeting in center,
+                    // open is two outlines pointing outward
+                    const blade = isOn
+                        ? `<polygon points="20,30 50,50 20,70" fill="none" stroke="${accent}" stroke-width="3"/>
+                           <polygon points="80,30 50,50 80,70" fill="none" stroke="${accent}" stroke-width="3"/>`
+                        : `<polygon points="20,30 50,50 20,70" fill="${accent}" stroke="${accent}" stroke-width="2"/>
+                           <polygon points="80,30 50,50 80,70" fill="${accent}" stroke="${accent}" stroke-width="2"/>`;
+                    return `
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <line x1="0" y1="50" x2="20" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        <line x1="80" y1="50" x2="100" y2="50" stroke="${pipe}" stroke-width="3"/>
+                        ${blade}
+                        <line x1="50" y1="50" x2="50" y2="20" stroke="${accent}" stroke-width="2.5"/>
+                        <rect x="38" y="6" width="24" height="14" rx="2" fill="${bg}" stroke="${accent}" stroke-width="2" ${dash}/>
+                    </svg>`;
+                }
+
+                case "bi_relay": {
+                    // contact line: closed (energized) horizontal, open angled up
+                    const contact = isOn
+                        ? `<line x1="60" y1="35" x2="90" y2="35" stroke="${accent}" stroke-width="3"/>`
+                        : `<line x1="60" y1="35" x2="90" y2="20" stroke="${accent}" stroke-width="3"/>`;
+                    return `
+                    <svg viewBox="0 0 100 60" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <rect x="6" y="20" width="40" height="22" fill="${bg}" stroke="${accent}" stroke-width="2.5" ${dash}/>
+                        <text x="26" y="36" text-anchor="middle" fill="${accent}" font-size="14" font-weight="600" font-family="system-ui">~</text>
+                        <circle cx="60" cy="35" r="3" fill="${accent}"/>
+                        <circle cx="90" cy="35" r="3" fill="${accent}"/>
+                        ${contact}
+                    </svg>`;
+                }
+
+                case "bi_reed": {
+                    // glass tube with two reeds; closed when ON
+                    const reedR = isOn
+                        ? `<line x1="55" y1="20" x2="80" y2="20" stroke="${accent}" stroke-width="3"/>`
+                        : `<line x1="55" y1="20" x2="80" y2="14" stroke="${accent}" stroke-width="3"/>`;
+                    return `
+                    <svg viewBox="0 0 100 40" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <rect x="8" y="6" width="84" height="28" rx="14" fill="${bg}" stroke="${accent}" stroke-width="2.5" ${dash}/>
+                        <line x1="0" y1="20" x2="20" y2="20" stroke="${pipe}" stroke-width="2.5"/>
+                        <line x1="80" y1="20" x2="100" y2="20" stroke="${pipe}" stroke-width="2.5"/>
+                        <line x1="20" y1="20" x2="45" y2="20" stroke="${accent}" stroke-width="3"/>
+                        ${reedR}
+                    </svg>`;
+                }
+
+                case "bi_optical": {
+                    // beam visible when ON (path clear), absent when OFF (blocked)
+                    const beam = isOn
+                        ? `<line x1="22" y1="25" x2="78" y2="25" stroke="${accent}" stroke-width="3" stroke-linecap="round"/>`
+                        : `<line x1="22" y1="25" x2="48" y2="25" stroke="${accent}" stroke-width="2.5" stroke-dasharray="4,4"/>`;
+                    return `
+                    <svg viewBox="0 0 100 50" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+                        <rect x="0"  y="10" width="22" height="30" rx="3" fill="${bg}" stroke="${accent}" stroke-width="2.5" ${dash}/>
+                        <rect x="78" y="10" width="22" height="30" rx="3" fill="${bg}" stroke="${accent}" stroke-width="2.5" ${dash}/>
+                        <circle cx="20" cy="25" r="3" fill="${accent}"/>
+                        <circle cx="80" cy="25" r="3" fill="${accent}"/>
+                        ${beam}
+                    </svg>`;
+                }
+            }
+            return "";
+        },
+        // Constructor preview: pick the state being edited in the colour
+        // dropdown so the user sees colorOn / colorWarn / etc. immediately.
+        // Non-selected elements always show OFF.
+        bistableSvgPreview(el) {
+            let v = 0;
+            let q = el.point_id ? "GOOD" : "NODATA";
+            const isSelected = this._selIdx >= 0 && this.els[this._selIdx]?.id === el.id;
+            if (isSelected) {
+                const sel = this.selBiColor;
+                if      (sel === 'colorOn')     { v = 1; q = "GOOD"; }
+                else if (sel === 'colorOff')    { v = 0; q = "GOOD"; }
+                else if (sel === 'colorWarn')   { v = 1; q = "WARN"; }
+                else if (sel === 'colorAlarm')  { v = 1; q = "ALARM"; }
+                else if (sel === 'colorUncert') { q = "UNCERT"; }
+            }
+            return this.bistableSvg(el, v, q);
+        },
+        // Look up the bound discrete point label for the current value
+        bistableLabel(el) {
+            if (!el.showLabel) return "";
+            return el.label || (this.allPoints.find(p => p.id === el.point_id)?.pointname || "");
+        },
+
+        // ── bi_image: pick which user-uploaded image fits current state ──────
+        biImageSrc(el, value, quality) {
+            if (quality === "ALARM" && el.imageAlarm) return el.imageAlarm;
+            if ((quality === "UNCERT" || quality === "NODATA" || quality === "INIT") && el.imageUncert) return el.imageUncert;
+            if (value === 1 && el.imageOn)  return el.imageOn;
+            if (value === 0 && el.imageOff) return el.imageOff;
+            return "";
+        },
+        biImageBgStyle(src) {
+            if (!src) return "";
+            return `background-image:url(${src});background-size:contain;background-repeat:no-repeat;background-position:center;`;
+        },
+        // Constructor preview: cycle the slot the user is most likely to have
+        // configured first (Off → On → anything available), so the canvas
+        // shows something even before binding a point.
+        biImagePreview(el) {
+            return el.imageOff || el.imageOn || el.imageUncert || el.imageAlarm || "";
+        },
+        // Upload helper for bi_image — slot is one of imageOn / imageOff / ...
+        uploadBiImage(slot, e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                if (this._selIdx >= 0) this.els[this._selIdx][slot] = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = "";
+        },
 
         // ── gauge helpers ─────────────────────────────────────────────────────
         _gaugeArcPath(cx, cy, r, a1, a2) {
@@ -1302,36 +1802,37 @@ function app() {
         },
         cLineSVGHtml(el) {
             const sw = el.strokeWidth || 2;
-            const x1 = el.x1 ?? 0, y1 = el.y1 ?? 0;
-            const x2 = el.x2 ?? 100, y2 = el.y2 ?? 100;
+            const W  = Math.round(el.w * this.sc.width);
+            const H  = Math.round(el.h * this.sc.height);
+            const x1 = (el.x1??0)   / 100 * W, y1 = (el.y1??0)   / 100 * H;
+            const x2 = (el.x2??100) / 100 * W, y2 = (el.y2??100) / 100 * H;
             const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
-            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
-                         width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
-                <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                       stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
                       stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/>
             </svg>`;
         },
         cArrowSVGHtml(el) {
             const sw  = el.strokeWidth || 2;
-            const x1  = el.x1 ?? 0,   y1 = el.y1 ?? 50;
-            const x2  = el.x2 ?? 100, y2 = el.y2 ?? 50;
+            const W   = Math.round(el.w * this.sc.width);
+            const H   = Math.round(el.h * this.sc.height);
+            const x1  = (el.x1??0)   / 100 * W, y1 = (el.y1??50)  / 100 * H;
+            const x2  = (el.x2??100) / 100 * W, y2 = (el.y2??50)  / 100 * H;
             const col = el.color || '#58a6ff';
             const aLen = el.arrowSize || 12;
             const aW   = aLen * 0.45;
             const dx   = x2 - x1, dy = y2 - y1;
             const len  = Math.sqrt(dx*dx + dy*dy);
-            if (len < 1) return `<svg viewBox="0 0 100 100" width="100%" height="100%"></svg>`;
+            if (len < 1) return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%"></svg>`;
             const nx = dx/len, ny = dy/len;
-            // line ends just before arrowhead base
             const bx = x2 - aLen*nx, by = y2 - aLen*ny;
             const p1 = `${(bx + aW*ny).toFixed(1)},${(by - aW*nx).toFixed(1)}`;
             const p2 = `${(bx - aW*ny).toFixed(1)},${(by + aW*nx).toFixed(1)}`;
             const tip = `${x2.toFixed(1)},${y2.toFixed(1)}`;
             const dash = el.dashed ? `stroke-dasharray="${el.dashLen||8},${el.dashGap||4}"` : '';
-            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"
-                         width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
-                <line x1="${x1}" y1="${y1}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"
                       stroke="${col}" stroke-width="${sw}" stroke-linecap="round" ${dash}
                       opacity="${el.opacity??1}"/>
                 <polygon points="${p1} ${tip} ${p2}" fill="${col}" opacity="${el.opacity??1}"/>
@@ -1632,12 +2133,17 @@ updateScale() {
             if (!this._refW) { this._refW = this.sc.width; this._refH = this.sc.height; }
             const refW = this._refW;
             const refH = this._refH;
+            const wFrac = def.w / refW;
+            const hFrac = def.h / refH;
             this.els.push({ id, type,
                 x: Math.max(0, xpx / this.sc.width),
                 y: Math.max(0, ypx / this.sc.height),
                 ...def,
-                w: def.w / refW,
-                h: def.h / refH,
+                w: wFrac, h: hFrac,
+                // base dimensions captured at drop time — scale% is computed
+                // relative to these so changing it remembers the percentage
+                baseW: wFrac, baseH: hFrac,
+                scale: 100,
             });
             this._selIdx = this.els.length - 1;
             this.sel = id;
@@ -1645,7 +2151,47 @@ updateScale() {
 
         endpointDown(e, el, point) {
             this.selectEl(el.id);
-            this._epdrag = { el, point };
+            // save canvas fractions of the FIXED (non-dragged) endpoint
+            const fix = point === 'start'
+                ? { x: el.x + (el.x2/100)*el.w, y: el.y + (el.y2/100)*el.h }
+                : { x: el.x + (el.x1/100)*el.w, y: el.y + (el.y1/100)*el.h };
+            this._epdrag = { el, point, fix };
+        },
+
+        // recompute bbox + relative coords from two canvas-fraction endpoints.
+        // Always keeps ≥14px hit area centered on the line midpoint so horizontal
+        // and vertical lines remain grabbable.
+        _lineSetEndpoints(el, ax, ay, bx, by) {
+            const padW = 7 / this.sc.width;
+            const padH = 7 / this.sc.height;
+            const lx = Math.min(ax, bx) - padW;
+            const rx = Math.max(ax, bx) + padW;
+            const ty = Math.min(ay, by) - padH;
+            const dy = Math.max(ay, by) + padH;
+            const nw = rx - lx, nh = dy - ty;
+            el.x = lx; el.y = ty; el.w = nw; el.h = nh;
+            el.x1 = Math.round((ax - lx) / nw * 100);
+            el.y1 = Math.round((ay - ty) / nh * 100);
+            el.x2 = Math.round((bx - lx) / nw * 100);
+            el.y2 = Math.round((by - ty) / nh * 100);
+        },
+
+        // canvas-pixel getters for property panel
+        epPx(el, which, axis) {
+            const cf = which === 'start'
+                ? { x: el.x + (el.x1/100)*el.w, y: el.y + (el.y1/100)*el.h }
+                : { x: el.x + (el.x2/100)*el.w, y: el.y + (el.y2/100)*el.h };
+            return Math.round(cf[axis] * (axis === 'x' ? this.sc.width : this.sc.height));
+        },
+
+        setEndpointPx(el, which, axis, px) {
+            const ax = el.x + (el.x1/100)*el.w, ay = el.y + (el.y1/100)*el.h;
+            const bx = el.x + (el.x2/100)*el.w, by = el.y + (el.y2/100)*el.h;
+            const f  = px / (axis === 'x' ? this.sc.width : this.sc.height);
+            let nax=ax, nay=ay, nbx=bx, nby=by;
+            if (which === 'start') { if (axis==='x') nax=f; else nay=f; }
+            else                   { if (axis==='x') nbx=f; else nby=f; }
+            this._lineSetEndpoints(el, nax, nay, nbx, nby);
         },
 
         down(e, el) {
@@ -1679,20 +2225,16 @@ updateScale() {
                 this._ddrag = null; this._rdrag = null; this._epdrag = null;
                 return;
             }
-            // endpoint drag (line / arrow)
+            // endpoint drag (line / arrow) — free canvas movement, bbox auto-resizes
             if (this._epdrag) {
                 const cv = document.getElementById("cv");
                 if (!cv) return;
                 const r  = cv.getBoundingClientRect();
-                const { el, point } = this._epdrag;
-                const elLeft = r.left + el.x * this.sc.width  * this._scale;
-                const elTop  = r.top  + el.y * this.sc.height * this._scale;
-                const elW    = el.w   * this.sc.width  * this._scale;
-                const elH    = el.h   * this.sc.height * this._scale;
-                const px = Math.round(Math.max(0, Math.min(100, (e.clientX - elLeft) / elW * 100)));
-                const py = Math.round(Math.max(0, Math.min(100, (e.clientY - elTop)  / elH * 100)));
-                if (point === 'start') { el.x1 = px; el.y1 = py; }
-                else                   { el.x2 = px; el.y2 = py; }
+                const { el, point, fix } = this._epdrag;
+                const mx = Math.max(0, Math.min(1, (e.clientX - r.left) / this._scale / this.sc.width));
+                const my = Math.max(0, Math.min(1, (e.clientY - r.top)  / this._scale / this.sc.height));
+                if (point === 'start') this._lineSetEndpoints(el, mx, my, fix.x, fix.y);
+                else                   this._lineSetEndpoints(el, fix.x, fix.y, mx, my);
                 return;
             }
             // resize deco

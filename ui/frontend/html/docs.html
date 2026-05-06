@@ -108,6 +108,26 @@
         table.doc-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
         .doc-table th { text-align: left; padding: 7px 12px; background: var(--bg3); border: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
         .doc-table td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
+
+        /* ── responsive (≤ 900px) ─────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .layout { flex-direction: column; }
+            aside { width: 100%; max-height: 200px; padding: 8px 0; border-right: none; border-bottom: 1px solid var(--border); }
+            .nav-section { padding: 6px 12px 2px; }
+            .nav-item { padding: 4px 12px 4px 22px; font-size: 12px; }
+            main { padding: 20px 16px; max-width: 100%; }
+            header { padding: 0 12px; gap: 8px; }
+            .hdr-logo { font-size: 13px; }
+            .hdr-title { font-size: 11px; }
+            h2 { font-size: 18px; }
+            h3 { font-size: 14px; margin: 18px 0 8px; }
+            section { margin-bottom: 32px; }
+            .arch-row { flex-direction: column; }
+            .doc-table { font-size: 11px; display: block; overflow-x: auto; white-space: nowrap; }
+            .doc-table th, .doc-table td { padding: 5px 8px; }
+            .el-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .el-card { padding: 10px 12px; }
+        }
     </style>
 </head>
 <body>
@@ -144,6 +164,7 @@
 
         <div class="nav-section" style="margin-top:10px">Дані</div>
         <a class="nav-item" :class="{active:active==='points'}"    @click="scrollTo('points')">Параметри (точки)</a>
+        <a class="nav-item" :class="{active:active==='sockets'}"   @click="scrollTo('sockets')">Сокети та діагностика</a>
         <a class="nav-item" :class="{active:active==='quality'}"   @click="scrollTo('quality')">Якість сигналу</a>
         <a class="nav-item" :class="{active:active==='simulator'}" @click="scrollTo('simulator')">Симулятор</a>
 
@@ -151,6 +172,11 @@
         <a class="nav-item" :class="{active:active==='archiver'}"  @click="scrollTo('archiver')">Архіватор</a>
         <a class="nav-item" :class="{active:active==='admin'}"     @click="scrollTo('admin')">Адміністрування</a>
         <a class="nav-item" :class="{active:active==='access'}"    @click="scrollTo('access')">Контроль доступу</a>
+
+        <div class="nav-section" style="margin-top:10px">Інфраструктура</div>
+        <a class="nav-item" :class="{active:active==='tls'}"       @click="scrollTo('tls')">TLS-сертифікат</a>
+        <a class="nav-item" :class="{active:active==='mobile'}"    @click="scrollTo('mobile')">Мобільні пристрої</a>
+        <a class="nav-item" :class="{active:active==='dataflow'}"  @click="scrollTo('dataflow')">Потік даних</a>
     </aside>
 
     <main id="doc-main" @scroll="onScroll()">
@@ -159,95 +185,165 @@
         <section id="overview">
             <h2>Огляд системи</h2>
             <p>
-                <strong>Infrabox</strong> — домашня SCADA-система для моніторингу та управління інженерними підсистемами об'єкта. Дані збираються через MQTT, зберігаються в Redis і відображаються на налаштовуваних екранах у реальному часі через WebSocket.
+                <strong>Infrabox</strong> — домашня SCADA-система для моніторингу та управління інженерними підсистемами об'єкта. Розгорнута на одноплатнику (наприклад, Banana Pi M2 Berry) у вигляді набору Docker-контейнерів. Дані збираються через MQTT, обробляються Core-сервісом, зберігаються в Redis та архівуються на диск, а відображаються на налаштовуваних екранах у реальному часі через WebSocket.
             </p>
             <h3>Основні можливості</h3>
             <ul>
-                <li>Відображення значень параметрів у реальному часі (WebSocket)</li>
-                <li>Налаштовувані SCADA-екрани з довільним розташуванням елементів</li>
-                <li>Три типи екранів: PC, Render (пряма передача зображення), Mobile</li>
-                <li>Підтримка кількох фізичних пристроїв відображення на один тип</li>
-                <li>Кольорова індикація якості сигналу (GOOD / WARN / ALARM…)</li>
-                <li>Архівування всіх параметрів із побудовою трендів</li>
+                <li>Відображення значень параметрів у реальному часі через WebSocket із пуш-оновленнями (без поллінгу)</li>
+                <li>Налаштовувані SCADA-екрани з довільним розташуванням елементів — побудовані візуальним конструктором</li>
+                <li>Три типи екранів: <strong>PC</strong>, <strong>Render</strong> (пряма передача зображення), <strong>Mobile</strong></li>
+                <li>Авто-визначення мобільного клієнта і вибір відповідного екрана при першому завантаженні</li>
+                <li>Підтримка кількох фізичних пристроїв відображення (D1, D2…) у межах одного типу</li>
+                <li>Класифікація якості сигналу (GOOD / WARN / ALARM / UNCERT / INIT / NODATA) із кольоровою індикацією</li>
+                <li>Архівування всіх параметрів зі змінною/інтервальною стратегією, побудова трендів</li>
+                <li>Самодіагностика хосту (cpu, mem, disk, мережа) і моніторинг heartbeat кожного контейнера</li>
                 <li>Симулятор для тестування без реального обладнання</li>
-                <li>Рольова система доступу з правами на рівні сторінок та об'єктів</li>
+                <li>Рольова система доступу з гранулярними правами на рівні сторінок та об'єктів</li>
+                <li>Адаптивний дизайн UI під мобільні пристрої та планшети</li>
+                <li>HTTPS із валідним сертифікатом (TLS termination в nginx, mkcert для локальної мережі)</li>
             </ul>
+
+            <h3>Що цей документ описує</h3>
+            <p>
+                Цей документ — повний посібник для оператора та адміністратора системи. Він описує архітектуру, маршрути, концепції точок і сокетів, типи екранів, конструктор, архівацію, контроль доступу та налаштування TLS. Якщо ви новий користувач — починайте з <a @click="scrollTo('arch')" style="cursor:pointer">Архітектури</a> та <a @click="scrollTo('dataflow')" style="cursor:pointer">Потоку даних</a>.
+            </p>
         </section>
 
         <!-- ── Архітектура ── -->
         <section id="arch">
             <h2>Архітектура</h2>
-            <p>Система розгорнута у Docker-контейнерах і складається з кількох незалежних сервісів.</p>
+            <p>Система розгорнута у Docker-контейнерах в одній мережі <code>infrabox-net</code>. Кожен сервіс — окрема відповідальність, обмін через MQTT (для значень) та Redis (для стану). Всі компоненти періодично записують <code>heartbeat:&lt;name&gt;</code> у Redis з TTL 25с — так система знає, що сервіс живий.</p>
 
+            <h3>Зовнішній шар (HTTPS)</h3>
             <div class="arch">
                 <div class="arch-row">
                     <div class="arch-box">
                         <div class="ab-name">🌐 infrabox-web (nginx)</div>
                         <div class="ab-port">:80 → :443 · HTTPS-точка входу</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Роздає статику UI, проксіює API та WebSocket. SSL termination.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Єдина точка входу. Роздає статику HTML/JS, проксіює <code>/api/</code>, <code>/auth/</code>, <code>/adm/api/</code>, <code>/arch/api/</code>, WebSocket <code>/ws</code>. TLS termination — серт монтується з <code>ui/frontend/ssl/</code>. HTTP перенаправляється на HTTPS.</p>
                     </div>
+                </div>
+            </div>
+
+            <h3>Логіка та авторизація</h3>
+            <div class="arch">
+                <div class="arch-row">
                     <div class="arch-box">
                         <div class="ab-name">⚙ infrabox-backend</div>
                         <div class="ab-port">:8090 · FastAPI + uvicorn</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">REST API для екранів та проекту. WebSocket-стрім даних. Керування симулятором.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">REST API для перегляду екранів та проекту. WebSocket-стрім даних з batch-оновленнями (200мс) через Redis Pub/Sub. Керує симулятором через Docker-сокет.</p>
                     </div>
                     <div class="arch-box">
                         <div class="ab-name">🔑 infrabox-auth</div>
                         <div class="ab-port">:8095 · FastAPI</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Авторизація, JWT-токени. Зберігає користувачів та права в Redis.</p>
-                    </div>
-                </div>
-                <div class="arch-arrow">↕</div>
-                <div class="arch-row">
-                    <div class="arch-box">
-                        <div class="ab-name">🗄 infrabox-redis</div>
-                        <div class="ab-port">:6379</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Поточні значення точок (<code>point:NNN</code>), дані користувачів. Pub/Sub для push-оновлень.</p>
-                    </div>
-                    <div class="arch-box">
-                        <div class="ab-name">🦟 infrabox-mosquitto-real</div>
-                        <div class="ab-port">:1883 · MQTT broker</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Приймає дані від реального обладнання.</p>
-                    </div>
-                    <div class="arch-box">
-                        <div class="ab-name">🤖 infrabox-simulator</div>
-                        <div class="ab-port">mosquitto-sim :1884</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Генерує тестові дані замість реального обладнання.</p>
-                    </div>
-                </div>
-                <div class="arch-arrow">↕</div>
-                <div class="arch-row">
-                    <div class="arch-box">
-                        <div class="ab-name">📦 infrabox-arch</div>
-                        <div class="ab-port">архіватор · /arch/</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Безперервний запис всіх параметрів. Побудова трендів.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Логін / реєстрація / зміна паролю. Видає JWT-токени з payload: <code>username</code>, <code>role</code>, <code>display_name</code>, <code>permissions</code>, <code>exp</code>.</p>
                     </div>
                     <div class="arch-box">
                         <div class="ab-name">🛠 infrabox-adm</div>
                         <div class="ab-port">:8099 · /adm/api/</div>
-                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Управління підсистемами Docker (старт / стоп / рестарт / ребілд) через SSH.</p>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Адмін-API: керування об'єктами/системами/вузлами/точками, конфіги, перегляд Redis, керування Docker-підсистемами (старт/стоп/рестарт/ребілд) через SSH.</p>
                     </div>
                 </div>
             </div>
+
+            <h3>Дані та шина</h3>
+            <div class="arch">
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="ab-name">🗄 infrabox-redis</div>
+                        <div class="ab-port">:6379</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Поточні значення (<code>point:NNN</code> hash), користувачі (<code>users:*</code>), heartbeat (<code>heartbeat:NAME</code>, TTL=25с), системні ключі (<code>system:*</code>). Шина повідомлень: <code>bus:data</code>, <code>bus:event</code>, <code>bus:clock</code> через Pub/Sub.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🦟 infrabox-mosquitto-real</div>
+                        <div class="ab-port">:1883 · MQTT broker</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Приймає дані від реального обладнання. Топіки <code>{object}/{system}/{pointname}/{id}</code>.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🦟 infrabox-mosquitto-sim</div>
+                        <div class="ab-port">:1884 · MQTT broker</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Окремий брокер для симульованих даних. Дозволяє розділити трафік від реального обладнання.</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Обробка та джерела даних</h3>
+            <div class="arch">
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="ab-name">🧠 infrabox-core</div>
+                        <div class="ab-port">Python · читає MQTT</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Підписується на MQTT, валідує топіки, застосовує deadband, класифікує якість, пише в Redis (<code>point:NNN</code>) і публікує <code>bus:data</code>/<code>bus:event</code>. Системний tick = 1с.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🤖 infrabox-simulator</div>
+                        <div class="ab-port">→ mosquitto-sim</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Генерує тестові значення для всіх не-діагностичних точок з ID ≥ 100. Випадкові спайки (warn/alarm) кожні ~15с.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🩺 infrabox-selfdiagnostic</div>
+                        <div class="ab-port">→ mosquitto-sim</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Збирає метрики хоста (cpu, mem, disk, net) через psutil і публікує як діагностичні точки сокета <code>selfDiag</code>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Архівація та її UI</h3>
+            <div class="arch">
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="ab-name">📦 infrabox-arch</div>
+                        <div class="ab-port">:8100 · архіватор</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Слухає <code>bus:data</code>/<code>bus:event</code>, пише ndjson-файли у томи (volumes). Стратегія: deadband + інтервал. Окремі стріми <code>values</code>, <code>events</code>, <code>selfdiag</code>.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">🌐 infrabox-arch-backend</div>
+                        <div class="ab-port">:8101 · FastAPI</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Проксі-API для UI архіватора. Читає томи з <code>infrabox-arch</code>, виконує downsampling для побудови графіків.</p>
+                    </div>
+                    <div class="arch-box">
+                        <div class="ab-name">📊 infrabox-arch-ui</div>
+                        <div class="ab-port">nginx · /arch/</div>
+                        <p style="margin-top:6px;font-size:12px;color:var(--text-dim)">Веб-інтерфейс архіватора. Список параметрів, графіки (Chart.js), експорт CSV.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note"><strong>Топологія:</strong> усі контейнери в єдиній Docker-мережі <code>infrabox-net</code>. Зовні доступний лише <code>infrabox-web</code> (порт 443). Решта спілкується через імена контейнерів та DNS Docker.</div>
         </section>
 
         <!-- ── Маршрути ── -->
         <section id="routes">
             <h2>Маршрути</h2>
+            <p>Усі маршрути проходять через <code>infrabox-web</code> (nginx) на HTTPS-порту 443.</p>
+
+            <h3>Веб-сторінки</h3>
             <table class="doc-table">
                 <thead><tr><th>URL</th><th>Опис</th><th>Доступ</th></tr></thead>
                 <tbody>
-                    <tr><td><code>/</code></td><td>Головний екран перегляду SCADA</td><td>Оператор+</td></tr>
-                    <tr><td><code>/dashboard</code></td><td>Таблиця всіх параметрів системи</td><td>Оператор+</td></tr>
-                    <tr><td><code>/constructor</code></td><td>Лендінг конструктора — вибір напрямку</td><td>Адмін</td></tr>
-                    <tr><td><code>/constructor-screens</code></td><td>Конструктор структури та екранів</td><td>Адмін</td></tr>
+                    <tr><td><code>/</code></td><td>Головний SCADA-екран. На мобільному автоматично відкриває mobile-екран з найменшим <code>screenNum</code>.</td><td>Публічний (без логіну — operator-функціонал)</td></tr>
+                    <tr><td><code>/dashboard</code></td><td>Таблиця всіх параметрів системи з фільтрами та станом</td><td>Оператор+</td></tr>
+                    <tr><td><code>/constructor</code></td><td>Лендінг конструктора — вибір напрямку (екрани / обладнання)</td><td>Адмін</td></tr>
+                    <tr><td><code>/constructor-screens</code></td><td>Конструктор структури та елементів екранів</td><td>Адмін</td></tr>
                     <tr><td><code>/constructor-equipment</code></td><td>Конструктор обладнання (в розробці)</td><td>Адмін</td></tr>
-                    <tr><td><code>/admin</code></td><td>Адміністрування системи та користувачів</td><td>Адмін</td></tr>
-                    <tr><td><code>/arch/</code></td><td>Архіватор трендів</td><td>Всі</td></tr>
-                    <tr><td><code>/login</code></td><td>Сторінка входу</td><td>Всі</td></tr>
-                    <tr><td><code>/api/</code></td><td>Backend REST API</td><td>JWT</td></tr>
-                    <tr><td><code>/ws</code></td><td>WebSocket стрім даних</td><td>—</td></tr>
-                    <tr><td><code>/auth/</code></td><td>API авторизації</td><td>—</td></tr>
+                    <tr><td><code>/admin</code></td><td>Адмін-панель: користувачі, права, система, застосунки, метадані, параметри, архіви</td><td>Адмін</td></tr>
+                    <tr><td><code>/arch/</code></td><td>UI архіватора: список параметрів, графіки, експорт</td><td>Всі</td></tr>
+                    <tr><td><code>/redis-db</code></td><td>Перегляд повної структури Redis (низькорівневий debug)</td><td>Адмін</td></tr>
+                    <tr><td><code>/docs</code></td><td>Цей документ</td><td>Публічний</td></tr>
+                    <tr><td><code>/login</code></td><td>Сторінка авторизації</td><td>Публічний</td></tr>
+                </tbody>
+            </table>
+
+            <h3>API ендпойнти</h3>
+            <table class="doc-table">
+                <thead><tr><th>Префікс</th><th>Сервіс</th><th>Призначення</th></tr></thead>
+                <tbody>
+                    <tr><td><code>/api/pub/</code></td><td>backend</td><td>Публічні (без auth) endpoints: проект, екрани, статус симулятора</td></tr>
+                    <tr><td><code>/api/</code></td><td>backend</td><td>Захищені (Bearer JWT): <code>/api/points</code>, <code>/api/objects</code>, <code>/api/redis/structure</code></td></tr>
+                    <tr><td><code>/auth/</code></td><td>auth</td><td>Логін, реєстрація, користувачі, права</td></tr>
+                    <tr><td><code>/adm/api/</code></td><td>adm</td><td>Управління точками, об'єктами, системами, вузлами, конфігами, Docker-підсистемами</td></tr>
+                    <tr><td><code>/arch/api/</code></td><td>arch-backend</td><td>API архіватора: томи, поточні значення, історія, downsampling</td></tr>
+                    <tr><td><code>/ws</code></td><td>backend</td><td>WebSocket-стрім (snapshot + батч-апдейти кожні ~200мс)</td></tr>
                 </tbody>
             </table>
         </section>
@@ -255,22 +351,51 @@
         <!-- ── Перегляд ── -->
         <section id="viewer">
             <h2>Перегляд екранів</h2>
-            <p>Головна сторінка (<code>/</code>) відображає SCADA-екрани у реальному часі. При завантаженні автоматично відкривається перший екран, що відповідає обраному пристрою відображення.</p>
+            <p>Головна сторінка (<code>/</code>) відображає SCADA-екрани у реальному часі. При завантаженні автоматично відкривається перший екран, що відповідає обраному пристрою відображення та типу клієнта (мобільний/десктоп).</p>
 
-            <h3>Навігація</h3>
+            <h3>Авто-вибір стартового екрана</h3>
+            <p>Логіка при першому завантаженні:</p>
+            <ol>
+                <li>Визначається тип клієнта: <code>matchMedia('(max-width: 768px)')</code> → mobile / desktop</li>
+                <li>Серед екранів проекту з відповідним <code>screenType</code> і поточним <code>deviceType</code> вибирається той, що має найменший <code>screenNum</code></li>
+                <li>Якщо файл екрана не знайдено на диску — fallback на <code>_rootForDevice(dt)</code> (просто найменший <code>screenNum</code> для пристрою), потім на <code>'root'</code></li>
+            </ol>
+            <div class="note">Якщо в проекті є записи M1/M2 але немає <code>data/screens/M1/screen.json</code> — мобільний клієнт автоматично побачить PC-екран. Створюй мобільні екрани в конструкторі.</div>
+
+            <h3>Навігація між екранами</h3>
             <ul>
                 <li>Кнопки <em>Навігація</em> та картки <em>Підсистема</em> переходять на інший екран того ж типу та пристрою</li>
-                <li>Кнопка <strong>←</strong> в хедері повертає на попередній екран (стек навігації)</li>
+                <li>Кнопка <strong>←</strong> в хедері повертає на попередній екран (стек навігації <code>history</code>)</li>
                 <li>Назва поточного екрану відображається по центру хедера</li>
-                <li>Переходи між екранами <strong>різних типів або різних пристроїв заблоковані</strong></li>
+                <li>Переходи між екранами <strong>різних типів або різних пристроїв заблоковані</strong> (захищає від випадкового виходу з мобільного простору на PC)</li>
             </ul>
 
-            <h3>Статус з'єднання</h3>
-            <p>Нижній рядок показує стан WebSocket:</p>
+            <h3>Статус авторизації в хедері</h3>
+            <p>Іконка користувача показує стан логіну:</p>
+            <ul>
+                <li>Якщо JWT в <code>localStorage</code> валідний (<code>exp &gt; now</code>) — показується ім'я / роль користувача, у меню — "Вийти"</li>
+                <li>Якщо токен прострочений або зіпсований — він <strong>автоматично видаляється</strong>, відображається "operator", у меню — "Увійти"</li>
+                <li>Кнопка "Увійти" → <code>/login</code></li>
+            </ul>
+
+            <h3>Статус з'єднання WebSocket</h3>
+            <p>Нижній рядок (футер) показує стан:</p>
             <ul>
                 <li><span style="color:#56d364">●</span> <strong>Live</strong> — дані надходять у реальному часі</li>
-                <li><span style="color:#f0ad4e">●</span> — підключення встановлюється</li>
-                <li><span style="color:#f47067">●</span> — з'єднання перервано, виконується повторне підключення з exponential backoff</li>
+                <li><span style="color:#f0ad4e">●</span> <strong>Підключення…</strong> — встановлюється</li>
+                <li><span style="color:#f47067">●</span> <strong>Помилка</strong> — з'єднання перервано, виконується повторне підключення з exponential backoff (1s, 2s, 4s… до 30с)</li>
+            </ul>
+            <p>Поряд показується час останнього batch-апдейту і розміри полотна <code>{width}×{height}</code>.</p>
+
+            <h3>Адаптивність</h3>
+            <p>На вузьких екранах (<code>≤ 768px</code>):</p>
+            <ul>
+                <li>Логотип згортається до іконки <code>⬡</code></li>
+                <li>Розділювачі ховаються</li>
+                <li>Ім'я користувача ховається (залишається 👤)</li>
+                <li>Дата в годиннику ховається (залишається час)</li>
+                <li>Кнопка "☰ Меню" → "☰"</li>
+                <li>Падінги і відступи скорочуються — більше місця для канваса</li>
             </ul>
         </section>
 
@@ -468,24 +593,180 @@
         <!-- ── Точки ── -->
         <section id="points">
             <h2>Параметри (точки)</h2>
-            <p>Кожен параметр системи — це <strong>точка</strong> з унікальним числовим ID. Зберігається в Redis як хеш <code>point:NNN</code>.</p>
+            <p>Кожен параметр системи — це <strong>точка</strong> з унікальним числовим <code>id</code>. Конфігурація точок зберігається у файлі <code>core/service/config/points.json</code> (масив об'єктів). Поточне значення — у Redis як хеш <code>point:NNN</code>.</p>
 
-            <h3>Поля точки</h3>
+            <h3>Типи точок</h3>
             <table class="doc-table">
-                <thead><tr><th>Поле</th><th>Опис</th></tr></thead>
+                <thead><tr><th>type</th><th>Призначення</th><th>Прив'язка</th></tr></thead>
                 <tbody>
-                    <tr><td><code>id</code></td><td>Числовий ідентифікатор</td></tr>
-                    <tr><td><code>object</code></td><td>Об'єкт (<code>home</code>, <code>boiler</code>…)</td></tr>
-                    <tr><td><code>system</code></td><td>Підсистема (<code>heating</code>, <code>gas</code>…)</td></tr>
-                    <tr><td><code>pointname</code></td><td>Назва параметра (<code>pressure</code>, <code>temperature</code>…)</td></tr>
-                    <tr><td><code>value</code></td><td>Поточне значення</td></tr>
-                    <tr><td><code>unit</code></td><td>Одиниці виміру (°C, bar, A…)</td></tr>
-                    <tr><td><code>quality</code></td><td>Якість сигналу</td></tr>
-                    <tr><td><code>ts</code></td><td>Unix timestamp останнього оновлення</td></tr>
+                    <tr><td><code>analog</code></td><td>Аналогові значення з реального обладнання або симулятора (тиск, температура, рівень…)</td><td><code>object</code> + <code>system</code></td></tr>
+                    <tr><td><code>discrete</code></td><td>Дискретні (бінарні / станові) значення</td><td><code>object</code> + <code>system</code></td></tr>
+                    <tr><td><code>diagnostic</code></td><td>Діагностичні (метрики хоста, heartbeat сервісів)</td><td><code>socket</code> + <code>param</code> + <code>drop</code></td></tr>
                 </tbody>
             </table>
 
-            <p>Список усіх точок — <a href="/dashboard">Всі параметри</a>. Підтримує фільтрацію за ID, об'єктом, підсистемою, назвою, значенням.</p>
+            <h3>Загальні поля</h3>
+            <table class="doc-table">
+                <thead><tr><th>Поле</th><th>Опис</th><th>Приклад</th></tr></thead>
+                <tbody>
+                    <tr><td><code>id</code></td><td>Унікальний числовий ID точки</td><td><code>1</code>, <code>105</code>, <code>200</code></td></tr>
+                    <tr><td><code>type</code></td><td>Тип точки (див. вище)</td><td><code>analog</code></td></tr>
+                    <tr><td><code>pointname</code></td><td>Людська назва параметра</td><td><code>boiler-pressure</code></td></tr>
+                    <tr><td><code>unit</code></td><td>Одиниці виміру</td><td><code>°C</code>, <code>bar</code>, <code>%</code></td></tr>
+                    <tr><td><code>min</code> / <code>max</code></td><td>Фізичний діапазон параметра (масштаб шкали)</td><td><code>0 / 100</code></td></tr>
+                    <tr><td><code>warn_min</code> / <code>warn_max</code></td><td>Межі WARN — за межами норма попереджувальна</td><td><code>10 / 80</code></td></tr>
+                    <tr><td><code>alarm_min</code> / <code>alarm_max</code></td><td>Межі ALARM — за межами критична зона</td><td><code>5 / 90</code></td></tr>
+                    <tr><td><code>deadband</code></td><td>Поріг зміни — менше за цю величину не публікується / не архівується</td><td><code>0.5</code></td></tr>
+                    <tr><td><code>onArchive</code></td><td>0 = не архівувати, 1 = архівувати</td><td><code>1</code></td></tr>
+                    <tr><td><code>archive_on_change</code></td><td>1 = писати при зміні (deadband)</td><td><code>1</code></td></tr>
+                    <tr><td><code>archive_interval</code></td><td>Інтервал архівації в секундах. <code>0</code> = тільки за зміною</td><td><code>60</code></td></tr>
+                    <tr><td><code>interval</code></td><td>Очікуваний інтервал оновлення (секунди) — використовується gap-writer'ом</td><td><code>1</code></td></tr>
+                </tbody>
+            </table>
+
+            <h3>Поля для analog/discrete</h3>
+            <table class="doc-table">
+                <thead><tr><th>Поле</th><th>Опис</th></tr></thead>
+                <tbody>
+                    <tr><td><code>object</code></td><td>Об'єкт (фізична зона / приміщення): <code>home</code>, <code>boiler-room</code>…</td></tr>
+                    <tr><td><code>system</code></td><td>Підсистема об'єкта: <code>heating</code>, <code>gas</code>, <code>water</code>…</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Поля для discrete</h3>
+            <table class="doc-table">
+                <thead><tr><th>Поле</th><th>Опис</th></tr></thead>
+                <tbody>
+                    <tr><td><code>severity</code></td><td>Тяжкість при відхиленні від нормального стану: <code>none</code> / <code>warn</code> / <code>alarm</code></td></tr>
+                    <tr><td><code>normal_value</code></td><td>Нормальний стан (<code>0</code> або <code>1</code>). Релевантний лише для <code>severity != none</code>.</td></tr>
+                    <tr><td><code>label_0</code> / <code>label_1</code></td><td>Опціональні текстові назви станів: <code>"CLOSED"</code>/<code>"OPEN"</code>, <code>"OFF"</code>/<code>"ON"</code> тощо</td></tr>
+                    <tr><td><code>onArchive</code></td><td>0 = не архівувати, 1 = записувати кожну зміну стану</td></tr>
+                </tbody>
+            </table>
+            <p>Дискретні точки <strong>не мають</strong>: <code>unit</code>, <code>min</code>/<code>max</code>, <code>warn_min/max</code>, <code>alarm_min/max</code>, <code>deadband</code>, <code>archive_on_change</code>, <code>archive_interval</code>, <code>interval</code> — для них вони не релевантні.</p>
+
+            <h4>Логіка severity</h4>
+            <table class="doc-table">
+                <thead><tr><th>severity</th><th>Сенс</th><th>Приклад</th><th>Стан → quality</th></tr></thead>
+                <tbody>
+                    <tr><td><code>none</code></td><td>Обидва значення — робочі стани</td><td>Мотор on/off, насос ввімк/вимк</td><td>Завжди GOOD (для 0 чи 1)</td></tr>
+                    <tr><td><code>warn</code></td><td>Ненормальний стан — попередження</td><td>Двері відчинені, лампа ввімкнена</td><td><code>== normal_value</code> → GOOD<br/><code>!= normal_value</code> → WARN</td></tr>
+                    <tr><td><code>alarm</code></td><td>Ненормальний стан — критичний</td><td>Спрацювала охорона, аварійний датчик</td><td><code>== normal_value</code> → GOOD<br/><code>!= normal_value</code> → ALARM</td></tr>
+                </tbody>
+            </table>
+            <div class="note"><strong>Значення поза 0/1</strong> (наприклад <code>2</code>, <code>-1</code>, <code>0.5</code>) — для всіх severity класифікується як <strong>UNCERT</strong>. Виникає при збоях зв'язку, помилках протоколу, неправильному джерелі даних.</div>
+
+            <h4>Архівування discrete</h4>
+            <p>Принципово відрізняється від analog: <strong>тільки за зміною</strong>. Без deadband, без інтервального семплінгу, без gap-writer (стабільний стан під час тиші — нормально). Кожен перехід <code>0→1</code> або <code>1→0</code> записується одним рядком у <code>values.ndjson</code>.</p>
+
+            <h4>Відображення на канвасі</h4>
+            <ul>
+                <li><strong>Значення точки</strong> — показує <code>label_0</code>/<code>label_1</code>, якщо вони задані; інакше сирі <code>0</code>/<code>1</code>. Колір з quality.</li>
+                <li><strong>Індикатор</strong> — колір з quality. Для <code>severity=none</code> завжди GOOD-колір.</li>
+                <li><strong>Підсистема</strong> (картка) — колір рамки з quality. Працює.</li>
+                <li><strong>Манометр</strong>, <strong>Рівень</strong> — не релевантні для discrete (рекомендується не використовувати).</li>
+            </ul>
+
+            <h3>Поля для diagnostic</h3>
+            <table class="doc-table">
+                <thead><tr><th>Поле</th><th>Опис</th></tr></thead>
+                <tbody>
+                    <tr><td><code>socket</code></td><td>ID сокета зі <code>sockets.json</code> (<code>selfDiag</code> для апаратних метрик, <code>Core</code>/<code>Auth</code>… для heartbeat сервісів)</td></tr>
+                    <tr><td><code>param</code></td><td>Технічна назва параметра в сокеті: <code>cpu_load</code>, <code>mem_used</code>, <code>heartbeat</code>…</td></tr>
+                    <tr><td><code>drop</code></td><td>ID вузла (фізичної машини): <code>homeServ-1</code></td></tr>
+                </tbody>
+            </table>
+
+            <div class="note"><strong>Чому два набори полів?</strong> Аналогові точки прив'язані до фізичних об'єктів і підсистем користувача (home/heating). Діагностичні — до інфраструктурних сокетів (selfDiag, Core…). Сокетна абстракція дозволяє додавати нові апаратні чи програмні джерела даних без зміни схеми точок. Деталі — у секції <a @click="scrollTo('sockets')" style="cursor:pointer">Сокети та діагностика</a>.</div>
+
+            <h3>MQTT-топік для значення</h3>
+            <p>Симулятор та selfdiag публікують значення на брокер MQTT за схемою:</p>
+            <p><code>{object|OBJECT}/{system|socket}/{pointname}/{id}</code> → JSON <code>&#123;"id":N,"value":X,"ts":T&#125;</code></p>
+            <p>Для діагностичних точок <code>object</code> заміщується env-змінною <code>OBJECT</code> (за замовчанням <code>home</code>), <code>system</code> заміщується <code>socket</code>.</p>
+
+            <h3>Як працюють пороги якості</h3>
+            <p>Core при обробці кожного значення класифікує його:</p>
+            <ul>
+                <li><code>v &lt; min</code> або <code>v &gt; max</code> → <strong>UNCERT</strong> (поза фізичним діапазоном)</li>
+                <li><code>v &lt; alarm_min</code> або <code>v &gt; alarm_max</code> → <strong>ALARM</strong></li>
+                <li><code>v &lt; warn_min</code> або <code>v &gt; warn_max</code> → <strong>WARN</strong></li>
+                <li>Інакше → <strong>GOOD</strong></li>
+            </ul>
+            <p>Перехід ALARM/WARN → GOOD відбувається з <code>recovery_time_ms</code> (за замовчанням 3 секунди).</p>
+
+            <h3>Перегляд та керування</h3>
+            <ul>
+                <li><a href="/dashboard">Dashboard</a> — таблиця всіх точок з фільтрами і поточними значеннями</li>
+                <li><strong>Адмін → Параметри</strong> — конфігурування точок (CRUD)</li>
+                <li><strong>Адмін → Архіви</strong> та <a href="/arch/">/arch/</a> — історія</li>
+            </ul>
+        </section>
+
+        <!-- ── Сокети ── -->
+        <section id="sockets">
+            <h2>Сокети та діагностика</h2>
+            <p><strong>Сокет</strong> — точка приєднання інфраструктурного джерела даних до вузла системи. Сокети відрізняють діагностичні точки (метрики хосту, стан сервісів) від користувацьких точок з обладнання. Конфігурація — у файлі <code>core/service/config/sockets.json</code>.</p>
+
+            <h3>Типи сокетів</h3>
+            <table class="doc-table">
+                <thead><tr><th>Тип</th><th>Що публікує</th><th>Хто</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Hardware</strong></td><td>Метрики самого вузла: CPU, RAM, диск, мережа</td><td><code>infrabox-selfdiagnostic</code> (psutil → MQTT)</td></tr>
+                    <tr><td><strong>Software</strong></td><td>Heartbeat (живий / мертвий) кожного сервісу системи</td><td>Кожен сервіс пише <code>heartbeat:&lt;name&gt;</code> у Redis з TTL=25с</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Структура sockets.json</h3>
+            <p>Файл — масив вузлів, кожен містить hardware та software сокети:</p>
+            <p><code>[ &#123; "drop": "homeServ-1", "hardware": [&#123;"id":"selfDiag","name":"Selfdiagnostic","params":["cpu_load","mem_used","disk_space","net_rx","net_tx"]&#125;], "software": [&#123;"id":"Core","name":"infrabox-core","type":"heartbeat","params":["heartbeat"]&#125;, …] &#125; ]</code></p>
+
+            <h3>Hardware-сокет selfDiag</h3>
+            <p>Один сокет з 5-ма параметрами. Сервіс <code>infrabox-selfdiagnostic</code>:</p>
+            <ul>
+                <li>Періодично опитує psutil на хості (<code>/host/proc</code>, <code>/host/root</code> змонтовані)</li>
+                <li>Публікує MQTT топік <code>home/selfDiag/{pointname}/{id}</code> з JSON-значенням</li>
+                <li>Параметри: <code>cpu_load</code> (%), <code>mem_used</code> (%), <code>disk_space</code> (%), <code>net_rx</code> / <code>net_tx</code> (Mbps)</li>
+                <li>Кожна метрика — окрема точка з <code>type: "diagnostic"</code>, <code>socket: "selfDiag"</code>, <code>param: "&lt;metric&gt;"</code></li>
+            </ul>
+
+            <h3>Software-сокети (heartbeat)</h3>
+            <p>Кожен контейнер системи має свій software-сокет. Принцип:</p>
+            <ol>
+                <li>Контейнер у фоновому потоці пише <code>heartbeat:{container-name}</code> з TTL=25с (наприклад, <code>heartbeat:infrabox-core</code>)</li>
+                <li>Якщо контейнер живий — ключ оновлюється кожні 5 секунд, TTL зберігається</li>
+                <li>Якщо контейнер впав — ключ зникає за 25с</li>
+                <li>Core читає TTL ключа і перетворює його у бінарну точку: TTL &gt; 0 → value=1, quality=GOOD; інакше value=0, quality=ALARM</li>
+                <li>Така точка має <code>socket: "Core"</code> (або іншу назву сервісу), <code>param: "heartbeat"</code></li>
+            </ol>
+
+            <div class="note"><strong>Контейнери без Python</strong> (redis, mosquitto, nginx, portainer) не можуть писати власний heartbeat. Для них heartbeat генерує proxy-механізм адмін-сервісу — він раз на 5с перевіряє стан Docker-контейнера і пише ключ за нього.</div>
+
+            <h3>Стандартні software-сокети</h3>
+            <table class="doc-table">
+                <thead><tr><th>Сокет</th><th>Сервіс / контейнер</th></tr></thead>
+                <tbody>
+                    <tr><td><code>Selfdiagnostic</code></td><td><code>infrabox-selfdiagnostic</code></td></tr>
+                    <tr><td><code>Core</code></td><td><code>infrabox-core</code></td></tr>
+                    <tr><td><code>Auth</code></td><td><code>infrabox-auth</code></td></tr>
+                    <tr><td><code>Backend</code></td><td><code>infrabox-backend</code></td></tr>
+                    <tr><td><code>ADM</code></td><td><code>infrabox-adm</code></td></tr>
+                    <tr><td><code>Simulator</code></td><td><code>infrabox-simulator</code></td></tr>
+                    <tr><td><code>Archivator</code></td><td><code>infrabox-arch</code></td></tr>
+                    <tr><td><code>Arch Backend</code></td><td><code>infrabox-arch-backend</code></td></tr>
+                    <tr><td><code>Arch UI</code></td><td><code>infrabox-arch-ui</code></td></tr>
+                    <tr><td><code>Redis</code></td><td><code>infrabox-redis</code></td></tr>
+                    <tr><td><code>MQTT Real</code></td><td><code>infrabox-mosquitto-real</code></td></tr>
+                    <tr><td><code>MQTT Sim</code></td><td><code>infrabox-mosquitto-sim</code></td></tr>
+                    <tr><td><code>Web</code></td><td><code>infrabox-web</code></td></tr>
+                    <tr><td><code>Portainer</code></td><td><code>portainer</code></td></tr>
+                </tbody>
+            </table>
+
+            <h3>Точка-heartbeat для архівації</h3>
+            <p>Якщо для software-сокета створено діагностичну точку з <code>param: "heartbeat"</code>, вона потрапляє в архів подій так само як аналогові точки. Це дозволяє побачити історію падінь / рестартів сервісу на тренді.</p>
+
+            <h3>Перегляд у адмінці</h3>
+            <p>Структура сокетів та живих значень — на вкладці <strong>Адмін → Застосунки → Структура бази даних</strong>: hardware і software сокети з поточним станом і кольоровою індикацією якості. Оновлюється кожні 3с поки відкрита вкладка.</p>
         </section>
 
         <!-- ── Якість ── -->
@@ -506,42 +787,156 @@
         <!-- ── Симулятор ── -->
         <section id="simulator">
             <h2>Симулятор</h2>
-            <p>Контейнер <code>infrabox-simulator</code> генерує тестові значення для всіх точок і публікує через MQTT. Дозволяє тестувати без реального обладнання.</p>
+            <p>Контейнер <code>infrabox-simulator</code> генерує тестові значення і публікує через окремий брокер <code>infrabox-mosquitto-sim</code>. Дозволяє тестувати без реального обладнання.</p>
+
+            <h3>Які точки симулюються</h3>
+            <p>Тільки <em>не-діагностичні</em> точки з <code>id ≥ 100</code>. Діагностичні (selfDiag, heartbeat) ігноруються — їх генерує <code>infrabox-selfdiagnostic</code> і core напряму.</p>
+
+            <h3>Аналогові — безперервна емуляція</h3>
+            <p>Для кожної аналогової/розрахункової точки симулятор тримає поточне значення і кожну секунду:</p>
+            <ul>
+                <li>Зазвичай — невелике дрейфування навколо середнього між <code>warn_min</code> і <code>warn_max</code> (drift = 2% від цього діапазону)</li>
+                <li>Раз на ~15 секунд — спайк на 5 секунд:
+                    <ul>
+                        <li>З вірогідністю 60% — <strong>ALARM</strong>-зона (поза <code>alarm_min</code>/<code>alarm_max</code>)</li>
+                        <li>40% — <strong>WARN</strong>-зона (між warn і alarm межами)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Дискретні — за зміною стану</h3>
+            <p>Для кожного дискретного параметра симулятор обирає сценарій залежно від <code>severity</code>:</p>
+            <ul>
+                <li><code>severity=none</code> — <strong>toggle-режим</strong>: випадкове перемикання 0↔1 кожні 30—120 секунд (мотор on/off, насос). Початкове значення випадкове.</li>
+                <li><code>severity=warn|alarm</code> — <strong>event-режим</strong>: переважно <code>normal_value</code>, кожні 60—180с тригериться "подія" (перехід у протилежний стан) на 5—30 секунд, потім повертається до <code>normal_value</code>.</li>
+            </ul>
+            <p>Дискретні значення публікуються лише на переходах (edge-triggered) з прапором <code>retain=True</code> у MQTT — щоб core, що підключився пізніше, одразу отримав актуальний стан з брокера.</p>
+            <p>Додатково раз на 3—10 хвилин симулятор інжектить <strong>glitch</strong> — випадкове значення поза 0/1 (-1, 2, 3, 9) на один тік. Це емулює помилки шини / протоколу і дозволяє перевірити що core правильно класифікує такі значення як <strong>UNCERT</strong>. Наступним тіком значення повертається до коректного.</p>
+            <div class="note">Через edge-trigger логіку для дискретних точок core <strong>пропускає десинк-перевірку</strong> (немає сенсу позначати NODATA у стабільному стані). Коректний спосіб виявити "мертвий" датчик — окремий keepalive-сигнал, не реалізовано наразі.</div>
+
+            <h3>Топік MQTT</h3>
+            <p><code>{object}/{system}/{pointname}/{id}</code> — те саме формування, що і реальне обладнання.</p>
+
             <h3>Увімкнення / вимкнення</h3>
-            <p>Керується зі сторінки адміністрування: розділ <strong>Підсистеми</strong> → кнопки Старт / Стоп / Рестарт.</p>
-            <div class="note warn"><strong>Увага:</strong> при увімкненому симуляторі реальні дані можуть перезаписуватись симульованими, якщо обидва джерела публікують одні точки.</div>
+            <p>Керується зі сторінки <strong>Адмін → Застосунки → Симулятор</strong>: кнопки <em>Запустити</em> / <em>Зупинити</em> (контейнер ставиться на паузу).</p>
+
+            <div class="note warn"><strong>Увага:</strong> якщо реальне обладнання публікує ті ж точки в <code>infrabox-mosquitto-real</code>, обидва значення потраплять в core. Останнє оброблене виграє. Для чистого тесту краще спочатку зупинити симулятор.</div>
         </section>
 
         <!-- ── Архіватор ── -->
         <section id="archiver">
             <h2>Архіватор</h2>
-            <p>Контейнер <code>infrabox-arch</code> безперервно записує значення всіх точок. Доступний за адресою <a href="/arch/">/arch/</a>.</p>
+            <p>Архівна підсистема складається з трьох контейнерів: <code>infrabox-arch</code> (writer), <code>infrabox-arch-backend</code> (API) та <code>infrabox-arch-ui</code> (web). UI доступний за адресою <a href="/arch/">/arch/</a>.</p>
+
+            <h3>Файлове сховище (томи)</h3>
+            <p>Архів організовано по <strong>томах</strong> — окремих директоріях зі стартовою датою у форматі <code>YYYY-MM-DD_HH-MM-SS</code>. У кожному томі:</p>
+            <table class="doc-table">
+                <thead><tr><th>Файл</th><th>Призначення</th></tr></thead>
+                <tbody>
+                    <tr><td><code>meta.json</code></td><td>Метадані тому: <code>opened_at</code>, <code>closed_at</code>, <code>record_count</code>, <code>status</code></td></tr>
+                    <tr><td><code>config_snap.json</code></td><td>Знімок <code>points.json</code> на момент відкриття тому — щоб історія читалася навіть після зміни конфігурації</td></tr>
+                    <tr><td><code>values.ndjson</code></td><td>Значення analog/discrete точок (рядок на запис)</td></tr>
+                    <tr><td><code>events.ndjson</code></td><td>Зміни якості (FIRST_VALID_GOOD, WARN, ALARM, NODATA, …)</td></tr>
+                    <tr><td><code>selfdiag.ndjson</code></td><td>Окремий стрим для подій selfDiag (cpu/mem/…)</td></tr>
+                    <tr><td><code>commands.ndjson</code></td><td>Зарезервовано для команд керування</td></tr>
+                </tbody>
+            </table>
+            <p>Тома ротується за умов: <code>max_records</code>, <code>max_duration_hours</code>, або примусово через UI/API. Старі тома стираються при перевищенні <code>max_days</code> (за замовчуванням 30).</p>
+
+            <h3>Стратегії архівування (на точку)</h3>
+            <table class="doc-table">
+                <thead><tr><th><code>onArchive</code></th><th><code>archive_on_change</code></th><th><code>archive_interval</code></th><th>Поведінка</th></tr></thead>
+                <tbody>
+                    <tr><td>0</td><td>—</td><td>—</td><td>Не архівувати</td></tr>
+                    <tr><td>1</td><td>1</td><td>0</td><td>Тільки при зміні (з deadband)</td></tr>
+                    <tr><td>1</td><td>1</td><td>&gt;0</td><td>При зміні + кожні N секунд</td></tr>
+                    <tr><td>1</td><td>0</td><td>&gt;0</td><td>Тільки за інтервалом (фіксовані семпли)</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Gap-writer (заповнення тиші)</h3>
+            <p>Якщо точка мовчить довше за <code>max(interval × 3, 120)</code> секунд, архіватор записує <code>value: null</code>. На графіку це відображається розривом — видно, коли реально не було даних.</p>
+
+            <h3>Watchdog та resilience</h3>
             <ul>
-                <li>Фільтрація за об'єктом, підсистемою, пошук за назвою</li>
-                <li>Вибір кількох параметрів для порівняльних трендів</li>
-                <li>Побудова графіків за довільний проміжок часу</li>
+                <li>Окремий тред слухає <code>bus:clock</code> від core — якщо тиша &gt; 10 с, перепідключається до Redis</li>
+                <li>Rotation watchdog примусово ротує том, якщо умови виконуються але <code>write()</code> не викликався (нет нових даних)</li>
+                <li>Watcher на <code>points.json</code> — при зміні файлу <code>points_meta</code> перезавантажується (1 раз на хвилину)</li>
             </ul>
+
+            <h3>UI можливості</h3>
+            <ul>
+                <li>Список усіх параметрів (з config_snap поточного тому), фільтри за <em>Object/Drop</em>, <em>System/Socket</em>, ID, пошук за назвою</li>
+                <li>Вибір до 4 параметрів одночасно для порівняльного тренду</li>
+                <li>Період — за датами або режим "Current" (поточний том)</li>
+                <li>Перемикач графік / таблиця</li>
+                <li>Зум по горизонталі (клавіші <kbd>−</kbd> <kbd>+</kbd>)</li>
+                <li>Експорт CSV, друк</li>
+                <li>Downsampling на бекенді (LTTB-подібний) до <code>CHART_MAX_POINTS</code></li>
+            </ul>
+
+            <h3>Обмеження зберігання</h3>
+            <p>На сторінці <strong>Адмін → Архіви</strong> можна змінити <code>max_days</code> — глибину зберігання. Старші тома видаляються автоматично.</p>
         </section>
 
         <!-- ── Адміністрування ── -->
         <section id="admin">
             <h2>Адміністрування</h2>
-            <p>Сторінка <a href="/admin">/admin</a> — тільки для адміністраторів. Вкладки:</p>
+            <p>Сторінка <a href="/admin">/admin</a> — тільки для адміністраторів. Складається з 7 вкладок:</p>
+
+            <h3>Користувачі</h3>
+            <p>Перелік облікових записів. Дозволяє створювати/видаляти користувачів, змінювати пароль, призначати роль (admin / operator / constructor) та <code>display_name</code>.</p>
+
+            <h3>Права доступу</h3>
+            <p>Матриця дозволів для не-адмін користувачів:</p>
             <ul>
-                <li><strong>Підсистеми</strong> — перегляд стану Docker-контейнерів, старт / стоп / рестарт / ребілд кожної підсистеми</li>
-                <li><strong>Користувачі</strong> — перелік облікових записів, зміна паролів та ролей</li>
-                <li><strong>Права доступу</strong> — матриця дозволів: які сторінки та об'єкти доступні кожному оператору</li>
+                <li><strong>Сторінки</strong> — список slugs сторінок, до яких користувач має доступ (наприклад, <code>dashboard</code>). Якщо список порожній — всі дозволені сторінки</li>
+                <li><strong>Об'єкти</strong> — список <code>object</code>-ів, які користувач бачить у Dashboard / на екранах (фільтрація <code>/api/points</code>)</li>
             </ul>
+            <div class="note">Після зміни прав оператор має <strong>перелогінитись</strong>, щоб отримати оновлений JWT.</div>
+
+            <h3>Система</h3>
+            <p>Дві підвкладки:</p>
+            <ul>
+                <li><strong>Вузли</strong> — список фізичних серверів (drops). SSH-ключі для деплою. Стан кожного хоста.</li>
+                <li><strong>Композитор</strong> — управління підсистемами Docker. Перелік сервісів, їхні шляхи, контейнери, кнопки для білду й деплою.</li>
+            </ul>
+
+            <h3>Застосунки</h3>
+            <p>Огляд внутрішньої структури системи:</p>
+            <ul>
+                <li><strong>Структура бази даних</strong> — секція з hardware/software сокетами і поточними значеннями кожного параметра. Heartbeat-точки відображаються як одиничні записи зеленого/сірого кольору.</li>
+                <li><strong>Симулятор</strong> — старт / стоп симулятора (з footnote про конфлікт з реальними даними).</li>
+                <li>Посилання <strong>🔍 Redis</strong> → <code>/redis-db</code> для повного перегляду структури Redis.</li>
+            </ul>
+
+            <h3>Метадані</h3>
+            <p>Дерево фізичної структури: об'єкти → вузли → системи + серверні підсистеми. Дозволяє створювати/редагувати/видаляти кожен рівень. При видаленні об'єкта/вузла/системи всі прив'язані до них точки <strong>автоматично видаляються</strong> (cascading delete).</p>
+
+            <h3>Параметри</h3>
+            <p>CRUD для точок (зчитує/пише <code>points.json</code>). Особливості UI:</p>
+            <ul>
+                <li>Точки згруповані за типом: <em>Підключені до сокетів</em> (діагностичні), <em>Аналогові</em>, <em>Дискретні</em>, <em>Розрахункові</em>, <em>Від зовнішніх систем</em></li>
+                <li>Розгортання/згортання групи кліком по заголовку</li>
+                <li>Сокетні точки мають окремі колонки: <em>Вузол / Сокет</em> замість <em>Об'єкт / Система</em></li>
+                <li>Невалідні значення (вузол/сокет/об'єкт/система не існує в Метаданих) підсвічуються рожевим</li>
+                <li>Кнопка <strong>↺ Застосувати зміни</strong> просить core перезавантажити <code>points.json</code> (вони підвантажуються автоматично кожну хвилину, але кнопка прискорює)</li>
+                <li><strong>💾 Резервувати</strong> — створює бекап усіх конфіг-файлів у <code>config/backup/&lt;timestamp&gt;/</code></li>
+            </ul>
+
+            <h3>Архіви</h3>
+            <p>Перегляд томів архіватора, список з розмірами, можливість примусово ротувати поточний том. Налаштування глибини збереження (<code>max_days</code>).</p>
 
             <h3>Ролі</h3>
             <table class="doc-table">
-                <thead><tr><th>Роль</th><th>Доступ</th></tr></thead>
+                <thead><tr><th>Роль</th><th>Ранг</th><th>Доступ</th></tr></thead>
                 <tbody>
-                    <tr><td><code>admin</code></td><td>Повний доступ до всього: перегляд, конструктор, адмін-панель</td></tr>
-                    <tr><td><code>operator</code></td><td>Перегляд екранів та Dashboard (з урахуванням прав)</td></tr>
-                    <tr><td><code>constructor</code></td><td>Резервна роль для конструктора (нижча за operator)</td></tr>
+                    <tr><td><code>admin</code></td><td>99</td><td>Повний доступ до всього: перегляд, конструктор, адмін-панель, /redis-db</td></tr>
+                    <tr><td><code>operator</code></td><td>10</td><td>Перегляд екранів та Dashboard (з урахуванням прав на сторінки/об'єкти)</td></tr>
+                    <tr><td><code>constructor</code></td><td>5</td><td>Резервна роль (нижча за operator)</td></tr>
                 </tbody>
             </table>
+            <p>Перевірка ролі — на клієнті в <code>auth.js</code>, валідація JWT — на бекенді в кожному захищеному endpoint'і.</p>
         </section>
 
         <!-- ── Контроль доступу ── -->
@@ -556,6 +951,165 @@
             <p>Поле <code>objects</code> у правах — список об'єктів даних, які оператор може переглядати. API <code>/api/points</code> автоматично фільтрує точки для не-адміністраторів.</p>
 
             <div class="note"><strong>JWT-токен</strong> містить поточні права. При зміні прав оператору необхідно перезайти, щоб отримати оновлений токен.</div>
+        </section>
+
+        <!-- ── TLS ── -->
+        <section id="tls">
+            <h2>TLS-сертифікат</h2>
+            <p>Система працює виключно через HTTPS. Nginx (<code>infrabox-web</code>) виконує TLS termination на порту 443. HTTP-запити на порт 80 перенаправляються на HTTPS.</p>
+
+            <h3>Поточний сертифікат</h3>
+            <p>Серт і приватний ключ знаходяться у <code>ui/frontend/ssl/infrabox.crt</code> та <code>infrabox.key</code> на хості, монтуються у контейнер <code>infrabox-web</code> як <code>/etc/nginx/ssl/</code> у режимі read-only. Файли <strong>не комітяться</strong> в git (виключені у <code>.gitignore</code>) — вони специфічні для кожного інсталяшу.</p>
+
+            <h3>Генерація через mkcert (рекомендовано)</h3>
+            <p>Для домашньої мережі найзручніше використовувати <a href="https://github.com/FiloSottile/mkcert" target="_blank">mkcert</a> — інструмент, що створює локальний CA і підписує ним серти для будь-яких хостів/IP.</p>
+
+            <p><strong>На Mac/Linux:</strong></p>
+            <ol>
+                <li>Встанови: <code>brew install mkcert nss</code> (macOS) або <code>sudo apt install mkcert</code> (Debian/Ubuntu)</li>
+                <li>Створи локальний CA: <code>mkcert -install</code> — додає CA в системний trust store (потрібно sudo)</li>
+                <li>Згенеруй серт у директорії <code>ui/frontend/ssl/</code>:<br/>
+                    <code>mkcert -cert-file infrabox.crt -key-file infrabox.key homeServ2.local homeServ2 localhost 127.0.0.1 192.168.1.105</code></li>
+                <li>Скопіюй кореневий CA у проект для роздачі мобільним:<br/>
+                    <code>cp "$(mkcert -CAROOT)/rootCA.pem" ui/frontend/ssl/</code></li>
+                <li>Перебудуй та перезапусти web:<br/>
+                    <code>docker compose -f ui/docker-compose.yml up -d --build web</code></li>
+            </ol>
+
+            <h3>Установка кореневого CA на iOS / iPadOS</h3>
+            <ol>
+                <li>Перешли файл <code>rootCA.pem</code> на пристрій (AirDrop / email)</li>
+                <li>Відкрий файл → з'явиться повідомлення <em>"Profile downloaded"</em></li>
+                <li><strong>Settings → General → VPN &amp; Device Management</strong> → <em>"mkcert development CA"</em> → <strong>Install</strong> (тричі підтвердити)</li>
+                <li><strong>Settings → General → About → Certificate Trust Settings</strong> → ввімкни перемикач навпроти <em>"mkcert development CA"</em></li>
+                <li>Відкрий <code>https://homeServ2.local/</code> у Safari — повинно працювати без попереджень із зеленим замком</li>
+            </ol>
+
+            <div class="note"><strong>Один CA — багато пристроїв.</strong> Серт валідний для всіх перерахованих імен (homeServ2.local, IP, localhost). Кожен новий пристрій (телефон, планшет, інший комп) потребує однократної установки <code>rootCA.pem</code>.</div>
+
+            <h3>Альтернативи</h3>
+            <ul>
+                <li><strong>Let's Encrypt + DNS challenge</strong> — справжній серт, валідний на iPhone без установки CA. Потребує доменного імені (DuckDNS, FreeDNS) і налаштування certbot DNS-01.</li>
+                <li><strong>Tailscale / Cloudflare Tunnel</strong> — приватний тунель з автоматичним валідним сертом. Дозволяє доступ і поза домашньою мережею.</li>
+                <li><strong>HTTP без TLS</strong> — найпростіше, але браузер показує "Not Secure" і WebSocket має бути <code>ws://</code> (не <code>wss://</code>).</li>
+            </ul>
+
+            <p>Детальна інструкція з кодовими прикладами — у <code>ui/frontend/ssl/README.md</code>.</p>
+        </section>
+
+        <!-- ── Мобільні пристрої ── -->
+        <section id="mobile">
+            <h2>Мобільні пристрої</h2>
+            <p>Система підтримує доступ з телефонів і планшетів через звичайний браузер (Safari, Chrome). Окрема нативна програма не потрібна.</p>
+
+            <h3>Авто-вибір мобільного екрана</h3>
+            <p>При першому завантаженні головної сторінки клієнтський JS викликає <code>matchMedia('(max-width: 768px)')</code>. Якщо результат істинний — система шукає у <code>project.json</code> екран зі <code>screenType: "mobile"</code> і найменшим <code>screenNum</code> для поточного <code>deviceType</code> і завантажує його. Якщо такого екрана немає (або файл відсутній) — fallback на PC-екран. Користувач може потім вручну переходити по кнопках навігації, але переходи між типами заблоковані (mobile↔mobile тільки).</p>
+
+            <h3>Адаптивна верстка</h3>
+            <p>Усі основні сторінки мають <code>@media (max-width: 768px)</code> блоки CSS:</p>
+            <ul>
+                <li><strong>Головна (<code>/</code>)</strong> — компактний хедер: лого до іконки, ховаються розділювачі, ім'я користувача, дата в годиннику; кнопка "☰ Меню" → "☰". Канвас використовує більше площі.</li>
+                <li><strong>Адмін (<code>/admin</code>)</strong> — таби горизонтально скролляться, таблиці отримують <code>min-width</code> + горизонтальний скрол всередині <code>.tab-panel</code>, модалки — на повну ширину екрана.</li>
+                <li><strong>Архіватор (<code>/arch/</code>, <code>/arch/point.html</code>)</strong> — фільтри переносяться, таблиця у <code>.table-wrap</code> зі скролом, графік стискається до 280px по висоті, контролі стають вертикальними.</li>
+            </ul>
+
+            <h3>Авторизація на мобільному</h3>
+            <p>JWT в <code>localStorage</code> валідується при кожному завантаженні головної сторінки: декодується payload, перевіряється <code>exp</code>. Якщо токен прострочений — записи <code>token</code>, <code>role</code>, <code>display_name</code>, <code>permissions</code> очищуються, користувач показується як <em>operator</em> (не залогінений). Це запобігає ситуаціям, коли пристрій показує "залогінений як admin" із застарілими даними.</p>
+
+            <h3>Розмір канваса для iPhone 13 / типового смартфона</h3>
+            <p>Доступна площа на iPhone 13 (390×844 CSS px у портреті):</p>
+            <ul>
+                <li>Мінус хедер 52px і футер 28px → 390×764</li>
+                <li>Мінус padding canvas-area (32px) → 390×732</li>
+                <li>Мінус відступ у <code>_updateScale()</code> (32px) → <strong>358×700</strong> — максимум без масштабування</li>
+            </ul>
+            <p>Рекомендовані розміри для мобільних екранів: <code>360×640</code> (універсальний, fits iPhone SE+) або <code>360×700</code> (iPhone 13+ максимум).</p>
+
+            <h3>Обмеження</h3>
+            <ul>
+                <li>Браузер не дає сторінці програмно піти в повний екран без жесту користувача. Ховання адресного рядку Safari доступне лише через <em>"Add to Home Screen"</em> (PWA-режим).</li>
+                <li>На iOS Safari <code>requestFullscreen()</code> не підтримується для не-відео елементів.</li>
+                <li>Без установки кореневого CA (див. <a @click="scrollTo('tls')" style="cursor:pointer">TLS</a>) браузер показує попередження про небезпечний сайт.</li>
+            </ul>
+        </section>
+
+        <!-- ── Потік даних ── -->
+        <section id="dataflow">
+            <h2>Потік даних</h2>
+            <p>Розуміти як значення проходить від датчика до екрана корисно для діагностики і планування.</p>
+
+            <h3>Шлях аналогового значення</h3>
+            <ol>
+                <li><strong>Симулятор</strong> або реальне обладнання публікує JSON у MQTT-топік <code>{object}/{system}/{pointname}/{id}</code> кожну секунду</li>
+                <li><strong>Core</strong> підписаний на <code>#</code> на брокері, отримує повідомлення → парсить → кладе в буфер (тред-сейф)</li>
+                <li>Раз на 1с (system tick) Core читає буфер цілком, обробляє кожну точку:
+                    <ul>
+                        <li>Перевіряє топік — має співпадати з очікуваним для меті точки (захист від чужих)</li>
+                        <li>Застосовує deadband — якщо <code>|new − last| &lt; deadband</code>, пропускає</li>
+                        <li>Класифікує якість (process_quality) — переходи стану</li>
+                        <li>Записує в Redis hash <code>point:NNN</code> (один pipeline на весь батч)</li>
+                        <li>Публікує ID у Redis Pub/Sub <code>bus:data</code></li>
+                        <li>Якщо стан змінився — додатково публікує подію у <code>bus:event</code></li>
+                    </ul>
+                </li>
+                <li><strong>Backend</strong> має WebSocket з'єднання з кожним відкритим клієнтом. Підписаний на <code>bus:data</code>:
+                    <ul>
+                        <li>Збирає point_id за <code>batch_interval=200мс</code></li>
+                        <li>Один pipeline-запит до Redis за всіма зміненими точками</li>
+                        <li>Шле батч у WS-фрейм: <code>&#123;"type":"update","data":[…]&#125;</code></li>
+                    </ul>
+                </li>
+                <li><strong>Клієнт</strong> отримує батч у <code>onmessage</code>:
+                    <ul>
+                        <li>Мутує <code>points[id]</code> — Alpine реактивно перерендерить біндінги</li>
+                        <li>Gauge використовує WeakMap-кеш по сигнатурі (значення + ліміти + кольори), щоб не перебудовувати арки 11 разів на render</li>
+                        <li>Оновлюється <code>lastUpdate</code> у футері</li>
+                    </ul>
+                </li>
+                <li>Паралельно <strong>Архіватор</strong> теж слухає <code>bus:data</code> і пише значення на диск згідно стратегії точки</li>
+            </ol>
+
+            <h3>Шлях heartbeat</h3>
+            <ol>
+                <li>Кожен Python-сервіс у фоновому треді кожні 5 секунд робить <code>SET heartbeat:&lt;name&gt; &lt;timestamp&gt; EX 25</code></li>
+                <li>Контейнери без Python (redis, mosquitto, nginx, portainer) — <code>infrabox-adm</code> робить це за них через перевірку Docker API</li>
+                <li>Core кожні 25 тіків (~25с) читає всі <code>heartbeat:*</code> ключі pipeline'ом</li>
+                <li>Для кожного software-сокета з відповідним <code>name</code>: якщо TTL &gt; 0 → <code>value=1, quality=GOOD</code>, інакше <code>value=0, quality=ALARM</code></li>
+                <li>Записує в <code>point:NNN</code> + публікує <code>bus:data</code> — далі стандартний шлях</li>
+            </ol>
+
+            <h3>Шлях selfDiag (метрики хосту)</h3>
+            <ol>
+                <li><strong>infrabox-selfdiagnostic</strong> змонтовано <code>/proc</code> та <code>/</code> хосту</li>
+                <li>Через psutil читає cpu, memory, disk, network</li>
+                <li>Кожну секунду публікує MQTT топік <code>home/selfDiag/{pointname}/{id}</code></li>
+                <li>Далі стандартний шлях через core</li>
+            </ol>
+
+            <h3>Латентність значення (від датчика до екрана)</h3>
+            <table class="doc-table">
+                <thead><tr><th>Етап</th><th>Час</th></tr></thead>
+                <tbody>
+                    <tr><td>Симулятор / sensor → MQTT</td><td>≈ 5 мс</td></tr>
+                    <tr><td>MQTT → core (буфер)</td><td>&lt; 1 мс</td></tr>
+                    <tr><td>Core tick (обробка батчу + запис у Redis)</td><td>до 1000 мс (від наступного тіку)</td></tr>
+                    <tr><td>Redis Pub/Sub → backend</td><td>≈ 1 мс</td></tr>
+                    <tr><td>WebSocket batch_interval</td><td>до 200 мс</td></tr>
+                    <tr><td>WS frame → клієнт</td><td>≈ 5 мс (LAN)</td></tr>
+                    <tr><td>DOM render</td><td>5—20 мс (з memo-кешем gauge)</td></tr>
+                </tbody>
+            </table>
+            <p><strong>Підсумок:</strong> ~1.2—1.5 секунди від генерації значення до появи на екрані. Це ціна за batch-обробку (зменшує навантаження на Redis і UI).</p>
+
+            <h3>Канали Redis Pub/Sub</h3>
+            <table class="doc-table">
+                <thead><tr><th>Канал</th><th>Хто публікує</th><th>Хто слухає</th></tr></thead>
+                <tbody>
+                    <tr><td><code>bus:clock</code></td><td>core (1 раз/сек)</td><td>arch, watchdog'и</td></tr>
+                    <tr><td><code>bus:data</code></td><td>core (point_id при оновленні)</td><td>backend (WS), archiver</td></tr>
+                    <tr><td><code>bus:event</code></td><td>core (при зміні якості)</td><td>archiver</td></tr>
+                </tbody>
+            </table>
         </section>
 
     </main>
