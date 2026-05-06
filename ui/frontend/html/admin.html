@@ -803,6 +803,7 @@
         <table class="pt-table">
             <tbody id="pointsBody"></tbody>
         </table>
+
     </div>
 
     <!-- ══════════════════════════════ SYSTEM TAB ═════════════════════════════ -->
@@ -959,6 +960,7 @@
                     <option value="calculated">Розрахунковий</option>
                     <option value="external">Від зовнішніх систем</option>
                     <option value="diagnostic">Діагностика</option>
+                    <option value="operation_mode">Режим роботи системи</option>
                 </select>
             </div>
         </div>
@@ -1185,6 +1187,36 @@
             </div>
         </div>
 
+        <!-- ── Режим роботи системи ── -->
+        <div id="pt_section_opmode" style="display:none">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>Система</label>
+                    <select id="pt_opmode_system" onchange="_onOpmodeSystemChange()">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Назва (pointname)</label>
+                    <input type="text" id="pt_opmode_pointname" placeholder="operationMode">
+                </div>
+            </div>
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
+            <div class="form-grid">
+                <div class="field" style="flex-direction:row;align-items:center;gap:8px">
+                    <input type="checkbox" id="pt_opmode_archive" style="width:auto;margin:0" checked>
+                    <label for="pt_opmode_archive" style="margin:0;cursor:pointer">Архівувати зміни стану</label>
+                </div>
+            </div>
+            <input type="hidden" id="pt_opmode_object">
+            <input type="hidden" id="pt_opmode_drop">
+            <div style="margin-top:10px;padding:8px 10px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;color:#8b949e">
+                Значення: <b style="color:#c9d1d9">0</b> — ручне управління &nbsp;·&nbsp; <b style="color:#c9d1d9">1</b> — автоматичне<br>
+                Стани: <b style="color:#c9d1d9">init</b> — не завантажено &nbsp;·&nbsp; <b style="color:#c9d1d9">uncert</b> — значення відсутнє або не валідне
+            </div>
+        </div>
+
         <!-- hidden backing fields -->
         <input type="hidden" id="pt_onArchive">
         <input type="hidden" id="pt_archive_on_change">
@@ -1405,8 +1437,9 @@ function switchTab(name) {
 }
 
 function switchSub(name) {
-    document.querySelectorAll(".sub-panel").forEach(p => p.classList.remove("active"));
-    document.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
+    const systemTab = document.getElementById("tab-system");
+    systemTab.querySelectorAll(".sub-panel").forEach(p => p.classList.remove("active"));
+    systemTab.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
     document.getElementById(`sub-${name}`).classList.add("active");
     document.getElementById(`sub-${name}-btn`).classList.add("active");
     if (name === "composer") { loadSubs(); loadSystem(); }
@@ -2437,6 +2470,9 @@ function _populateModalSelects() {
     // diagnostic chain — drop selector
     document.getElementById("pt_diag_drop").innerHTML = `<option value="">— оберіть —</option>` +
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
+    // operation_mode — system selector
+    document.getElementById("pt_opmode_system").innerHTML = `<option value="">— оберіть —</option>` +
+        _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
 }
 
 function _archiveMode(p) {
@@ -2475,10 +2511,10 @@ function _togglePtGroup(gkey) {
 
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
-    const GROUP_ORDER  = ["sockets", "analog", "discrete", "calculated", "external"];
+    const GROUP_ORDER  = ["sockets", "analog", "discrete", "calculated", "external", "operation_mode"];
     const GROUP_LABELS = { sockets: "Підключені до сокетів системи", analog: "Аналогові",
                            discrete: "Дискретні", calculated: "Розрахункові",
-                           external: "Від зовнішніх систем" };
+                           external: "Від зовнішніх систем", operation_mode: "Режим роботи системи" };
 
     tbody.innerHTML = "";
 
@@ -2617,6 +2653,12 @@ function _pointFormDefaults() {
     document.getElementById("pt_label_0").value          = "";
     document.getElementById("pt_label_1").value          = "";
     document.getElementById("pt_discrete_archive").checked = true;
+    // operation_mode defaults
+    document.getElementById("pt_opmode_system").value    = "";
+    document.getElementById("pt_opmode_pointname").value = "";
+    document.getElementById("pt_opmode_archive").checked = true;
+    document.getElementById("pt_opmode_object").value    = "";
+    document.getElementById("pt_opmode_drop").value      = "";
     _setArchiveMode("change");
 }
 
@@ -2658,6 +2700,12 @@ function _fillPointForm(p) {
     document.getElementById("pt_discrete_archive").checked = parseInt(p.onArchive ?? 1) === 1;
     // calculated fields
     document.getElementById("pt_formula").value      = p.formula      ?? "";
+    // operation_mode fields
+    document.getElementById("pt_opmode_system").value    = p.system    ?? "";
+    document.getElementById("pt_opmode_pointname").value = p.pointname ?? "";
+    document.getElementById("pt_opmode_archive").checked = parseInt(p.onArchive ?? 1) === 1;
+    document.getElementById("pt_opmode_object").value    = p.object    ?? "";
+    document.getElementById("pt_opmode_drop").value      = p.drop      ?? "";
     // derive archive mode from raw fields
     const onArch = parseInt(p.onArchive ?? 1);
     const onChg  = parseInt(p.archive_on_change ?? 1);
@@ -2675,19 +2723,31 @@ function onPointTypeChange() {
     const isDiag       = type === "diagnostic";
     const isDiscrete   = type === "discrete";
     const isCalculated = type === "calculated";
+    const isOpMode     = type === "operation_mode";
     document.getElementById("pt_section_system").style.display     = isSystem     ? "" : "none";
     document.getElementById("pt_section_diag").style.display       = isDiag       ? "" : "none";
-    document.getElementById("pt_section_tech").style.display       = (isSystem || isDiag) ? "none" : "";
-    document.getElementById("pt_section_common").style.display     = (isDiscrete || isCalculated) ? "none" : "";
+    document.getElementById("pt_section_tech").style.display       = (isSystem || isDiag || isOpMode) ? "none" : "";
+    document.getElementById("pt_section_common").style.display     = (isDiscrete || isCalculated || isOpMode) ? "none" : "";
     document.getElementById("pt_section_discrete").style.display   = isDiscrete   ? "" : "none";
     document.getElementById("pt_section_calculated").style.display = isCalculated ? "" : "none";
+    document.getElementById("pt_section_opmode").style.display     = isOpMode     ? "" : "none";
     if (isDiag) _diagResetFrom(1);
-    else if (!isSystem) {
+    else if (!isSystem && !isOpMode) {
         document.getElementById("pt_object").value = document.getElementById("pt_object_sel").value;
         document.getElementById("pt_drop").value   = document.getElementById("pt_drop_sel").value;
         document.getElementById("pt_system").value = document.getElementById("pt_system_sel").value;
     }
     if (isDiscrete) onSeverityChange();
+}
+
+function _onOpmodeSystemChange() {
+    const sysId = document.getElementById("pt_opmode_system").value;
+    const sys   = _allSystems.find(s => s.id === sysId);
+    const drop  = sys ? sys.drop : "";
+    const drp   = _allDrops.find(d => d.id === drop);
+    const obj   = drp ? (drp.object || "") : "";
+    document.getElementById("pt_opmode_drop").value   = drop;
+    document.getElementById("pt_opmode_object").value = obj;
 }
 
 function validateFormula() {
@@ -2791,15 +2851,21 @@ function _setPointModalMode(isSystem) {
     onPointTypeChange();
 }
 
-function openPointCreate() {
+function openPointCreate(forceType) {
     _pointEditId = null;
     document.getElementById("pointModalTitle").textContent = "Новий параметр";
     document.getElementById("pointModalError").style.display = "none";
     document.getElementById("pt_id").disabled = false;
     _pointFormDefaults();
+    if (forceType) {
+        document.getElementById("pt_type").value = forceType;
+        onPointTypeChange();
+    }
     _setPointModalMode(false);
     document.getElementById("pointOverlay").classList.add("open");
 }
+
+
 
 function openPointEdit(id) {
     const p = _allPoints.find(x => x.id === id);
@@ -2839,12 +2905,18 @@ function _readPointForm() {
     const type       = document.getElementById("pt_type").value;
     const isDiag     = type === "diagnostic";
     const isDiscrete = type === "discrete";
+    const isOpMode   = type === "operation_mode";
 
     const ident = isDiag ? {
         socket:    document.getElementById("pt_socket").value.trim(),
         drop:      document.getElementById("pt_socket_drop").value.trim(),
         param:     document.getElementById("pt_diag_param").value.trim(),
         pointname: document.getElementById("pt_diag_name").value.trim(),
+    } : isOpMode ? {
+        system:    document.getElementById("pt_opmode_system").value.trim(),
+        drop:      document.getElementById("pt_opmode_drop").value.trim(),
+        object:    document.getElementById("pt_opmode_object").value.trim(),
+        pointname: document.getElementById("pt_opmode_pointname").value.trim(),
     } : {
         object:    document.getElementById("pt_object").value.trim(),
         drop:      document.getElementById("pt_drop").value.trim(),
@@ -2861,6 +2933,8 @@ function _readPointForm() {
         label_0:      document.getElementById("pt_label_0").value.trim(),
         label_1:      document.getElementById("pt_label_1").value.trim(),
         onArchive:    document.getElementById("pt_discrete_archive").checked ? 1 : 0,
+    } : isOpMode ? {
+        onArchive:    document.getElementById("pt_opmode_archive").checked ? 1 : 0,
     } : isCalculated ? {
         formula: document.getElementById("pt_formula").value.trim(),
     } : {

@@ -2,16 +2,19 @@
   {
     "id": "reserv_power",
     "name": "Резервне електропостачання",
-    "drop": "homeServ-1"
+    "drop": "homeServ-1",
+    "operation_mode": "manual"
   },
   {
     "id": "res_battary1",
     "name": "Батареї резервного живлення",
-    "drop": "homeServ-1"
+    "drop": "homeServ-1",
+    "operation_mode": "manual"
   },
   {
     "id": "electric",
     "name": "Електропостачання",
-    "drop": "garageServ1"
+    "drop": "garageServ1",
+    "operation_mode": "manual"
   }
 ]

@@ -2,6 +2,7 @@ import threading
 import time
 
 from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
 from app.redis_client import redis_client
 from app.screens import router as screens_router
 from app.ws import router as ws_router
@@ -66,6 +67,16 @@ async def get_redis_structure(user: dict = Depends(require_auth)):
         raise HTTPException(status_code=403, detail="Тільки для адміністраторів")
     data = await redis_client.get_structure()
     return data
+
+
+class _SetValueBody(BaseModel):
+    value: int
+
+
+@app.post("/api/pub/points/{point_id}/value")
+async def set_point_value(point_id: str, body: _SetValueBody):
+    await redis_client.set_point_value(point_id, body.value)
+    return {"ok": True}
 
 
 @app.get("/api/points")

@@ -754,5 +754,14 @@
     "archive_interval": 0,
     "archive_on_change": 1,
     "formula": "sin($101)*1000"
+  },
+  {
+    "id": 800,
+    "type": "operation_mode",
+    "object": "garage",
+    "drop": "garageServ1",
+    "system": "electric",
+    "pointname": "Режим Електропостачання",
+    "onArchive": 1
   }
 ]

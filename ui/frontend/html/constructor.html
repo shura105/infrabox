@@ -492,7 +492,7 @@
                          @click.self="selectEl(null)">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='line'||el.type==='arrow'?'overflow:visible;':''}`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='line'||el.type==='arrow'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
                                 <template x-if="el.type==='group_box'">
                                     <div style="position:absolute;inset:0">
@@ -621,6 +621,22 @@
                                         <div x-show="el.showLabel"
                                              :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
                                              x-text="el.label || 'Розрахунок'"></div>
+                                    </div>
+                                </template>
+
+                                <!-- ctrl_opmode: operation mode control element -->
+                                <template x-if="el.type === 'ctrl_opmode'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${el.colorInit||'#484f58'};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(el.image0 || el.image1 || '')}`">
+                                            <template x-if="!el.image0 && !el.image1">
+                                                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                                    <span style="font-size:20px;color:#8b949e">⊙</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label || 'Режим'"></div>
                                     </div>
                                 </template>
                             </div>
@@ -1097,6 +1113,84 @@
                             </div>
                         </template>
 
+                        <!-- ctrl_opmode property panel -->
+                        <template x-if="selEl.type === 'ctrl_opmode'">
+                            <div>
+                                <div class="pr">
+                                    <label>Параметр режиму роботи</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void operationModePoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in operationModePoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="operationModePoints.length === 0" style="font-size:11px;color:#f0ad4e;padding:4px 0">
+                                    Немає параметрів режиму роботи — створіть у адмінці (Параметри → + Додати, тип "Режим роботи системи").
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Зображення для значень (SVG / PNG)</div>
+                                <template x-for="slot in [
+                                    { key:'image0', label:'Значення 0 — ручний режим' },
+                                    { key:'image1', label:'Значення 1 — авто режим' }
+                                ]" :key="slot.key">
+                                    <div class="pr">
+                                        <label x-text="slot.label"></label>
+                                        <div style="display:flex;gap:4px;align-items:center">
+                                            <label class="btn" style="flex:1;text-align:center;cursor:pointer">
+                                                <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
+                                                <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
+                                                       @change="uploadBiImage(slot.key, $event)"
+                                                       style="display:none">
+                                            </label>
+                                            <button class="btn btn-red" x-show="selEl[slot.key]"
+                                                    @click="selEl[slot.key]=''" style="padding:3px 8px">✕</button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="pr-sep"></div>
+                                <div class="pr2">
+                                    <div>
+                                        <label>Товщина рамки</label>
+                                        <input type="number" x-model.number="selEl.borderWidth" min="0" max="20">
+                                    </div>
+                                    <div>
+                                        <label>Скруглення (px)</label>
+                                        <input type="number" x-model.number="selEl.borderRadius" min="0" max="100">
+                                    </div>
+                                </div>
+                                <div style="font-size:11px;color:#8b949e;margin:6px 0 3px">Кольори рамки за станом</div>
+                                <div class="pr">
+                                    <label>INIT (запуск)</label>
+                                    <input type="color" :value="selEl.colorInit||'#484f58'" @input="selEl.colorInit=$event.target.value">
+                                </div>
+                                <div class="pr">
+                                    <label>UNCERT / NODATA</label>
+                                    <input type="color" :value="selEl.colorUncert||'#6e7681'" @input="selEl.colorUncert=$event.target.value">
+                                </div>
+                                <div class="pr">
+                                    <label>GOOD (активний)</label>
+                                    <input type="color" :value="selEl.colorGood||'#3fb950'" @input="selEl.colorGood=$event.target.value">
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="opmodeLblCb"><label for="opmodeLblCb">Показати підпис</label></div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Підпис</label>
+                                    <input type="text" x-model="selEl.label" placeholder="">
+                                </div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Розмір шрифту</label>
+                                    <input type="number" x-model.number="selEl.fontSize" min="8" max="60">
+                                </div>
+                                <div class="pr" x-show="selEl.showLabel">
+                                    <label>Колір підпису</label>
+                                    <input type="color" :value="selEl.color||'#e6edf3'" @input="selEl.color=$event.target.value">
+                                </div>
+                            </div>
+                        </template>
+
                         <!-- calc_box property panel -->
                         <template x-if="selEl.type === 'calc_box'">
                             <div>
@@ -1288,6 +1382,9 @@ function app() {
         get calculatedPoints() {
             return this.allPoints.filter(p => p.type === "calculated");
         },
+        get operationModePoints() {
+            return this.allPoints.filter(p => p.type === "operation_mode");
+        },
         // Severity of the discrete point currently bound to selEl, or null when
         // unbound. Drives which colour-state options are offered.
         get _biSeverity() {
@@ -1373,6 +1470,12 @@ function app() {
                     { type:"calc_box", icon:"∑", label:"Розрахунковий" },
                 ]
             },
+            {
+                group: "Управління",
+                items: [
+                    { type:"ctrl_opmode", icon:"⊙", label:"Режим роботи" },
+                ]
+            },
         ],
 
         defaults: {
@@ -1410,6 +1513,10 @@ function app() {
             calc_box:   { w:120, h:120, point_id:0, formula:"", label:"", showLabel:true, fontSize:11, color:"#e6edf3",
                           colorBorder:"#58a6ff", borderWidth:2, borderRadius:8,
                           imageGood:"", imageWarn:"", imageAlarm:"", imageUncert:"", imageInit:"" },
+            // operation mode control: frame with 2 SVG images (value 0/1), border color per state
+            ctrl_opmode: { w:120, h:120, point_id:0, image0:"", image1:"", label:"", showLabel:false, fontSize:11, color:"#e6edf3",
+                           borderWidth:2, borderRadius:8,
+                           colorInit:"#484f58", colorUncert:"#6e7681", colorGood:"#3fb950" },
         },
 
         get gridImg() {

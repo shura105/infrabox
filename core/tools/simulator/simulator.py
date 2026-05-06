@@ -187,12 +187,13 @@ def main():
     threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
     points = load_points()
+    _SKIP = {"calculated", "operation_mode"}
     n_disc = sum(1 for p in points if p.get("type") == "discrete")
-    n_calc = sum(1 for p in points if p.get("type") == "calculated")
-    n_an   = len(points) - n_disc - n_calc
-    log.info(f"Loaded {len(points)} points ({n_an} analog, {n_disc} discrete, {n_calc} calculated — skipped)")
+    n_skip = sum(1 for p in points if p.get("type") in _SKIP)
+    n_an   = len(points) - n_disc - n_skip
+    log.info(f"Loaded {len(points)} points ({n_an} analog, {n_disc} discrete, {n_skip} skipped)")
 
-    points = [p for p in points if p.get("type") != "calculated"]
+    points = [p for p in points if p.get("type") not in _SKIP]
 
     client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, 60)

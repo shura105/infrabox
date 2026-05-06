@@ -145,6 +145,22 @@ def main():
 
     log.info(f"Loaded {len(meta_cache)} points")
 
+    # --- INIT operation_mode points in Redis (not MQTT-driven, never written otherwise) ---
+    for pid, meta in meta_cache.items():
+        if meta.get("type") != "operation_mode":
+            continue
+        key = f"point:{pid}"
+        if not r.exists(key):
+            r.hset(key, mapping={
+                "value": "0",
+                "quality": "INIT",
+                "type": "operation_mode",
+                "object": meta["object"],
+                "system": meta["system"],
+                "pointname": meta["pointname"],
+            })
+            r.publish("bus:data", str(pid))
+
     # start_mqtt(config, mqtt_callback(buffer, buffer_lock), log)
     mqtt_client = start_mqtt(config, mqtt_callback(buffer, buffer_lock))
 
@@ -311,7 +327,7 @@ def main():
                 if not formula:
                     continue
 
-                refs = [int(m) for m in re.findall(r'\$(\d+)', formula)]
+                refs    = [int(m) for m in re.findall(r'\$(\d+)', formula)]
                 worst_q = "GOOD"
                 valid   = True
                 for ref_id in set(refs):

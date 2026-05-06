@@ -683,6 +683,17 @@
                                 </div>
                             </template>
 
+                            <!-- ctrl_opmode: operation mode element, border color by state/value -->
+                            <template x-if="el.type === 'ctrl_opmode'">
+                                <div style="position:absolute;inset:0;overflow:visible;cursor:pointer"
+                                     @click.stop="ctrlOpmodeClick(el)">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${ctrlOpmodeColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlOpmodeImageSrc(el))}`"></div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label || 'Режим'"></div>
+                                </div>
+                            </template>
+
                         </div>
                     </template>
                 </div>
@@ -690,6 +701,26 @@
         </template>
     </div>
 </main>
+
+<!-- ═══════════ OPMODE CONFIRM MODAL ═══════════ -->
+<div x-show="opmodeModal.show"
+     @click.self="opmodeModal.show=false"
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65)">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+        <div style="color:#e6edf3;font-size:15px;line-height:1.55;margin-bottom:22px"
+             x-text="`Ви дійсно бажаєте перевести систему «${opmodeModal.sysName}» в режим управління «${opmodeModal.modeName}»?`"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button @click="opmodeModal.show=false"
+                    style="padding:7px 18px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:13px">
+                Скасувати
+            </button>
+            <button @click="ctrlOpmodeConfirm()"
+                    style="padding:7px 18px;background:#238636;border:1px solid #2ea043;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
+                Підтвердити
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- ═══════════ FOOTER ═══════════ -->
 <footer>
@@ -752,11 +783,14 @@ function app() {
         viewScale:   1,
         lastUpdate:  '',
         _ws:         null,
+        systemsMap:  {},
+        opmodeModal: { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
 
         async init() {
             this._startClock();
             this._connectWS();
             await this._loadProject();
+            this._loadSystems();
 
             this.$nextTick(() => this._updateScale());
             window.addEventListener('resize', () => this._updateScale());
@@ -1258,6 +1292,53 @@ function app() {
                 case "GOOD":   return el.imageGood   || "";
                 default:       return el.imageUncert || "";
             }
+        },
+
+        // ── ctrl_opmode: border color and image by quality/value ──
+        ctrlOpmodeColor(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return el.colorInit || '#484f58';
+            const q = pt.quality || "NODATA";
+            if (q === "INIT")   return el.colorInit   || '#484f58';
+            if (q === "NODATA") return el.colorUncert || '#6e7681';
+            if (q === "UNCERT") return el.colorUncert || '#6e7681';
+            return el.colorGood || '#3fb950';
+        },
+        ctrlOpmodeImageSrc(el) {
+            const pt = this.points[el.point_id];
+            const v = pt ? parseInt(pt.value) : 0;
+            return v === 1 ? (el.image1 || "") : (el.image0 || "");
+        },
+        ctrlOpmodeClick(el) {
+            if (!el.point_id) return;
+            const pt = this.points[String(el.point_id)];
+            const curValue = pt ? parseInt(pt.value) : 0;
+            const targetValue = curValue === 1 ? 0 : 1;
+            const sysName = pt?.system ? (this.systemsMap[pt.system] || pt.system) : (el.label || '');
+            const modeName = targetValue === 1 ? 'Автоматичний' : 'Ручний';
+            this.opmodeModal = { show: true, el, targetValue, sysName, modeName };
+        },
+        async ctrlOpmodeConfirm() {
+            const { el, targetValue } = this.opmodeModal;
+            this.opmodeModal.show = false;
+            try {
+                await fetch(`/api/pub/points/${el.point_id}/value`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: targetValue })
+                });
+            } catch(e) { console.error('opmode set failed:', e); }
+        },
+        async _loadSystems() {
+            try {
+                const r = await fetch('/adm/api/systems');
+                if (r.ok) {
+                    const data = await r.json();
+                    const m = {};
+                    data.forEach(s => { m[s.id] = s.name; });
+                    this.systemsMap = m;
+                }
+            } catch(e) {}
         },
 
         openHref(href) {

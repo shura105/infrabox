@@ -645,6 +645,7 @@ class SystemIn(BaseModel):
     id: str
     name: str
     drop: str   # was "object" — now system belongs to a node/drop
+    operation_mode: str = "manual"
 
 
 @app.post("/systems")
@@ -816,6 +817,7 @@ _ANALOG_ONLY     = {"unit", "min", "max", "warn_min", "warn_max",
                     "archive_on_change", "archive_interval", "interval"}
 _DISCRETE_ONLY   = {"normal_value", "severity", "label_0", "label_1"}
 _CALCULATED_ONLY = {"formula"}
+_OPMODE_STRIP    = _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | {"socket", "param", "hb_service"}
 
 
 def _point_dict(p: PointIn) -> dict:
@@ -826,6 +828,9 @@ def _point_dict(p: PointIn) -> dict:
             d.pop(k, None)
     elif t == "calculated":
         for k in _DISCRETE_ONLY:
+            d.pop(k, None)
+    elif t == "operation_mode":
+        for k in _OPMODE_STRIP:
             d.pop(k, None)
     else:
         for k in _DISCRETE_ONLY | _CALCULATED_ONLY:

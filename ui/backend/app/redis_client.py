@@ -133,5 +133,10 @@ class RedisClient:
         result.sort(key=lambda x: x["key"])
         return {"total": len(result), "keys": result}
 
+    async def set_point_value(self, point_id: str, value: int):
+        key = f"point:{point_id}"
+        await self.redis.hset(key, mapping={"value": str(value), "quality": "GOOD"})
+        await self.redis.publish("bus:data", str(point_id))
+
 
 redis_client = RedisClient()

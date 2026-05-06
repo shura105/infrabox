@@ -145,7 +145,11 @@
       "showValue": true,
       "fontSize": 30,
       "color": "#ffffff",
-      "borderRadius": 35
+      "borderRadius": 35,
+      "baseW": 0.20785714285714285,
+      "baseH": 0.15,
+      "scale": 100,
+      "borderWidth": 1
     },
     {
       "id": "el_1776531826776",
