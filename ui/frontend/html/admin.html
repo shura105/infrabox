@@ -1278,9 +1278,9 @@
                 <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Shell — синтаксис команди</div>
                 <div><code style="color:#79c0ff">{value}</code> — замінюється на <b>0</b> або <b>1</b> перед виконанням</div>
                 <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
-                <div><code style="color:#a5d6ff">/opt/scripts/relay.sh {value}</code> — локально в контейнері</div>
-                <div><code style="color:#a5d6ff">ssh shura@homeServ2.local "gpio write 17 {value}"</code></div>
-                <div><code style="color:#a5d6ff">ssh shura@homeServ2.local "/opt/scripts/pump.sh {value}"</code></div>
+                <div><code style="color:#a5d6ff">ssh user@hostname "gpio write 17 {value}"</code></div>
+                <div><code style="color:#a5d6ff">ssh user@hostname "/opt/scripts/pump.sh {value}"</code></div>
+                <div><code style="color:#a5d6ff">/app/scripts/relay.sh {value}</code> — скрипт у контейнері (volume mount)</div>
                 <div style="margin-top:6px;padding:5px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
                     Команда виконується у фоновому потоці, не блокує цикл. Ненульовий exit code логується як WARNING. Підтвердження — через точку фідбеку як звичайно.
                 </div>
