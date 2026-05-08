@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from typing import Optional
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "infrabox-redis")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
@@ -810,6 +811,12 @@ class PointIn(BaseModel):
     label_1:      str = ""
     # calculated-only fields
     formula:      str = ""
+    # control-only fields
+    transport:              str   = "mqtt"
+    target:                 str   = ""
+    feedback_id:            Optional[int] = None
+    feedback_ok_value:      int   = 1
+    feedback_timeout_ticks: int   = 3
 
 
 _ANALOG_ONLY     = {"unit", "min", "max", "warn_min", "warn_max",
@@ -817,23 +824,28 @@ _ANALOG_ONLY     = {"unit", "min", "max", "warn_min", "warn_max",
                     "archive_on_change", "archive_interval", "interval"}
 _DISCRETE_ONLY   = {"normal_value", "severity", "label_0", "label_1"}
 _CALCULATED_ONLY = {"formula"}
-_OPMODE_STRIP    = _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | {"socket", "param", "hb_service"}
+_CONTROL_ONLY    = {"formula", "transport", "target", "feedback_id",
+                    "feedback_ok_value", "feedback_timeout_ticks"}
+_OPMODE_STRIP    = _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | _CONTROL_ONLY | {"socket", "param", "hb_service"}
 
 
 def _point_dict(p: PointIn) -> dict:
-    d = {k: v for k, v in p.model_dump().items() if v != ""}
+    d = {k: v for k, v in p.model_dump().items() if v != "" and v is not None}
     t = d.get("type", "analog")
     if t == "discrete":
-        for k in _ANALOG_ONLY | _CALCULATED_ONLY:
+        for k in _ANALOG_ONLY | _CALCULATED_ONLY | _CONTROL_ONLY:
             d.pop(k, None)
     elif t == "calculated":
-        for k in _DISCRETE_ONLY:
+        for k in _DISCRETE_ONLY | _CONTROL_ONLY:
+            d.pop(k, None)
+    elif t == "control":
+        for k in _ANALOG_ONLY | _DISCRETE_ONLY:
             d.pop(k, None)
     elif t == "operation_mode":
         for k in _OPMODE_STRIP:
             d.pop(k, None)
     else:
-        for k in _DISCRETE_ONLY | _CALCULATED_ONLY:
+        for k in _DISCRETE_ONLY | _CALCULATED_ONLY | _CONTROL_ONLY:
             d.pop(k, None)
     return d
 
