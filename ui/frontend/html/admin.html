@@ -2910,10 +2910,8 @@ function validateCtrlFormula() {
     };
     if (!raw) { show(false, "✗ Формула порожня"); return; }
     if (raw.includes("__")) { show(false, "✗ Недопустимі символи (__)"); return; }
-    // Convert C-style ternary before validation
-    let expr = raw.replace(/\$(\d+)/g, "1.0");
-    const tm = expr.match(/^(.*\S)\s*\?\s*(\S.*?)\s*:\s*(\S.*)$/);
-    if (tm) expr = `(${tm[2]}) ? (${tm[1]}) : (${tm[3]})`;
+    // JS natively supports a?b:c — just substitute $id with 1.0
+    const expr = raw.replace(/\$(\d+)/g, "1.0");
     const _M = Math;
     const ns = {
         sin:_M.sin, cos:_M.cos, tan:_M.tan, asin:_M.asin, acos:_M.acos,
