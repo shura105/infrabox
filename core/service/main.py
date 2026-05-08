@@ -33,15 +33,6 @@ def _run_shell(cmd: str, point_id, logger):
         logger.warning(f"[CTRL] shell pid={point_id} error: {e}")
 
 
-def _ctrl_fb_ok(c_meta, cmd_val, fb_val) -> bool:
-    """Return True if feedback confirms cmd_val was executed.
-    feedback_ok_value=1 (default): cmd 1→expect fb 1, cmd 0→expect fb 0
-    feedback_ok_value=0 (inverted): cmd 1→expect fb 0, cmd 0→expect fb 1
-    """
-    fok = c_meta.get("feedback_ok_value", 1)
-    expected = fok if cmd_val == 1 else (1 - fok)
-    return int(fb_val) == expected
-
 
 def _preprocess_formula(expr: str) -> str:
     """Convert C-style ternary  a ? b : c  →  (b) if (a) else (c)."""
@@ -429,6 +420,26 @@ def main():
             ctrl_pipe = r.pipeline()
             ctrl_has  = False
 
+            def _eval_ctrl_cond(fml, pid):
+                """Evaluate a boolean control condition; return True/False or None on error."""
+                refs = [int(x) for x in re.findall(r'\$(\d+)', fml)]
+                for ref_id in set(refs):
+                    rm = meta_cache.get(ref_id)
+                    if not rm or rm.get("last_value") is None:
+                        return None
+                try:
+                    expr = re.sub(
+                        r'\$(\d+)',
+                        lambda m: str(float(meta_cache[int(m.group(1))]["last_value"])),
+                        fml
+                    )
+                    if "__" in expr:
+                        return None
+                    return bool(eval(expr, _CALC_NS, {}))
+                except Exception as _fe:
+                    log.warning(f"[CTRL] cond eval error pid={pid}: {_fe}")
+                    return None
+
             for c_id, c_meta in meta_cache.items():
                 if c_meta.get("type") != "control":
                     continue
@@ -461,7 +472,7 @@ def main():
                     fb_id  = c_meta.get("feedback_id")
                     fb_meta = meta_cache.get(fb_id) if fb_id else None
                     if fb_meta and fb_meta.get("last_value") is not None:
-                        if _ctrl_fb_ok(c_meta, c_meta["cmd_value"], fb_meta["last_value"]):
+                        if int(fb_meta["last_value"]) == c_meta["cmd_value"]:
                             c_meta["ctrl_status"] = "GOOD"
                             _ctrl_write()
                             ctrl_has = True
@@ -504,37 +515,31 @@ def main():
                             ctrl_has = True
                         continue
 
-                # --- FORMULA ---
-                formula = c_meta.get("formula", "").strip()
-                if not formula:
+                # --- SR-LATCH FORMULAS ---
+                formula_on  = c_meta.get("formula_on",  "").strip()
+                formula_off = c_meta.get("formula_off", "").strip()
+                if not formula_on and not formula_off:
                     continue
 
-                refs  = [int(m) for m in re.findall(r'\$(\d+)', formula)]
-                valid = True
-                for ref_id in set(refs):
-                    rm = meta_cache.get(ref_id)
-                    if not rm or rm.get("last_value") is None:
-                        valid = False; break
-                if not valid:
-                    continue
+                on_v  = _eval_ctrl_cond(formula_on,  c_id) if formula_on  else False
+                off_v = _eval_ctrl_cond(formula_off, c_id) if formula_off else False
 
-                try:
-                    expr = re.sub(
-                        r'\$(\d+)',
-                        lambda m: str(float(meta_cache[int(m.group(1))]["last_value"])),
-                        formula
-                    )
-                    expr = _preprocess_formula(expr)
-                    if "__" in expr:
-                        continue
-                    new_val = int(round(float(eval(expr, _CALC_NS, {}))))
-                except Exception as _fe:
-                    log.warning(f"[CTRL] formula eval error pid={c_id}: {_fe}")
-                    continue
+                if on_v is None or off_v is None:
+                    continue  # unresolved ref or eval error → hold
+
+                # SR-latch: both true → safety off, ON→1, OFF→0, neither→hold
+                if on_v and off_v:
+                    new_val = 0
+                elif on_v:
+                    new_val = 1
+                elif off_v:
+                    new_val = 0
+                else:
+                    continue  # neither condition met → hold
 
                 # --- GATE 3: already at expected state ---
                 if fb_meta and fb_meta.get("last_value") is not None:
-                    if _ctrl_fb_ok(c_meta, new_val, fb_meta["last_value"]):
+                    if int(fb_meta["last_value"]) == new_val:
                         if c_meta["ctrl_status"] != "GOOD":
                             c_meta["ctrl_status"] = "GOOD"
                             c_meta["cmd_value"]   = new_val

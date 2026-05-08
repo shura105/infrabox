@@ -812,10 +812,11 @@ class PointIn(BaseModel):
     # calculated-only fields
     formula:      str = ""
     # control-only fields
+    formula_on:             str   = ""
+    formula_off:            str   = ""
     transport:              str   = "mqtt"
     target:                 str   = ""
     feedback_id:            Optional[int] = None
-    feedback_ok_value:      int   = 1
     feedback_timeout_ticks: int   = 3
 
 
@@ -824,8 +825,8 @@ _ANALOG_ONLY     = {"unit", "min", "max", "warn_min", "warn_max",
                     "archive_on_change", "archive_interval", "interval"}
 _DISCRETE_ONLY   = {"normal_value", "severity", "label_0", "label_1"}
 _CALCULATED_ONLY = {"formula"}
-_CONTROL_ONLY    = {"formula", "transport", "target", "feedback_id",
-                    "feedback_ok_value", "feedback_timeout_ticks"}
+_CONTROL_ONLY    = {"formula_on", "formula_off", "transport", "target",
+                    "feedback_id", "feedback_timeout_ticks"}
 _OPMODE_STRIP    = _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | _CONTROL_ONLY | {"socket", "param", "hb_service"}
 
 
