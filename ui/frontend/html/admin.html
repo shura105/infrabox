@@ -1261,6 +1261,30 @@
                     <input type="text" id="pt_ctrl_target" placeholder="cmd/home/electric/relay1/600" style="font-family:monospace">
                 </div>
             </div>
+            <!-- MQTT help -->
+            <div id="ctrl_help_mqtt" style="margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
+                <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">MQTT — формат топіка та payload</div>
+                <div>Топік: <code style="color:#a5d6ff">cmd/{object}/{system}/{pointname}/{feedback_id}</code></div>
+                <div style="margin-top:3px">Payload (JSON): <code style="color:#a5d6ff">{"value": 0|1, "feedback_id": 600, "ts": ...}</code></div>
+                <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+                <div><code style="color:#a5d6ff">cmd/home/electric/relay1/600</code></div>
+                <div><code style="color:#a5d6ff">cmd/home/pump_room/pump1/201</code></div>
+                <div style="margin-top:6px;padding:5px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
+                    Симулятор підписується на <b>cmd/#</b> і утримує дискретну точку фідбеку на отриманому значенні протягом кількох тактів.
+                </div>
+            </div>
+            <!-- Shell help -->
+            <div id="ctrl_help_shell" style="display:none;margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
+                <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Shell — синтаксис команди</div>
+                <div><code style="color:#79c0ff">{value}</code> — замінюється на <b>0</b> або <b>1</b> перед виконанням</div>
+                <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+                <div><code style="color:#a5d6ff">/opt/scripts/relay.sh {value}</code> — локально в контейнері</div>
+                <div><code style="color:#a5d6ff">ssh shura@homeServ2.local "gpio write 17 {value}"</code></div>
+                <div><code style="color:#a5d6ff">ssh shura@homeServ2.local "/opt/scripts/pump.sh {value}"</code></div>
+                <div style="margin-top:6px;padding:5px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
+                    Команда виконується у фоновому потоці, не блокує цикл. Ненульовий exit code логується як WARNING. Підтвердження — через точку фідбеку як звичайно.
+                </div>
+            </div>
 
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Зворотній зв'язок</div>
             <div class="form-grid">
@@ -2839,10 +2863,13 @@ function onPointTypeChange() {
 
 function onCtrlTransportChange() {
     const t = document.getElementById("pt_ctrl_transport").value;
+    const isSh = t === "shell";
     document.getElementById("pt_ctrl_target_label").textContent =
-        t === "shell" ? "Shell-команда (target)" : "Топік MQTT (target)";
+        isSh ? "Shell-команда (target)" : "Топік MQTT (target)";
     document.getElementById("pt_ctrl_target").placeholder =
-        t === "shell" ? "gpio write 17 {value}" : "cmd/home/electric/relay1/600";
+        isSh ? 'ssh shura@homeServ2.local "script.sh {value}"' : "cmd/home/electric/relay1/600";
+    document.getElementById("ctrl_help_mqtt").style.display  = isSh ? "none" : "";
+    document.getElementById("ctrl_help_shell").style.display = isSh ? ""     : "none";
 }
 
 function validateCtrlFormula() {
