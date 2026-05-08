@@ -1,6 +1,8 @@
 import json
 import math
 import re
+import subprocess
+import threading
 import time
 from threading import Lock
 
@@ -16,6 +18,19 @@ CONFIG_PATH = "/app/config/sys_params.json"
 
 buffer = {}
 buffer_lock = Lock()
+
+
+def _run_shell(cmd: str, point_id, logger):
+    """Run shell command in background thread; log non-zero exit."""
+    try:
+        r = subprocess.run(cmd, shell=True, timeout=15,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            logger.warning(
+                f"[CTRL] shell pid={point_id} rc={r.returncode}: "
+                f"{(r.stderr or r.stdout).strip()[:200]}")
+    except Exception as e:
+        logger.warning(f"[CTRL] shell pid={point_id} error: {e}")
 
 
 def _ctrl_fb_ok(c_meta, cmd_val, fb_val) -> bool:
@@ -532,20 +547,34 @@ def main():
                     continue
 
                 # --- SEND ---
-                target = c_meta.get("target", "")
-                if target and c_meta.get("transport", "mqtt") == "mqtt":
+                target    = c_meta.get("target", "")
+                transport = c_meta.get("transport", "mqtt")
+
+                sent = False
+                if target and transport == "mqtt":
                     payload = json.dumps({
                         "value":       new_val,
                         "feedback_id": fb_id,
                         "ts":          now_ms_ctrl,
                     })
                     mqtt_client.publish(target, payload)
+                    log.info(f"[CTRL] {c_id} → mqtt:{target} val={new_val}")
+                    sent = True
+
+                elif target and transport == "shell":
+                    cmd = target.replace("{value}", str(new_val))
+                    threading.Thread(
+                        target=_run_shell, args=(cmd, c_id, log), daemon=True
+                    ).start()
+                    log.info(f"[CTRL] {c_id} → shell: {cmd}")
+                    sent = True
+
+                if sent:
                     c_meta["cmd_value"]           = new_val
                     c_meta["ctrl_status"]         = "WARN"
                     c_meta["feedback_ticks_left"] = c_meta["feedback_timeout_ticks"]
                     _ctrl_write()
                     ctrl_has = True
-                    log.info(f"[CTRL] {c_id} → {target} val={new_val}")
 
             if ctrl_has:
                 ctrl_pipe.execute()
