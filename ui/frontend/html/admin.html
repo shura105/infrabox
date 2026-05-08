@@ -1247,11 +1247,7 @@
                 </div>
             </div>
 
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:8px">
-                Транспорт
-                <span onclick="document.getElementById('ctrl_transport_help').style.display=document.getElementById('ctrl_transport_help').style.display==='none'?'':'none'"
-                      style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none;text-transform:none;letter-spacing:0">? довідка</span>
-            </div>
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Транспорт</div>
             <div class="form-grid">
                 <div class="field">
                     <label>Протокол</label>
@@ -1261,28 +1257,45 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label id="pt_ctrl_target_label">Топік MQTT (target)</label>
+                    <label style="display:flex;align-items:center;gap:6px">
+                        <span id="pt_ctrl_target_label">Топік MQTT (target)</span>
+                        <span onclick="toggleCtrlTransportHelp()"
+                              style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none">? довідка</span>
+                    </label>
                     <input type="text" id="pt_ctrl_target" placeholder="cmd/home/electric/relay1/600" style="font-family:monospace">
                 </div>
             </div>
-            <div id="ctrl_transport_help" style="display:none;margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
-                <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">MQTT — формат топіка та payload</div>
-                <div>Топік: <code style="color:#a5d6ff">cmd/{object}/{system}/{pointname}/{feedback_id}</code></div>
-                <div>Payload (JSON): <code style="color:#a5d6ff">{"value": 0|1, "feedback_id": 600, "ts": ...}</code></div>
-                <div style="margin-top:3px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+
+            <!-- MQTT help -->
+            <div id="ctrl_help_mqtt" style="display:none;margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
+                <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Формат топіка</div>
+                <div><code style="color:#a5d6ff">cmd/{object}/{system}/{pointname}/{feedback_id}</code></div>
+                <div style="margin-top:4px">Payload (JSON): <code style="color:#a5d6ff">{"value": 0|1, "feedback_id": 600, "ts": ...}</code></div>
+                <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
                 <div><code style="color:#a5d6ff">cmd/home/electric/relay1/600</code></div>
                 <div><code style="color:#a5d6ff">cmd/home/pump_room/pump1/201</code></div>
                 <div style="margin-top:6px;padding:4px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
                     Симулятор підписується на <b>cmd/#</b> і утримує точку фідбеку на отриманому значенні протягом кількох тактів.
                 </div>
-                <div style="margin-top:10px;margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Shell — синтаксис команди</div>
+            </div>
+
+            <!-- Shell help -->
+            <div id="ctrl_help_shell" style="display:none;margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
+                <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Синтаксис</div>
                 <div><code style="color:#79c0ff">{value}</code> — замінюється на <b>0</b> або <b>1</b> перед виконанням</div>
-                <div style="margin-top:3px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+                <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
                 <div><code style="color:#a5d6ff">ssh user@hostname "gpio write 17 {value}"</code></div>
                 <div><code style="color:#a5d6ff">ssh user@hostname "/opt/scripts/pump.sh {value}"</code></div>
                 <div><code style="color:#a5d6ff">/app/scripts/relay.sh {value}</code> — скрипт у контейнері</div>
-                <div style="margin-top:3px;padding:4px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
-                    Скрипти в контейнері: покласти в <b>/home/shura/infrabox/core/service/scripts/</b> — volume <b>./service:/app</b> монтує всю директорію, файл одразу доступний як <b>/app/scripts/назва.sh</b> без перезапуску.<br>
+                <div style="margin-top:8px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Скрипти в контейнері — підготовка</div>
+                <div style="padding:6px 8px;background:#0d1117;border-radius:4px;font-family:monospace;font-size:10px;line-height:1.9;color:#c9d1d9">
+                    <div><span style="color:#8b949e"># на сервері (один раз)</span></div>
+                    <div>mkdir -p /home/shura/infrabox/core/service/scripts</div>
+                    <div>nano /home/shura/infrabox/core/service/scripts/relay.sh</div>
+                    <div>chmod +x /home/shura/infrabox/core/service/scripts/relay.sh</div>
+                </div>
+                <div style="margin-top:4px;padding:4px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
+                    Volume <b>./service:/app</b> монтує всю директорію — файл одразу доступний як <b>/app/scripts/relay.sh</b> без перезапуску контейнера.<br>
                     Команда виконується у фоновому потоці. Ненульовий exit code логується як WARNING.
                 </div>
             </div>
@@ -2868,6 +2881,21 @@ function onCtrlTransportChange() {
         isSh ? "Shell-команда (target)" : "Топік MQTT (target)";
     document.getElementById("pt_ctrl_target").placeholder =
         isSh ? 'ssh user@hostname "/opt/scripts/pump.sh {value}"' : "cmd/home/electric/relay1/600";
+    // if help is open — switch to the relevant block
+    const mqttHelp  = document.getElementById("ctrl_help_mqtt");
+    const shellHelp = document.getElementById("ctrl_help_shell");
+    const anyOpen   = mqttHelp.style.display !== "none" || shellHelp.style.display !== "none";
+    mqttHelp.style.display  = anyOpen && !isSh ? "" : "none";
+    shellHelp.style.display = anyOpen &&  isSh ? "" : "none";
+}
+function toggleCtrlTransportHelp() {
+    const isSh      = document.getElementById("pt_ctrl_transport").value === "shell";
+    const mqttHelp  = document.getElementById("ctrl_help_mqtt");
+    const shellHelp = document.getElementById("ctrl_help_shell");
+    const target    = isSh ? shellHelp : mqttHelp;
+    const other     = isSh ? mqttHelp  : shellHelp;
+    other.style.display  = "none";
+    target.style.display = target.style.display === "none" ? "" : "none";
 }
 
 function validateCtrlFormula() {
