@@ -1281,14 +1281,6 @@
                 </div>
             </div>
 
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Блокування автоматики</div>
-            <div class="form-grid">
-                <div class="field">
-                    <label>ID точки режиму роботи (opmode_id)</label>
-                    <input type="number" id="pt_ctrl_opmode_id" min="0" placeholder="залишити порожнім — без блокування">
-                </div>
-            </div>
-
             <div style="margin-top:10px;padding:8px 10px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;color:#8b949e">
                 Статус: <b style="color:#c9d1d9">GOOD</b> — підтверджено &nbsp;·&nbsp;
                 <b style="color:#f0ad4e">WARN</b> — очікує фідбеку &nbsp;·&nbsp;
@@ -2801,7 +2793,6 @@ function _fillPointForm(p) {
     document.getElementById("pt_ctrl_feedback_id").value         = p.feedback_id            ?? "";
     document.getElementById("pt_ctrl_feedback_ok_value").value   = String(p.feedback_ok_value ?? 1);
     document.getElementById("pt_ctrl_feedback_timeout").value    = p.feedback_timeout_ticks ?? 3;
-    document.getElementById("pt_ctrl_opmode_id").value           = p.opmode_id              ?? "";
     onCtrlTransportChange();
     document.getElementById("ctrl_validate_result").style.display = "none";
     // operation_mode fields
@@ -3096,7 +3087,6 @@ function _readPointForm() {
         feedback_id:            _optInt("pt_ctrl_feedback_id"),
         feedback_ok_value:      parseInt(document.getElementById("pt_ctrl_feedback_ok_value").value),
         feedback_timeout_ticks: parseInt(document.getElementById("pt_ctrl_feedback_timeout").value) || 3,
-        opmode_id:              _optInt("pt_ctrl_opmode_id") || undefined,
     } : {
         unit:                document.getElementById("pt_unit").value.trim(),
         min:                 parseFloat(document.getElementById("pt_min").value) || 0,
