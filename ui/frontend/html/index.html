@@ -694,6 +694,22 @@
                                 </div>
                             </template>
 
+                            <!-- ctrl_signal: control signal element, border color by ctrl_status quality -->
+                            <template x-if="el.type === 'ctrl_signal'">
+                                <div style="position:absolute;inset:0;overflow:visible">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${ctrlSignalColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlSignalImageSrc(el))}`">
+                                        <template x-if="!el.image0 && !el.image1">
+                                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                                <span style="font-size:20px;color:#8b949e">⚡</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label || 'Команда'"></div>
+                                </div>
+                            </template>
+
                         </div>
                     </template>
                 </div>
@@ -1373,6 +1389,24 @@ function app() {
             const v = pt ? parseInt(pt.value) : 0;
             return v === 1 ? (el.image1 || "") : (el.image0 || "");
         },
+
+        // ── ctrl_signal: border color by ctrl_status quality, image by cmd_value ──
+        ctrlSignalColor(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return el.colorInit  || '#484f58';
+            const q = pt.quality || "NODATA";
+            if (q === "INIT")   return el.colorInit  || '#484f58';
+            if (q === "NODATA") return el.colorNodata || '#6e7681';
+            if (q === "WARN")   return el.colorWarn   || '#f0ad4e';
+            if (q === "ALARM")  return el.colorAlarm  || '#f47067';
+            return el.colorGood || '#3fb950'; // GOOD
+        },
+        ctrlSignalImageSrc(el) {
+            const pt = this.points[el.point_id];
+            const v = pt ? parseInt(pt.value) : 0;
+            return v === 1 ? (el.image1 || "") : (el.image0 || "");
+        },
+
         ctrlOpmodeClick(el) {
             if (!el.point_id) return;
             if (this.userRole !== 'admin' && !this.userPerms.ctrl_opmode) {
