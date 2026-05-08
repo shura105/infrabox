@@ -876,6 +876,7 @@
                     <th>Роль</th>
                     <th>Сторінки</th>
                     <th>Об'єкти</th>
+                    <th>Режим</th>
                     <th></th>
                 </tr>
             </thead>
@@ -958,6 +959,7 @@
                     <option value="analog">Аналоговий</option>
                     <option value="discrete">Дискретний</option>
                     <option value="calculated">Розрахунковий</option>
+                    <option value="control">Управляючий</option>
                     <option value="external">Від зовнішніх систем</option>
                     <option value="diagnostic">Діагностика</option>
                     <option value="operation_mode">Режим роботи системи</option>
@@ -1217,6 +1219,77 @@
             </div>
         </div>
 
+        <!-- ── Управляючий сигнал ── -->
+        <div id="pt_section_control" style="display:none">
+
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Формула</div>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1">
+                    <label style="display:flex;align-items:center;gap:6px">
+                        Умова видачі команди
+                        <span onclick="document.getElementById('ctrl_help').style.display=document.getElementById('ctrl_help').style.display==='none'?'':'none'"
+                              style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none">? довідка</span>
+                    </label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="text" id="pt_ctrl_formula" placeholder="$101 > 215 ? 1 : 0" style="font-family:monospace;flex:1">
+                        <button type="button" onclick="validateCtrlFormula()" style="white-space:nowrap;padding:0 12px;height:32px;background:#1c3a5e;color:#58a6ff;border:1px solid #58a6ff;border-radius:6px;cursor:pointer;font-size:12px">▶ Перевірити</button>
+                    </div>
+                    <div id="ctrl_validate_result" style="display:none;margin-top:5px;padding:5px 9px;border-radius:5px;font-size:11px;font-family:monospace"></div>
+                    <div id="ctrl_help" style="display:none;margin-top:8px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.7;color:#c9d1d9">
+                        <div style="margin-bottom:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Синтаксис формули управління</div>
+                        <div><span style="color:#79c0ff">$id</span> — поточне значення параметра з вказаним ID</div>
+                        <div style="margin-top:4px"><code style="color:#a5d6ff">$101 &gt; 215 ? 1 : 0</code> — увімкнути якщо напруга &gt; 215</div>
+                        <div><code style="color:#a5d6ff">$201 == 1 and $101 &gt; 200 ? 1 : 0</code> — декілька умов</div>
+                        <div style="margin-top:6px;padding:6px 8px;background:#0d1117;border-radius:4px;color:#f0ad4e;font-size:10px">
+                            ⚠ Результат має бути <b>0 або 1</b>. Якщо $id відсутній або UNCERT/NODATA — команда не видається.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Транспорт</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>Протокол</label>
+                    <select id="pt_ctrl_transport" onchange="onCtrlTransportChange()">
+                        <option value="mqtt">MQTT</option>
+                        <option value="shell">Shell (SSH)</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label id="pt_ctrl_target_label">Топік MQTT (target)</label>
+                    <input type="text" id="pt_ctrl_target" placeholder="cmd/home/electric/relay1/600" style="font-family:monospace">
+                </div>
+            </div>
+
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Зворотній зв'язок</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>ID точки фідбеку (feedback_id)</label>
+                    <input type="number" id="pt_ctrl_feedback_id" min="0" placeholder="600">
+                </div>
+                <div class="field">
+                    <label>Тактів очікування (feedback_timeout_ticks)</label>
+                    <input type="number" id="pt_ctrl_feedback_timeout" min="1" max="60" value="3">
+                </div>
+            </div>
+
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Блокування автоматики</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>ID точки режиму роботи (opmode_id)</label>
+                    <input type="number" id="pt_ctrl_opmode_id" min="0" placeholder="залишити порожнім — без блокування">
+                </div>
+            </div>
+
+            <div style="margin-top:10px;padding:8px 10px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;color:#8b949e">
+                Статус: <b style="color:#c9d1d9">GOOD</b> — підтверджено &nbsp;·&nbsp;
+                <b style="color:#f0ad4e">WARN</b> — очікує фідбеку &nbsp;·&nbsp;
+                <b style="color:#f47067">ALARM</b> — таймаут &nbsp;·&nbsp;
+                <b style="color:#c9d1d9">NODATA</b> — заблоковано (ручний режим або відсутні дані)
+            </div>
+        </div>
+
         <!-- hidden backing fields -->
         <input type="hidden" id="pt_onArchive">
         <input type="hidden" id="pt_archive_on_change">
@@ -1237,7 +1310,7 @@
             <div id="permsPages" style="display:flex;flex-direction:column;gap:7px"></div>
         </div>
 
-        <div style="margin-bottom:24px">
+        <div style="margin-bottom:18px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
                 <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Об'єкти</div>
                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;cursor:pointer">
@@ -1246,6 +1319,14 @@
                 </label>
             </div>
             <div id="permsObjects" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+
+        <div style="margin-bottom:24px">
+            <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Управління</div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#c9d1d9">
+                <input type="checkbox" id="permsCtrlOpmode">
+                Зміна режиму роботи систем
+            </label>
         </div>
 
         <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -2279,6 +2360,7 @@ async function loadPerms() {
     ]);
     if (!usersRes || !usersRes.ok) return;
     const users   = await usersRes.json();
+    _users        = users;
     _permsObjects = objRes && objRes.ok ? (await objRes.json()).objects || [] : [];
 
     const tbody = document.getElementById("permsBody");
@@ -2293,6 +2375,7 @@ async function loadPerms() {
         const objLabel = isAdmin ? "—"
             : (!p.objects || p.objects[0] === "*" ? "всі"
                 : (p.objects.length ? p.objects.join(", ") : "жоден"));
+        const opmodeLabel = isAdmin ? "—" : (p.ctrl_opmode ? "✓" : "✗");
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -2300,6 +2383,7 @@ async function loadPerms() {
             <td><span class="badge badge-${u.role}">${u.role}</span></td>
             <td style="font-size:12px;color:#8b949e">${_esc(pagesLabel)}</td>
             <td style="font-size:12px;color:#8b949e">${_esc(objLabel)}</td>
+            <td style="font-size:13px;color:${isAdmin ? '#8b949e' : (p.ctrl_opmode ? '#3fb950' : '#f47067')}">${opmodeLabel}</td>
             <td>
                 ${isAdmin ? "" : `<button class="btn btn-blue" onclick="openPermsModal('${_esc(u.username)}')">Налаштувати</button>`}
             </td>`;
@@ -2313,6 +2397,7 @@ function openPermsModal(username) {
     const p = (u && u.permissions) || {};
 
     document.getElementById("permsModalTitle").textContent = `Права: ${username}`;
+    document.getElementById("permsCtrlOpmode").checked = !!p.ctrl_opmode;
 
     // pages
     const pagesDiv = document.getElementById("permsPages");
@@ -2369,8 +2454,10 @@ async function savePerms() {
         : [...document.querySelectorAll("#permsObjects input[data-obj]")]
             .filter(cb => cb.checked).map(cb => cb.dataset.obj);
 
+    const ctrl_opmode = document.getElementById("permsCtrlOpmode").checked;
+
     const res = await api("PATCH", `/auth/users/${_permsUser}/permissions`,
-        { pages, objects });
+        { pages, objects, ctrl_opmode });
     if (res && res.ok) {
         closePermsModal();
         await loadPerms();
@@ -2700,6 +2787,15 @@ function _fillPointForm(p) {
     document.getElementById("pt_discrete_archive").checked = parseInt(p.onArchive ?? 1) === 1;
     // calculated fields
     document.getElementById("pt_formula").value      = p.formula      ?? "";
+    // control fields
+    document.getElementById("pt_ctrl_formula").value           = p.formula                ?? "";
+    document.getElementById("pt_ctrl_transport").value         = p.transport              ?? "mqtt";
+    document.getElementById("pt_ctrl_target").value            = p.target                 ?? "";
+    document.getElementById("pt_ctrl_feedback_id").value       = p.feedback_id            ?? "";
+    document.getElementById("pt_ctrl_feedback_timeout").value  = p.feedback_timeout_ticks ?? 3;
+    document.getElementById("pt_ctrl_opmode_id").value         = p.opmode_id              ?? "";
+    onCtrlTransportChange();
+    document.getElementById("ctrl_validate_result").style.display = "none";
     // operation_mode fields
     document.getElementById("pt_opmode_system").value    = p.system    ?? "";
     document.getElementById("pt_opmode_pointname").value = p.pointname ?? "";
@@ -2724,13 +2820,15 @@ function onPointTypeChange() {
     const isDiscrete   = type === "discrete";
     const isCalculated = type === "calculated";
     const isOpMode     = type === "operation_mode";
+    const isControl    = type === "control";
     document.getElementById("pt_section_system").style.display     = isSystem     ? "" : "none";
     document.getElementById("pt_section_diag").style.display       = isDiag       ? "" : "none";
     document.getElementById("pt_section_tech").style.display       = (isSystem || isDiag || isOpMode) ? "none" : "";
-    document.getElementById("pt_section_common").style.display     = (isDiscrete || isCalculated || isOpMode) ? "none" : "";
+    document.getElementById("pt_section_common").style.display     = (isDiscrete || isCalculated || isOpMode || isControl) ? "none" : "";
     document.getElementById("pt_section_discrete").style.display   = isDiscrete   ? "" : "none";
     document.getElementById("pt_section_calculated").style.display = isCalculated ? "" : "none";
     document.getElementById("pt_section_opmode").style.display     = isOpMode     ? "" : "none";
+    document.getElementById("pt_section_control").style.display    = isControl    ? "" : "none";
     if (isDiag) _diagResetFrom(1);
     else if (!isSystem && !isOpMode) {
         document.getElementById("pt_object").value = document.getElementById("pt_object_sel").value;
@@ -2738,6 +2836,50 @@ function onPointTypeChange() {
         document.getElementById("pt_system").value = document.getElementById("pt_system_sel").value;
     }
     if (isDiscrete) onSeverityChange();
+}
+
+function onCtrlTransportChange() {
+    const t = document.getElementById("pt_ctrl_transport").value;
+    document.getElementById("pt_ctrl_target_label").textContent =
+        t === "shell" ? "Shell-команда (target)" : "Топік MQTT (target)";
+    document.getElementById("pt_ctrl_target").placeholder =
+        t === "shell" ? "gpio write 17 {value}" : "cmd/home/electric/relay1/600";
+}
+
+function validateCtrlFormula() {
+    const raw = document.getElementById("pt_ctrl_formula").value.trim();
+    const el  = document.getElementById("ctrl_validate_result");
+    const show = (ok, msg) => {
+        el.style.display = "";
+        el.style.background = ok ? "#0f2a1a" : "#2a0f0f";
+        el.style.color      = ok ? "#56d364"  : "#f47067";
+        el.style.border     = `1px solid ${ok ? "#2ea043" : "#b03030"}`;
+        el.textContent = msg;
+    };
+    if (!raw) { show(false, "✗ Формула порожня"); return; }
+    if (raw.includes("__")) { show(false, "✗ Недопустимі символи (__)"); return; }
+    // Convert C-style ternary before validation
+    let expr = raw.replace(/\$(\d+)/g, "1.0");
+    const tm = expr.match(/^(.*\S)\s*\?\s*(\S.*?)\s*:\s*(\S.*)$/);
+    if (tm) expr = `(${tm[2]}) ? (${tm[1]}) : (${tm[3]})`;
+    const _M = Math;
+    const ns = {
+        sin:_M.sin, cos:_M.cos, tan:_M.tan, asin:_M.asin, acos:_M.acos,
+        atan:_M.atan, atan2:_M.atan2, sqrt:_M.sqrt, log:_M.log,
+        log10:_M.log10, log2:_M.log2, exp:_M.exp, pow:_M.pow, abs:_M.abs,
+        round:_M.round, floor:_M.floor, ceil:_M.ceil, min:_M.min, max:_M.max,
+        pi:_M.PI, e:_M.E, True:true, False:false,
+    };
+    try {
+        const fn  = new Function(...Object.keys(ns), `"use strict"; return (${expr});`);
+        const res = fn(...Object.values(ns));
+        const ids = [...new Set((raw.match(/\$(\d+)/g) || []).map(m => m.slice(1)))];
+        const hint = ids.length ? ` (всі $id = 1)` : "";
+        const warn = (res !== 0 && res !== 1) ? " ⚠ результат не 0/1" : "";
+        show(res === 0 || res === 1, `${res === 0 || res === 1 ? "✓" : "⚠"} Коректна${hint}: ${res}${warn}`);
+    } catch (err) {
+        show(false, `✗ ${err.message}`);
+    }
 }
 
 function _onOpmodeSystemChange() {
@@ -2906,6 +3048,7 @@ function _readPointForm() {
     const isDiag     = type === "diagnostic";
     const isDiscrete = type === "discrete";
     const isOpMode   = type === "operation_mode";
+    const isControl  = type === "control";
 
     const ident = isDiag ? {
         socket:    document.getElementById("pt_socket").value.trim(),
@@ -2927,6 +3070,7 @@ function _readPointForm() {
     };
 
     const isCalculated = type === "calculated";
+    const _optInt = id => { const v = parseInt(document.getElementById(id).value); return isNaN(v) ? undefined : v; };
     const props = isDiscrete ? {
         normal_value: parseInt(document.getElementById("pt_normal_value").value) || 0,
         severity:     document.getElementById("pt_severity").value || "none",
@@ -2937,6 +3081,13 @@ function _readPointForm() {
         onArchive:    document.getElementById("pt_opmode_archive").checked ? 1 : 0,
     } : isCalculated ? {
         formula: document.getElementById("pt_formula").value.trim(),
+    } : isControl ? {
+        formula:                document.getElementById("pt_ctrl_formula").value.trim(),
+        transport:              document.getElementById("pt_ctrl_transport").value,
+        target:                 document.getElementById("pt_ctrl_target").value.trim(),
+        feedback_id:            _optInt("pt_ctrl_feedback_id"),
+        feedback_timeout_ticks: parseInt(document.getElementById("pt_ctrl_feedback_timeout").value) || 3,
+        opmode_id:              _optInt("pt_ctrl_opmode_id") || undefined,
     } : {
         unit:                document.getElementById("pt_unit").value.trim(),
         min:                 parseFloat(document.getElementById("pt_min").value) || 0,
