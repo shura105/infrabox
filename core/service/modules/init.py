@@ -81,6 +81,7 @@ def load_points():
             meta["target"]                 = p.get("target", "")
             meta["opmode_id"]              = p.get("opmode_id")
             meta["feedback_id"]            = p.get("feedback_id")
+            meta["feedback_ok_value"]      = p.get("feedback_ok_value", 1)
             meta["feedback_timeout_ticks"] = p.get("feedback_timeout_ticks", 3)
             meta["limits"] = {
                 "min": 0.0, "max": 1.0,

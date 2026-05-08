@@ -1269,6 +1269,13 @@
                     <input type="number" id="pt_ctrl_feedback_id" min="0" placeholder="600">
                 </div>
                 <div class="field">
+                    <label>Очікуване значення фідбеку</label>
+                    <select id="pt_ctrl_feedback_ok_value">
+                        <option value="1">1 — пряма логіка &nbsp;(cmd 0→fb 0, cmd 1→fb 1)</option>
+                        <option value="0">0 — інвертована &nbsp;(cmd 0→fb 1, cmd 1→fb 0)</option>
+                    </select>
+                </div>
+                <div class="field">
                     <label>Тактів очікування (feedback_timeout_ticks)</label>
                     <input type="number" id="pt_ctrl_feedback_timeout" min="1" max="60" value="3">
                 </div>
@@ -2788,12 +2795,13 @@ function _fillPointForm(p) {
     // calculated fields
     document.getElementById("pt_formula").value      = p.formula      ?? "";
     // control fields
-    document.getElementById("pt_ctrl_formula").value           = p.formula                ?? "";
-    document.getElementById("pt_ctrl_transport").value         = p.transport              ?? "mqtt";
-    document.getElementById("pt_ctrl_target").value            = p.target                 ?? "";
-    document.getElementById("pt_ctrl_feedback_id").value       = p.feedback_id            ?? "";
-    document.getElementById("pt_ctrl_feedback_timeout").value  = p.feedback_timeout_ticks ?? 3;
-    document.getElementById("pt_ctrl_opmode_id").value         = p.opmode_id              ?? "";
+    document.getElementById("pt_ctrl_formula").value             = p.formula                ?? "";
+    document.getElementById("pt_ctrl_transport").value           = p.transport              ?? "mqtt";
+    document.getElementById("pt_ctrl_target").value              = p.target                 ?? "";
+    document.getElementById("pt_ctrl_feedback_id").value         = p.feedback_id            ?? "";
+    document.getElementById("pt_ctrl_feedback_ok_value").value   = String(p.feedback_ok_value ?? 1);
+    document.getElementById("pt_ctrl_feedback_timeout").value    = p.feedback_timeout_ticks ?? 3;
+    document.getElementById("pt_ctrl_opmode_id").value           = p.opmode_id              ?? "";
     onCtrlTransportChange();
     document.getElementById("ctrl_validate_result").style.display = "none";
     // operation_mode fields
@@ -3086,6 +3094,7 @@ function _readPointForm() {
         transport:              document.getElementById("pt_ctrl_transport").value,
         target:                 document.getElementById("pt_ctrl_target").value.trim(),
         feedback_id:            _optInt("pt_ctrl_feedback_id"),
+        feedback_ok_value:      parseInt(document.getElementById("pt_ctrl_feedback_ok_value").value),
         feedback_timeout_ticks: parseInt(document.getElementById("pt_ctrl_feedback_timeout").value) || 3,
         opmode_id:              _optInt("pt_ctrl_opmode_id") || undefined,
     } : {

@@ -18,6 +18,16 @@ buffer = {}
 buffer_lock = Lock()
 
 
+def _ctrl_fb_ok(c_meta, cmd_val, fb_val) -> bool:
+    """Return True if feedback confirms cmd_val was executed.
+    feedback_ok_value=1 (default): cmd 1→expect fb 1, cmd 0→expect fb 0
+    feedback_ok_value=0 (inverted): cmd 1→expect fb 0, cmd 0→expect fb 1
+    """
+    fok = c_meta.get("feedback_ok_value", 1)
+    expected = fok if cmd_val == 1 else (1 - fok)
+    return int(fb_val) == expected
+
+
 def _preprocess_formula(expr: str) -> str:
     """Convert C-style ternary  a ? b : c  →  (b) if (a) else (c)."""
     m = re.match(r'^(.*\S)\s*\?\s*(\S.*?)\s*:\s*(\S.*)$', expr.strip(), re.DOTALL)
@@ -436,7 +446,7 @@ def main():
                     fb_id  = c_meta.get("feedback_id")
                     fb_meta = meta_cache.get(fb_id) if fb_id else None
                     if fb_meta and fb_meta.get("last_value") is not None:
-                        if int(fb_meta["last_value"]) == c_meta["cmd_value"]:
+                        if _ctrl_fb_ok(c_meta, c_meta["cmd_value"], fb_meta["last_value"]):
                             c_meta["ctrl_status"] = "GOOD"
                             _ctrl_write()
                             ctrl_has = True
@@ -509,7 +519,7 @@ def main():
 
                 # --- GATE 3: already at expected state ---
                 if fb_meta and fb_meta.get("last_value") is not None:
-                    if int(fb_meta["last_value"]) == new_val:
+                    if _ctrl_fb_ok(c_meta, new_val, fb_meta["last_value"]):
                         if c_meta["ctrl_status"] != "GOOD":
                             c_meta["ctrl_status"] = "GOOD"
                             c_meta["cmd_value"]   = new_val
