@@ -55,6 +55,9 @@ class MqttClient:
         self.last_message_ts = time.time()
         log.info("MQTT reconnected")
 
+    def publish(self, topic: str, payload: str, retain: bool = False):
+        self.client.publish(topic, payload, retain=retain)
+
     def check(self, timeout_ms):
         with self._lock:
             elapsed = (time.time() - self.last_message_ts) * 1000

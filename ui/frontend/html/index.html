@@ -363,7 +363,7 @@
 
         <!-- user -->
         <div class="user-wrap" @click.stop>
-            <div class="hdr-user" @click="userMenuOpen=!userMenuOpen; settingsOpen=false">
+            <div class="hdr-user" @click="menuOpen=false; menuPage='main'; userMenuOpen=!userMenuOpen">
                 <div class="u-icon">👤</div>
                 <span class="u-name" x-text="userName()"></span>
             </div>
@@ -400,12 +400,12 @@
                             <span style="margin-left:auto;color:var(--text-dim);font-size:12px">›</span>
                         </div>
                         <div class="sdrop-sep"></div>
-                        <a class="sdrop-item" href="/admin">
+                        <div class="sdrop-item" @click="_menuGo('/admin', 'admin')">
                             <span class="sdrop-icon">🛡</span> Адміністрування
-                        </a>
-                        <a class="sdrop-item" href="/constructor">
+                        </div>
+                        <div class="sdrop-item" @click="_menuGo('/constructor', 'constructor')">
                             <span class="sdrop-icon">🔧</span> Конструктор
-                        </a>
+                        </div>
                         <div class="sdrop-sep"></div>
                         <label class="toggle-wrap" @click.stop>
                             <span class="sdrop-icon">☀</span>
@@ -722,6 +722,44 @@
     </div>
 </div>
 
+<!-- ═══════════ OPMODE DENY MODAL ═══════════ -->
+<div x-show="opmodeDeny.show"
+     @click.self="opmodeDeny.show=false"
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55)">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;padding:22px 26px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+            <span style="font-size:20px;line-height:1;flex-shrink:0">🔒</span>
+            <div style="color:#e6edf3;font-size:14px;line-height:1.5">
+                Вам не надано прав зміни режиму системи
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+            <button @click="opmodeDeny.show=false"
+                    style="padding:6px 18px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;cursor:pointer;font-size:13px">
+                Зрозуміло
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ PERMS DENY MODAL ═══════════ -->
+<div x-show="permsDeny.show"
+     @click.self="permsDeny.show=false"
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55)">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;padding:22px 26px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+            <span style="font-size:20px;line-height:1;flex-shrink:0">🔒</span>
+            <div style="color:#e6edf3;font-size:14px;line-height:1.5">У вас недостатньо прав</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+            <button @click="permsDeny.show=false"
+                    style="padding:6px 18px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;cursor:pointer;font-size:13px">
+                Зрозуміло
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ═══════════ FOOTER ═══════════ -->
 <footer>
     <div class="ws-dot" :class="{'ws-live':wsStatus==='live','ws-conn':wsStatus==='connecting','ws-error':wsStatus==='error'}"></div>
@@ -784,13 +822,18 @@ function app() {
         lastUpdate:  '',
         _ws:         null,
         systemsMap:  {},
+        userPerms:   {},
+        userRole:    _auth.role || '',
         opmodeModal: { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
+        opmodeDeny:  { show: false },
+        permsDeny:   { show: false },
 
         async init() {
             this._startClock();
             this._connectWS();
             await this._loadProject();
             this._loadSystems();
+            this._loadMe();
 
             this.$nextTick(() => this._updateScale());
             window.addEventListener('resize', () => this._updateScale());
@@ -894,8 +937,26 @@ function app() {
             } catch(e) { console.error(e); return false; }
         },
 
+        _canPage(slug) {
+            if (this.userRole === 'admin') return true;
+            const pages = this.userPerms.pages;
+            if (!pages) return true;          // обмежень не задано → дозволено
+            return pages.includes(slug);
+        },
+
+        _menuGo(url, slug) {
+            this.menuOpen = false;
+            this.menuPage = 'main';
+            if (!this._canPage(slug)) { this.permsDeny.show = true; return; }
+            window.location.href = url;
+        },
+
         async navigate(targetId) {
             if (!targetId) return;
+            if (!this._canPage(targetId)) {
+                this.permsDeny.show = true;
+                return;
+            }
             const target = this.project.screens.find(s => s.id === targetId);
             if (!target) return;
             // block cross-type and cross-device navigation
@@ -955,7 +1016,10 @@ function app() {
             localStorage.removeItem('token');
             localStorage.removeItem('role');
             localStorage.removeItem('display_name');
+            localStorage.removeItem('permissions');
             this.isLoggedIn = false;
+            this.userRole   = '';
+            this.userPerms  = {};
         },
 
         userName() {
@@ -1311,6 +1375,10 @@ function app() {
         },
         ctrlOpmodeClick(el) {
             if (!el.point_id) return;
+            if (this.userRole !== 'admin' && !this.userPerms.ctrl_opmode) {
+                this.opmodeDeny.show = true;
+                return;
+            }
             const pt = this.points[String(el.point_id)];
             const curValue = pt ? parseInt(pt.value) : 0;
             const targetValue = curValue === 1 ? 0 : 1;
@@ -1321,12 +1389,17 @@ function app() {
         async ctrlOpmodeConfirm() {
             const { el, targetValue } = this.opmodeModal;
             this.opmodeModal.show = false;
+            const token = localStorage.getItem('token');
             try {
-                await fetch(`/api/pub/points/${el.point_id}/value`, {
+                const res = await fetch(`/api/points/${el.point_id}/value`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ value: targetValue })
                 });
+                if (!res.ok) console.error('opmode set failed:', res.status);
             } catch(e) { console.error('opmode set failed:', e); }
         },
         async _loadSystems() {
@@ -1337,6 +1410,18 @@ function app() {
                     const m = {};
                     data.forEach(s => { m[s.id] = s.name; });
                     this.systemsMap = m;
+                }
+            } catch(e) {}
+        },
+        async _loadMe() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            try {
+                const r = await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+                if (r.ok) {
+                    const me = await r.json();
+                    this.userPerms = me.permissions || {};
+                    this.userRole  = me.role || '';
                 }
             } catch(e) {}
         },

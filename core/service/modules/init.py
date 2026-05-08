@@ -75,6 +75,22 @@ def load_points():
                 "alarm_min": p.get("alarm_min", 0),
                 "alarm_max": p.get("alarm_max", 100),
             }
+        elif ptype == "control":
+            meta["formula"]                = p.get("formula", "")
+            meta["transport"]              = p.get("transport", "mqtt")
+            meta["target"]                 = p.get("target", "")
+            meta["opmode_id"]              = p.get("opmode_id")
+            meta["feedback_id"]            = p.get("feedback_id")
+            meta["feedback_timeout_ticks"] = p.get("feedback_timeout_ticks", 3)
+            meta["limits"] = {
+                "min": 0.0, "max": 1.0,
+                "warn_min": 0.0, "warn_max": 1.0,
+                "alarm_min": 0.0, "alarm_max": 1.0,
+            }
+            # runtime state (not from config)
+            meta["ctrl_status"]         = "INIT"
+            meta["cmd_value"]           = None
+            meta["feedback_ticks_left"] = 0
         else:
             meta["limits"] = {
                 "min":       p.get("min", 0),

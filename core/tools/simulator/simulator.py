@@ -78,6 +78,13 @@ def load_points():
     return [p for p in points if p["id"] >= 100 and p.get("type") != "diagnostic"]
 
 
+def load_control_points():
+    """Returns list of control points to build command subscriptions."""
+    with open(CONFIG_PATH) as f:
+        points = json.load(f)
+    return [p for p in points if p.get("type") == "control"]
+
+
 def build_topic(p):
     return f"{p['object']}/{p['system']}/{p['pointname']}/{p['id']}"
 
@@ -187,7 +194,7 @@ def main():
     threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
     points = load_points()
-    _SKIP = {"calculated", "operation_mode"}
+    _SKIP = {"calculated", "operation_mode", "control"}
     n_disc = sum(1 for p in points if p.get("type") == "discrete")
     n_skip = sum(1 for p in points if p.get("type") in _SKIP)
     n_an   = len(points) - n_disc - n_skip
@@ -195,9 +202,37 @@ def main():
 
     points = [p for p in points if p.get("type") not in _SKIP]
 
+    # --- COMMAND OVERRIDES: {feedback_point_id: {value, ticks_left}} ---
+    cmd_overrides = {}
+    cmd_lock      = threading.Lock()
+
+    ctrl_points = load_control_points()
+    ctrl_topics = {
+        p["target"]: p.get("feedback_id")
+        for p in ctrl_points
+        if p.get("target") and p.get("feedback_id")
+    }
+    log.info(f"Control subscriptions: {list(ctrl_topics.keys())}")
+
     client = mqtt.Client()
+
+    def _on_cmd(mqtt_client, userdata, msg):
+        try:
+            data = json.loads(msg.payload.decode())
+            fb_id = int(data.get("feedback_id", 0))
+            value = data.get("value")
+            if fb_id and value is not None:
+                with cmd_lock:
+                    cmd_overrides[fb_id] = {"value": int(value), "ticks_left": 6}
+                log.info(f"[CMD] feedback_id={fb_id} → {value} (hold 6 ticks)")
+        except Exception as e:
+            log.warning(f"Bad command payload: {e}")
+
+    client.on_message = _on_cmd
     client.connect(MQTT_HOST, MQTT_PORT, 60)
     client.loop_start()
+    if ctrl_topics:
+        client.subscribe("cmd/#")
 
     now = time.time()
     state = {}
@@ -226,6 +261,21 @@ def main():
 
             # ── DISCRETE: edge-triggered ────────────────────────────────────
             if p.get("type") == "discrete":
+                with cmd_lock:
+                    override = cmd_overrides.get(pid)
+                if override:
+                    new = override["value"]
+                    old = s["value"]
+                    override["ticks_left"] -= 1
+                    if override["ticks_left"] <= 0:
+                        with cmd_lock:
+                            cmd_overrides.pop(pid, None)
+                    if new != old:
+                        s["value"] = new
+                        _publish(client, p, new, retain=True)
+                        log.debug(f"[CMD-HOLD] {p['pointname']} ({pid}) → {new}")
+                    continue
+
                 old = s["value"]
                 new = _step_discrete(p, s, now)
                 if new != old:

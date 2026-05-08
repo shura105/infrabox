@@ -17,6 +17,15 @@ CONFIG_PATH = "/app/config/sys_params.json"
 buffer = {}
 buffer_lock = Lock()
 
+
+def _preprocess_formula(expr: str) -> str:
+    """Convert C-style ternary  a ? b : c  →  (b) if (a) else (c)."""
+    m = re.match(r'^(.*\S)\s*\?\s*(\S.*?)\s*:\s*(\S.*)$', expr.strip(), re.DOTALL)
+    if m:
+        cond, true_v, false_v = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
+        return f"({true_v}) if ({cond}) else ({false_v})"
+    return expr
+
 # глобальний логер — ініціалізується в main()
 log = None
 
@@ -80,6 +89,10 @@ def tick_clock(r):
 # --- MQTT CALLBACK ---
 def mqtt_callback(buffer, lock):
     def on_message(topic, payload_raw):
+        # ignore command topics published by the control block
+        if topic.startswith("cmd/"):
+            return
+
         try:
             payload = json.loads(payload_raw)
         except json.JSONDecodeError as e:
@@ -349,6 +362,7 @@ def main():
                             lambda m: str(float(meta_cache[int(m.group(1))]["last_value"])),
                             formula
                         )
+                        expr = _preprocess_formula(expr)
                         if "__" in expr:
                             continue
                         result = eval(expr, _CALC_NS, {})
@@ -384,6 +398,147 @@ def main():
 
             if calc_has:
                 calc_pipe.execute()
+
+            # --- CONTROL POINTS ---
+            now_ms_ctrl = int(time.time() * 1000)
+            ctrl_pipe = r.pipeline()
+            ctrl_has  = False
+
+            for c_id, c_meta in meta_cache.items():
+                if c_meta.get("type") != "control":
+                    continue
+
+                # helper: write status point to Redis
+                def _ctrl_write(pid=c_id, meta=c_meta):
+                    _Q = {
+                        "INIT": "INIT", "GOOD": "GOOD", "WARN": "WARN",
+                        "ALARM": "ALARM", "NODATA": "NODATA",
+                    }
+                    q = _Q.get(meta["ctrl_status"], "NODATA")
+                    lim = meta["limits"]
+                    ctrl_pipe.hset(f"point:{pid}", mapping={
+                        "value":     str(meta["cmd_value"]) if meta["cmd_value"] is not None else "",
+                        "ts":        str(now_ms_ctrl),
+                        "quality":   q,
+                        "type":      "control",
+                        "object":    meta["object"],
+                        "system":    meta["system"],
+                        "pointname": meta["pointname"],
+                        "unit":      "",
+                        "min":       lim["min"],  "max":       lim["max"],
+                        "warn_min":  lim["warn_min"], "warn_max":  lim["warn_max"],
+                        "alarm_min": lim["alarm_min"], "alarm_max": lim["alarm_max"],
+                    })
+                    ctrl_pipe.publish("bus:data", pid)
+
+                # --- PENDING: check feedback ---
+                if c_meta["ctrl_status"] == "WARN":
+                    fb_id  = c_meta.get("feedback_id")
+                    fb_meta = meta_cache.get(fb_id) if fb_id else None
+                    if fb_meta and fb_meta.get("last_value") is not None:
+                        if int(fb_meta["last_value"]) == c_meta["cmd_value"]:
+                            c_meta["ctrl_status"] = "GOOD"
+                            _ctrl_write()
+                            ctrl_has = True
+                            continue
+
+                    ticks = c_meta["feedback_ticks_left"] - 1
+                    c_meta["feedback_ticks_left"] = ticks
+                    if ticks <= 0:
+                        c_meta["ctrl_status"] = "ALARM"
+                        _ctrl_write()
+                        ctrl_pipe.publish("bus:event", json.dumps({
+                            "event": "CTRL_TIMEOUT", "point_id": c_id,
+                            "object": c_meta["object"], "system": c_meta["system"],
+                            "ts": now_ms_ctrl,
+                        }))
+                        ctrl_has = True
+                    continue  # don't re-evaluate while pending
+
+                # --- GATE 1: opmode ---
+                opmode_id = c_meta.get("opmode_id")
+                if opmode_id:
+                    om = meta_cache.get(opmode_id)
+                    if not om or int(om.get("last_value") or 0) != 1:
+                        if c_meta["ctrl_status"] != "NODATA":
+                            c_meta["ctrl_status"] = "NODATA"
+                            _ctrl_write()
+                            ctrl_has = True
+                        continue
+
+                # --- GATE 2: feedback quality ---
+                fb_id   = c_meta.get("feedback_id")
+                fb_meta = meta_cache.get(fb_id) if fb_id else None
+                if fb_meta:
+                    fb_q = fb_meta.get("state", "NODATA")
+                    if fb_q in ("ALARM", "WARN", "NODATA", "UNCERT"):
+                        new_st = "ALARM" if fb_q == "ALARM" else "NODATA"
+                        if c_meta["ctrl_status"] != new_st:
+                            c_meta["ctrl_status"] = new_st
+                            _ctrl_write()
+                            ctrl_has = True
+                        continue
+
+                # --- FORMULA ---
+                formula = c_meta.get("formula", "").strip()
+                if not formula:
+                    continue
+
+                refs  = [int(m) for m in re.findall(r'\$(\d+)', formula)]
+                valid = True
+                for ref_id in set(refs):
+                    rm = meta_cache.get(ref_id)
+                    if not rm or rm.get("last_value") is None:
+                        valid = False; break
+                if not valid:
+                    continue
+
+                try:
+                    expr = re.sub(
+                        r'\$(\d+)',
+                        lambda m: str(float(meta_cache[int(m.group(1))]["last_value"])),
+                        formula
+                    )
+                    expr = _preprocess_formula(expr)
+                    if "__" in expr:
+                        continue
+                    new_val = int(round(float(eval(expr, _CALC_NS, {}))))
+                except Exception as _fe:
+                    log.warning(f"[CTRL] formula eval error pid={c_id}: {_fe}")
+                    continue
+
+                # --- GATE 3: already at expected state ---
+                if fb_meta and fb_meta.get("last_value") is not None:
+                    if int(fb_meta["last_value"]) == new_val:
+                        if c_meta["ctrl_status"] != "GOOD":
+                            c_meta["ctrl_status"] = "GOOD"
+                            c_meta["cmd_value"]   = new_val
+                            _ctrl_write()
+                            ctrl_has = True
+                        continue
+
+                # --- GATE 4: value unchanged ---
+                if c_meta["cmd_value"] == new_val:
+                    continue
+
+                # --- SEND ---
+                target = c_meta.get("target", "")
+                if target and c_meta.get("transport", "mqtt") == "mqtt":
+                    payload = json.dumps({
+                        "value":       new_val,
+                        "feedback_id": fb_id,
+                        "ts":          now_ms_ctrl,
+                    })
+                    mqtt_client.publish(target, payload)
+                    c_meta["cmd_value"]           = new_val
+                    c_meta["ctrl_status"]         = "WARN"
+                    c_meta["feedback_ticks_left"] = c_meta["feedback_timeout_ticks"]
+                    _ctrl_write()
+                    ctrl_has = True
+                    log.info(f"[CTRL] {c_id} → {target} val={new_val}")
+
+            if ctrl_has:
+                ctrl_pipe.execute()
 
             # --- DESYNC GUARD ---
             if config["system"]["desync_guard"]:

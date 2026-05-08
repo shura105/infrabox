@@ -763,5 +763,17 @@
     "system": "electric",
     "pointname": "Режим Електропостачання",
     "onArchive": 1
+  },
+  {
+    "id": 901,
+    "type": "control",
+    "object": "home",
+    "system": "electric",
+    "pointname": "relay1_ctrl",
+    "formula": "$101 > 215 ? 1 : 0",
+    "transport": "mqtt",
+    "target": "cmd/home/reserv_power/door1/600",
+    "feedback_id": 600,
+    "feedback_timeout_ticks": 3
   }
 ]

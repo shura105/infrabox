@@ -73,8 +73,11 @@ class _SetValueBody(BaseModel):
     value: int
 
 
-@app.post("/api/pub/points/{point_id}/value")
-async def set_point_value(point_id: str, body: _SetValueBody):
+@app.post("/api/points/{point_id}/value")
+async def set_point_value(point_id: str, body: _SetValueBody, user: dict = Depends(require_auth)):
+    perms = user.get("permissions") or {}
+    if user.get("role") != "admin" and not perms.get("ctrl_opmode"):
+        raise HTTPException(status_code=403, detail="Недостатньо прав для зміни режиму")
     await redis_client.set_point_value(point_id, body.value)
     return {"ok": True}
 
