@@ -17,6 +17,7 @@ services:
       - /usr/bin/docker:/usr/bin/docker:ro
       - /home/shura/infrabox:/home/shura/infrabox:ro
       - /etc/hostname:/host_hostname:ro
+      - ../ui/adm/main.py:/app/main.py
       - ./data:/app/data
       - ../infrabox.json:/app/config/infrabox.json
       - /home/shura/infrabox/core/service/config/points.json:/app/config/points.json

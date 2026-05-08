@@ -771,16 +771,11 @@
     "drop": "homeServ-1",
     "system": "electric",
     "pointname": "relay1_ctrl",
-    "min": 0,
-    "max": 100,
-    "warn_min": 0,
-    "warn_max": 100,
-    "alarm_min": 0,
-    "alarm_max": 100,
-    "deadband": 0,
-    "interval": 1,
-    "onArchive": 1,
-    "archive_interval": 0,
-    "archive_on_change": 1
+    "formula_on": "$101 > 215",
+    "formula_off": "$101 < 200",
+    "transport": "mqtt",
+    "target": "cmd/home/reserv_power/door1/600",
+    "feedback_id": 600,
+    "feedback_timeout_ticks": 3
   }
 ]

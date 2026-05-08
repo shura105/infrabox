@@ -840,7 +840,7 @@ def _point_dict(p: PointIn) -> dict:
         for k in _DISCRETE_ONLY | _CONTROL_ONLY:
             d.pop(k, None)
     elif t == "control":
-        for k in _ANALOG_ONLY | _DISCRETE_ONLY:
+        for k in _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | {"onArchive"}:
             d.pop(k, None)
     elif t == "operation_mode":
         for k in _OPMODE_STRIP:
