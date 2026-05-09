@@ -165,6 +165,7 @@
             outline: none;
         }
         .field input:focus, .field select:focus { border-color: #58a6ff; }
+        .field select:disabled { opacity: .45; cursor: not-allowed; }
 
         .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
@@ -1040,14 +1041,14 @@
             <div class="form-grid">
                 <div class="field">
                     <label>Об'єкт</label>
-                    <select id="pt_object_sel" onchange="document.getElementById('pt_object').value=this.value">
+                    <select id="pt_object_sel" onchange="_onTechObjectChange()">
                         <option value="">— оберіть —</option>
                     </select>
                     <input type="hidden" id="pt_object">
                 </div>
                 <div class="field">
                     <label>Вузол</label>
-                    <select id="pt_drop_sel" onchange="document.getElementById('pt_drop').value=this.value">
+                    <select id="pt_drop_sel" onchange="_onTechDropChange()">
                         <option value="">— оберіть —</option>
                     </select>
                     <input type="hidden" id="pt_drop">
@@ -1192,10 +1193,16 @@
         <!-- ── Режим роботи системи ── -->
         <div id="pt_section_opmode" style="display:none">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
-            <div class="form-grid">
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>Обʼєкт</label>
+                    <select id="pt_opmode_object_sel" onchange="_onOpmodeObjectChange()">
+                        <option value="">— оберіть —</option>
+                    </select>
+                </div>
                 <div class="field">
                     <label>Система</label>
-                    <select id="pt_opmode_system" onchange="_onOpmodeSystemChange()">
+                    <select id="pt_opmode_system" onchange="_onOpmodeSystemChange()" disabled>
                         <option value="">— оберіть —</option>
                     </select>
                 </div>
@@ -1278,6 +1285,34 @@
                               style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none">? довідка</span>
                     </label>
                     <input type="text" id="pt_ctrl_target" placeholder="cmd/home/electric/relay1/600" style="font-family:monospace">
+                </div>
+            </div>
+
+            <!-- MQTT Topic Builder -->
+            <div id="ctrl_topic_builder" style="display:none">
+                <div style="margin:10px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Конструктор топіка</div>
+                <div class="form-grid-3">
+                    <div class="field" style="margin-bottom:6px">
+                        <label>Обʼєкт</label>
+                        <select id="ctrl_tb_obj" onchange="_tbOnObjChange()">
+                            <option value="">— обрати —</option>
+                        </select>
+                    </div>
+                    <div class="field" style="margin-bottom:6px">
+                        <label>Система</label>
+                        <select id="ctrl_tb_sys" onchange="_tbOnSysChange()" disabled>
+                            <option value="">— обрати —</option>
+                        </select>
+                    </div>
+                    <div class="field" style="margin-bottom:6px">
+                        <label>Точка фідбеку</label>
+                        <select id="ctrl_tb_point" onchange="_tbOnPointChange()" disabled>
+                            <option value="">— обрати —</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="ctrl_tb_preview" style="display:none;padding:5px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;font-size:12px;color:#8b949e">
+                    → <code id="ctrl_tb_preview_text" style="color:#a5d6ff"></code><span style="color:#3fb950;margin-left:8px">✓</span>
                 </div>
             </div>
 
@@ -2602,9 +2637,11 @@ function _populateModalSelects() {
     // diagnostic chain — drop selector
     document.getElementById("pt_diag_drop").innerHTML = `<option value="">— оберіть —</option>` +
         _allDrops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
-    // operation_mode — system selector
-    document.getElementById("pt_opmode_system").innerHTML = `<option value="">— оберіть —</option>` +
-        _allSystems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    // operation_mode — object selector (systems filtered dynamically by object)
+    document.getElementById("pt_opmode_object_sel").innerHTML = `<option value="">— оберіть —</option>` +
+        _allObjects.map(o => `<option value="${_esc(o.id)}">${_esc(o.name || o.id)}</option>`).join("");
+    document.getElementById("pt_opmode_system").innerHTML = `<option value="">— оберіть —</option>`;
+    document.getElementById("pt_opmode_system").disabled  = true;
 }
 
 function _archiveMode(p) {
@@ -2765,12 +2802,8 @@ function _pointFormDefaults() {
     document.getElementById("pt_sys2_system_sel").value    = "";
     document.getElementById("pt_pointname").value          = "";
     document.getElementById("pt_unit").value               = "";
-    document.getElementById("pt_object_sel").value         = "";
-    document.getElementById("pt_object").value             = "";
-    document.getElementById("pt_drop_sel").value           = "";
-    document.getElementById("pt_drop").value               = "";
-    document.getElementById("pt_system_sel").value         = "";
-    document.getElementById("pt_system").value             = "";
+    document.getElementById("pt_object_sel").value = "";
+    _onTechObjectChange();  // restores full drop + system lists
     document.getElementById("pt_pointname_tech").value     = "";
     document.getElementById("pt_min").value             = "0";
     document.getElementById("pt_max").value             = "100";
@@ -2786,11 +2819,13 @@ function _pointFormDefaults() {
     document.getElementById("pt_label_1").value          = "";
     document.getElementById("pt_discrete_archive").checked = true;
     // operation_mode defaults
-    document.getElementById("pt_opmode_system").value    = "";
-    document.getElementById("pt_opmode_pointname").value = "";
-    document.getElementById("pt_opmode_archive").checked = true;
-    document.getElementById("pt_opmode_object").value    = "";
-    document.getElementById("pt_opmode_drop").value      = "";
+    document.getElementById("pt_opmode_object_sel").value = "";
+    document.getElementById("pt_opmode_system").innerHTML = '<option value="">— оберіть —</option>';
+    document.getElementById("pt_opmode_system").disabled  = true;
+    document.getElementById("pt_opmode_pointname").value  = "";
+    document.getElementById("pt_opmode_archive").checked  = true;
+    document.getElementById("pt_opmode_object").value     = "";
+    document.getElementById("pt_opmode_drop").value       = "";
     _setArchiveMode("change");
 }
 
@@ -2810,12 +2845,13 @@ function _fillPointForm(p) {
     document.getElementById("pt_diag_name").value     = p.name   ?? "";
     // tech-type section
     document.getElementById("pt_unit").value             = p.unit ?? "";
-    document.getElementById("pt_object_sel").value       = p.object ?? "";
-    document.getElementById("pt_object").value           = p.object ?? "";
-    document.getElementById("pt_drop_sel").value         = p.drop ?? "";
-    document.getElementById("pt_drop").value             = p.drop ?? "";
-    document.getElementById("pt_system_sel").value       = p.system ?? "";
-    document.getElementById("pt_system").value           = p.system ?? "";
+    document.getElementById("pt_object_sel").value = p.object ?? "";
+    _onTechObjectChange();
+    document.getElementById("pt_drop_sel").value  = p.drop   ?? "";
+    document.getElementById("pt_drop").value      = p.drop   ?? "";
+    _onTechDropChange();
+    document.getElementById("pt_system_sel").value = p.system ?? "";
+    document.getElementById("pt_system").value     = p.system ?? "";
     document.getElementById("pt_pointname_tech").value  = p.pointname ?? "";
     document.getElementById("pt_min").value            = p.min ?? 0;
     document.getElementById("pt_max").value            = p.max ?? 100;
@@ -2842,12 +2878,14 @@ function _fillPointForm(p) {
     document.getElementById("pt_ctrl_feedback_id").value         = p.feedback_id            ?? "";
     document.getElementById("pt_ctrl_feedback_timeout").value    = p.feedback_timeout_ticks ?? 3;
     onCtrlTransportChange();
+    if ((p.transport ?? "mqtt") === "mqtt") _tbFromTarget(p.target ?? "");
     // operation_mode fields
+    document.getElementById("pt_opmode_object_sel").value = p.object   ?? "";
+    _onOpmodeObjectChange();
     document.getElementById("pt_opmode_system").value    = p.system    ?? "";
+    _onOpmodeSystemChange();
     document.getElementById("pt_opmode_pointname").value = p.pointname ?? "";
     document.getElementById("pt_opmode_archive").checked = parseInt(p.onArchive ?? 1) === 1;
-    document.getElementById("pt_opmode_object").value    = p.object    ?? "";
-    document.getElementById("pt_opmode_drop").value      = p.drop      ?? "";
     // derive archive mode from raw fields
     const onArch = parseInt(p.onArchive ?? 1);
     const onChg  = parseInt(p.archive_on_change ?? 1);
@@ -2875,6 +2913,7 @@ function onPointTypeChange() {
     document.getElementById("pt_section_calculated").style.display = isCalculated ? "" : "none";
     document.getElementById("pt_section_opmode").style.display     = isOpMode     ? "" : "none";
     document.getElementById("pt_section_control").style.display    = isControl    ? "" : "none";
+    if (isControl) onCtrlTransportChange();
     if (isDiag) _diagResetFrom(1);
     else if (!isSystem && !isOpMode) {
         document.getElementById("pt_object").value = document.getElementById("pt_object_sel").value;
@@ -2884,12 +2923,149 @@ function onPointTypeChange() {
     if (isDiscrete) onSeverityChange();
 }
 
+// ── Tech section: Object → Drop → System cascade ──────────────────────────
+function _onTechObjectChange() {
+    const obj = document.getElementById("pt_object_sel").value;
+    document.getElementById("pt_object").value = obj;
+
+    const drops = obj ? _allDrops.filter(d => d.object === obj) : _allDrops;
+    const drpSel = document.getElementById("pt_drop_sel");
+    drpSel.innerHTML = '<option value="">— оберіть —</option>' +
+        drops.map(d => `<option value="${_esc(d.id)}">${_esc(d.name || d.id)}</option>`).join("");
+    drpSel.value = "";
+    document.getElementById("pt_drop").value = "";
+
+    const dropIds = obj ? new Set(drops.map(d => d.id)) : null;
+    const systems = dropIds ? _allSystems.filter(s => dropIds.has(s.drop)) : _allSystems;
+    const sysSel = document.getElementById("pt_system_sel");
+    sysSel.innerHTML = '<option value="">— оберіть —</option>' +
+        systems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    sysSel.value = "";
+    document.getElementById("pt_system").value = "";
+}
+
+function _onTechDropChange() {
+    const drop = document.getElementById("pt_drop_sel").value;
+    const obj  = document.getElementById("pt_object_sel").value;
+    document.getElementById("pt_drop").value = drop;
+
+    let systems;
+    if (drop) {
+        systems = _allSystems.filter(s => s.drop === drop);
+    } else if (obj) {
+        const dropIds = new Set(_allDrops.filter(d => d.object === obj).map(d => d.id));
+        systems = _allSystems.filter(s => dropIds.has(s.drop));
+    } else {
+        systems = _allSystems;
+    }
+    const sysSel = document.getElementById("pt_system_sel");
+    sysSel.innerHTML = '<option value="">— оберіть —</option>' +
+        systems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    sysSel.value = "";
+    document.getElementById("pt_system").value = "";
+}
+
+// ── MQTT topic builder ─────────────────────────────────────────────────────
+function _tbInit() {
+    const objSel = document.getElementById("ctrl_tb_obj");
+    if (!objSel) return;
+    objSel.innerHTML = '<option value="">— обрати —</option>' +
+        _allObjects.map(o => `<option value="${_esc(o.id)}">${_esc(o.name || o.id)}</option>`).join("");
+    const sysSel = document.getElementById("ctrl_tb_sys");
+    sysSel.innerHTML = '<option value="">— обрати —</option>';
+    sysSel.disabled  = true;
+    const ptSel = document.getElementById("ctrl_tb_point");
+    ptSel.innerHTML  = '<option value="">— обрати —</option>';
+    ptSel.disabled   = true;
+    document.getElementById("ctrl_tb_preview").style.display = "none";
+}
+
+function _tbOnObjChange() {
+    const obj    = document.getElementById("ctrl_tb_obj").value;
+    const sysSel = document.getElementById("ctrl_tb_sys");
+    const ptSel  = document.getElementById("ctrl_tb_point");
+    ptSel.innerHTML = '<option value="">— обрати —</option>';
+    ptSel.disabled  = true;
+    document.getElementById("ctrl_tb_preview").style.display = "none";
+    if (!obj) {
+        sysSel.innerHTML = '<option value="">— обрати —</option>';
+        sysSel.disabled  = true;
+        return;
+    }
+    const dropIds = new Set(_allDrops.filter(d => d.object === obj).map(d => d.id));
+    const systems = _allSystems.filter(s => dropIds.has(s.drop));
+    sysSel.innerHTML = '<option value="">— обрати —</option>' +
+        systems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    sysSel.disabled = systems.length === 0;
+}
+
+function _tbOnSysChange() {
+    const obj   = document.getElementById("ctrl_tb_obj").value;
+    const sys   = document.getElementById("ctrl_tb_sys").value;
+    const ptSel = document.getElementById("ctrl_tb_point");
+    document.getElementById("ctrl_tb_preview").style.display = "none";
+    if (!sys) {
+        ptSel.innerHTML = '<option value="">— обрати —</option>';
+        ptSel.disabled  = true;
+        return;
+    }
+    const pts = _allPoints.filter(p =>
+        p.object === obj && p.system === sys &&
+        !["control","calculated","diagnostic"].includes(p.type)
+    );
+    ptSel.innerHTML = '<option value="">— обрати —</option>' +
+        pts.map(p => `<option value="${p.id}">${_esc(p.pointname)} [${p.id}]</option>`).join("");
+    ptSel.disabled = pts.length === 0;
+}
+
+function _tbOnPointChange() {
+    const obj  = document.getElementById("ctrl_tb_obj").value;
+    const sys  = document.getElementById("ctrl_tb_sys").value;
+    const pid  = document.getElementById("ctrl_tb_point").value;
+    const prev = document.getElementById("ctrl_tb_preview");
+    if (!pid) { prev.style.display = "none"; return; }
+    const pt = _allPoints.find(p => String(p.id) === String(pid));
+    if (!pt) return;
+    const topic = `cmd/${obj}/${sys}/${pt.pointname}/${pt.id}`;
+    document.getElementById("ctrl_tb_preview_text").textContent = topic;
+    prev.style.display = "";
+    document.getElementById("pt_ctrl_target").value      = topic;
+    document.getElementById("pt_ctrl_feedback_id").value = pt.id;
+}
+
+// reverse-parse existing target topic back into builder selects
+function _tbFromTarget(topic) {
+    if (!topic || !topic.startsWith("cmd/")) return;
+    const parts = topic.split("/");
+    if (parts.length < 5) return;
+    const obj = parts[1];
+    const sys = parts[2];
+    const pid = parts[parts.length - 1];
+    const objSel = document.getElementById("ctrl_tb_obj");
+    if (!objSel) return;
+    objSel.value = obj;
+    if (objSel.value !== obj) return;
+    _tbOnObjChange();
+    const sysSel = document.getElementById("ctrl_tb_sys");
+    sysSel.value = sys;
+    _tbOnSysChange();
+    const ptSel = document.getElementById("ctrl_tb_point");
+    ptSel.value = pid;
+    _tbOnPointChange();
+}
+
 function onCtrlTransportChange() {
     const isSh = document.getElementById("pt_ctrl_transport").value === "shell";
     document.getElementById("pt_ctrl_target_label").textContent =
         isSh ? "Shell-команда (target)" : "Топік MQTT (target)";
     document.getElementById("pt_ctrl_target").placeholder =
         isSh ? 'ssh user@hostname "/opt/scripts/pump.sh {value}"' : "cmd/home/electric/relay1/600";
+    // show/hide topic builder
+    const builder = document.getElementById("ctrl_topic_builder");
+    if (builder) {
+        builder.style.display = isSh ? "none" : "";
+        if (!isSh) _tbInit();
+    }
     // if help is open — switch to the relevant block
     const mqttHelp  = document.getElementById("ctrl_help_mqtt");
     const shellHelp = document.getElementById("ctrl_help_shell");
@@ -2942,6 +3118,24 @@ function validateCtrlCond(which) {
     } catch (err) {
         show(false, `✗ ${err.message}`);
     }
+}
+
+function _onOpmodeObjectChange() {
+    const obj    = document.getElementById("pt_opmode_object_sel").value;
+    const sysSel = document.getElementById("pt_opmode_system");
+    sysSel.value = "";
+    document.getElementById("pt_opmode_drop").value   = "";
+    document.getElementById("pt_opmode_object").value = obj;
+    if (!obj) {
+        sysSel.innerHTML = '<option value="">— оберіть —</option>';
+        sysSel.disabled  = true;
+        return;
+    }
+    const dropIds = new Set(_allDrops.filter(d => d.object === obj).map(d => d.id));
+    const systems = _allSystems.filter(s => dropIds.has(s.drop));
+    sysSel.innerHTML = '<option value="">— оберіть —</option>' +
+        systems.map(s => `<option value="${_esc(s.id)}">${_esc(s.name || s.id)}</option>`).join("");
+    sysSel.disabled = systems.length === 0;
 }
 
 function _onOpmodeSystemChange() {

@@ -3,7 +3,7 @@
     "id": "reserv_power",
     "name": "Резервне електропостачання",
     "drop": "homeServ-1",
-    "operation_mode": "manual"
+    "operation_mode": "auto"
   },
   {
     "id": "res_battary1",
