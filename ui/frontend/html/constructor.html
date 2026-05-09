@@ -101,11 +101,16 @@
 
         /* ── elements canvas ── */
         .canvas-area{flex:1;overflow:auto;background:#0a0e14;padding:16px;display:flex;align-items:flex-start;justify-content:flex-start}
+        .canvas-col{display:flex;flex-direction:column;flex:1;overflow:hidden}
+        .el-layer{flex-shrink:0;background:#161b22;border-top:1px solid #30363d;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;padding:6px 8px;overflow-y:auto;max-height:120px}
+        .el-layer::-webkit-scrollbar{width:4px}.el-layer::-webkit-scrollbar-track{background:transparent}.el-layer::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px}
+        .el-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;background:#1c2333;border:1px solid #30363d;cursor:pointer;white-space:nowrap;font-size:11px;flex-shrink:0;user-select:none;color:#c9d1d9}
+        .el-chip:hover{background:#243047;border-color:#58a6ff}
+        .el-chip.el-active{background:#1c3a5e;border-color:#58a6ff;color:#58a6ff}
         .c-el{position:absolute;cursor:move;user-select:none;overflow:hidden}
         .c-el.sel{outline:2px solid #58a6ff;outline-offset:1px;z-index:10}
         .r-label{position:absolute;inset:0;display:flex;align-items:center;overflow:hidden}
-        .r-value{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;padding:4px 8px;border:1px solid #333;border-radius:4px;background:rgba(0,0,0,.3);overflow:hidden}
-        .r-value .vl{font-size:11px;color:#8b949e;flex-shrink:0}
+        .r-value{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:4px 8px;border:1px solid #333;border-radius:4px;background:rgba(0,0,0,.3);overflow:hidden}
         .r-navbtn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:5px;border:1px solid rgba(255,255,255,.15);font-weight:600;overflow:hidden}
         .r-indicator{position:absolute;inset:0;border-radius:50%}
         .r-level{position:absolute;inset:0;overflow:hidden;border-radius:4px}
@@ -178,8 +183,6 @@
             <button class="btn" @click="mode='structure';sel=null">← Структура</button>
             <span class="sc-title" x-text="sc.title"></span>
             <span class="sc-badge" x-text="sc.id"></span>
-            <div class="tb-sep"></div>
-            <button class="btn btn-red" x-show="sel" @click="delEl">🗑 Видалити</button>
             <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
         </div>
@@ -482,7 +485,8 @@
                 </template>
             </div>
 
-            <!-- elements canvas -->
+            <!-- elements canvas + layer panel -->
+            <div class="canvas-col">
             <div class="canvas-area" id="ca" @dragover.prevent @drop.prevent="drop">
                 <div id="cs" :style="`transform:scale(${_scale});transform-origin:top left;`">
                     <div id="cv"
@@ -492,7 +496,7 @@
                          @click.self="selectEl(null)">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='line'||el.type==='arrow'?'overflow:visible;':''}`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
                                 <template x-if="el.type==='group_box'">
                                     <div style="position:absolute;inset:0">
@@ -518,10 +522,14 @@
                                          x-text="el.text"></div>
                                 </template>
                                 <template x-if="el.type==='value'">
-                                    <div class="r-value">
-                                        <span class="vl" x-show="el.showLabel" x-text="el.label" :style="`font-size:${11*fScale()}px`"></span>
-                                        <span :style="`font-size:${el.fontSize*fScale()}px;color:${el.color};font-weight:600;`"
-                                              x-text="`P:${el.point_id} ···`"></span>
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div class="r-value">
+                                            <span :style="`font-size:${(el.fontSize||22)*fScale()}px;color:${el.color};font-weight:600;`"
+                                                  x-text="`P:${el.point_id} ···`"></span>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.labelFontSize||11)*fScale()}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label"></div>
                                     </div>
                                 </template>
                                 <template x-if="el.type==='nav_btn'">
@@ -564,6 +572,9 @@
                                 </template>
                                 <template x-if="el.type==='triangle'">
                                     <div class="r-shape" x-html="cTriangleSVGHtml(el)"></div>
+                                </template>
+                                <template x-if="el.type==='arc'">
+                                    <div class="r-shape" x-html="cArcSVGHtml(el)"></div>
                                 </template>
                                 <template x-if="el.type==='ibox_screen'">
                                     <div class="r-ibox" :style="`border-width:${el.borderWidth??2}px`">
@@ -661,12 +672,25 @@
                 </div>
             </div>
 
+            <!-- elements layer panel -->
+            <div class="el-layer">
+                <template x-for="el in els" :key="el.id">
+                    <div class="el-chip" :class="{'el-active': sel===el.id}"
+                         @click="selectEl(el.id)"
+                         :title="el.id">
+                        <span style="opacity:.6" x-text="(elTypeMeta[el.type]||{}).icon||'?'"></span>
+                        <span x-text="(elTypeMeta[el.type]||{}).label||el.type"></span>
+                    </div>
+                </template>
+            </div>
+            </div><!-- /canvas-col -->
+
             <!-- element props -->
             <div class="props">
                 <template x-if="sel === null">
                     <div>
                         <div class="pr-title">Властивості екрана</div>
-                        <div class="pr"><label>Назва</label><input type="text" x-model="sc.title"></div>
+                        <div class="pr"><label>Назва</label><input type="text" :value="sc.title" disabled style="color:#8b949e;cursor:default"></div>
                         <div class="pr2">
                             <div><label>Ширина</label>
                                 <input type="number" :value="sc.width" @change="resizeByWidth(+$event.target.value)">
@@ -721,11 +745,11 @@
                         </div>
                         <div class="pr2" x-show="selEl.type!=='line' && selEl.type!=='arrow'">
                             <div>
-                                <label x-text="selEl.type==='indicator'?'Розмір':'W'"></label>
+                                <label>W</label>
                                 <input type="number" :value="Math.round(selEl.w*sc.width)"
                                        @change="setElW(+$event.target.value)">
                             </div>
-                            <div x-show="selEl.type!=='indicator'">
+                            <div>
                                 <label>H</label>
                                 <input type="number" :value="Math.round(selEl.h*sc.height)"
                                        @change="setElH(+$event.target.value)">
@@ -736,6 +760,10 @@
                             <input type="number" x-model.number="selEl.scale" min="1" max="1000" step="5"
                                    title="Розмір відносно базового (фіксується при перетягуванні елемента та при ручній зміні W/H)"
                                    @change="applyScale()">
+                        </div>
+                        <div class="pr-inline">
+                            <input type="checkbox" x-model="selEl.onTop" id="elOnTop">
+                            <label for="elOnTop">Зверху</label>
                         </div>
                         <div class="pr-sep"></div>
                         <template x-if="selEl.type==='label'">
@@ -761,6 +789,7 @@
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="slCb"><label for="slCb">Показати підпис</label></div>
                                 <div class="pr" x-show="selEl.showLabel"><label>Підпис</label><input type="text" x-model="selEl.label"></div>
                                 <div class="pr" x-show="selEl.showLabel"><label>Розмір підпису</label><input type="number" x-model.number="selEl.labelFontSize" min="8" max="60"></div>
+                                <div class="pr" x-show="selEl.showLabel"><label>Колір підпису</label><input type="color" x-model="selEl.labelColor"></div>
                             </div>
                         </template>
                         <template x-if="selEl.type==='nav_btn'">
@@ -914,6 +943,21 @@
                                 </div>
                             </div>
                         </template>
+                        <template x-if="selEl.type==='arc'">
+                            <div>
+                                <div class="pr2">
+                                    <div><label>Початок °</label><input type="number" x-model.number="selEl.startAngle" min="0" max="359"></div>
+                                    <div><label>Кінець °</label><input type="number" x-model.number="selEl.endAngle" min="0" max="359"></div>
+                                </div>
+                                <div class="pr"><label>Колір обводки</label><input type="color" x-model="selEl.strokeColor"></div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="60"></div>
+                                <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                    <label style="flex:1">Прозорість</label>
+                                    <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
+                                    <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
+                                </div>
+                            </div>
+                        </template>
                         <template x-if="selEl.type==='ibox_screen'">
                             <div>
                                 <div class="pr"><label>Назва</label><input type="text" x-model="selEl.title"></div>
@@ -959,13 +1003,6 @@
                         <template x-if="selEl.type==='level_v' || selEl.type==='level_h'">
                             <div>
                                 <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
-                                <div class="pr"><label>Мін</label><input type="number" x-model.number="selEl.min"></div>
-                                <div class="pr"><label>Макс</label><input type="number" x-model.number="selEl.max"></div>
-                                <div class="pr-sep"></div>
-                                <div class="pr"><label>warn_min</label><input type="number" x-model.number="selEl.warn_min" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>warn_max</label><input type="number" x-model.number="selEl.warn_max" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>alarm_min</label><input type="number" x-model.number="selEl.alarm_min" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>alarm_max</label><input type="number" x-model.number="selEl.alarm_max" :min="selEl.min" :max="selEl.max"></div>
                                 <div class="pr-sep"></div>
                                 <div class="pr"><label>Колір</label>
                                     <select x-model="selLevelColor">
@@ -1465,10 +1502,17 @@ function app() {
             try { return JSON.parse(localStorage.getItem('ib-pal-open') || '{}'); }
             catch { return {}; }
         })(),
-        isPalOpen(g) { return this._palOpen[g] !== false; },     // default open
+        isPalOpen(g) { return this._palOpen[g] === true; },       // default closed
         togglePalGroup(g) {
             this._palOpen[g] = !this.isPalOpen(g);
             try { localStorage.setItem('ib-pal-open', JSON.stringify(this._palOpen)); } catch {}
+        },
+        get elTypeMeta() {
+            const map = {};
+            for (const g of this.paletteGroups)
+                for (const item of g.items)
+                    map[item.type] = { icon: item.icon, label: item.label };
+            return map;
         },
         get discretePoints() {
             return this.allPoints.filter(p => p.type === "discrete");
@@ -1538,9 +1582,11 @@ function app() {
 
         paletteGroups: [
             {
-                group: "Вузли системи",
+                group: "Посилання",
                 items: [
                     { type:"ibox_screen", icon:"⬡", label:"Підсистема" },
+                    { type:"ibox_link",   icon:"⇗", label:"Веб-лінк" },
+                    { type:"nav_btn",     icon:"→", label:"Навігація" },
                 ]
             },
             {
@@ -1552,14 +1598,13 @@ function app() {
                     { type:"line",     icon:"╱", label:"Лінія" },
                     { type:"arrow",    icon:"→", label:"Стрілка" },
                     { type:"triangle", icon:"△", label:"Трикутник" },
+                    { type:"arc",      icon:"⌒", label:"Дуга" },
                     { type:"label",    icon:"T", label:"Мітка" },
-                    { type:"nav_btn",  icon:"→", label:"Навігація" },
                 ]
             },
             {
                 group: "Активні елементи",
                 items: [
-                    { type:"ibox_link",   icon:"⇗", label:"Веб-лінк" },
                     { type:"value",     icon:"⌗", label:"Значення" },
                     { type:"indicator", icon:"●", label:"Індикатор" },
                     { type:"level_v",   icon:"⥮", label:"Рівень ↕" },
@@ -1596,7 +1641,7 @@ function app() {
 
         defaults: {
             label:       { w:160, h:36,  text:"Мітка",     fontSize:16, color:"#e6edf3", bold:false, align:"left" },
-            value:       { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"" },
+            value:       { w:180, h:52,  point_id:101,      fontSize:22, color:"#7eb8f7", showLabel:false, label:"", labelFontSize:11, labelColor:"#8b949e" },
             nav_btn:     { w:150, h:44,  text:"Перейти →", fontSize:14, target:"", bg:"#1c3a5e", color:"#58a6ff" },
             indicator:   { w:24, h:24, point_id:101,
                            color:"#4caf50",  borderColor:"#2d7a2d",
@@ -1609,6 +1654,7 @@ function app() {
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             arrow:       { w:160, h:60,  x1:0, y1:50, x2:100, y2:50, color:"#58a6ff", strokeWidth:2, arrowSize:12, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
+            arc:         { w:120, h:120, startAngle:0, endAngle:270, strokeColor:"#58a6ff", strokeWidth:4, opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
             ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
@@ -1771,7 +1817,6 @@ function app() {
             if (this._selIdx < 0) return;
             const el = this.els[this._selIdx];
             el.w = px / this.sc.width;
-            if (el.type === 'indicator') el.h = el.w;
             el.baseW = el.w; el.baseH = el.h; el.scale = 100;
         },
         setElH(px) {
@@ -2085,6 +2130,32 @@ function app() {
             </svg>`;
         },
 
+        cArcSVGHtml(el) {
+            const sw = el.strokeWidth || 4;
+            const r  = 50 - sw / 2;
+            const sa = ((el.startAngle || 0)   - 90) * Math.PI / 180;
+            const ea = ((el.endAngle   || 270) - 90) * Math.PI / 180;
+            const span = ((el.endAngle || 270) - (el.startAngle || 0) + 360) % 360 || 360;
+            if (span >= 360) {
+                return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="50" rx="${r.toFixed(2)}" ry="${r.toFixed(2)}"
+                             fill="none" stroke="${el.strokeColor||'#58a6ff'}"
+                             stroke-width="${sw}" opacity="${el.opacity??1}"/>
+                </svg>`;
+            }
+            const x1 = (50 + r * Math.cos(sa)).toFixed(2);
+            const y1 = (50 + r * Math.sin(sa)).toFixed(2);
+            const x2 = (50 + r * Math.cos(ea)).toFixed(2);
+            const y2 = (50 + r * Math.sin(ea)).toFixed(2);
+            const large = span > 180 ? 1 : 0;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <path d="M ${x1} ${y1} A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} 1 ${x2} ${y2}"
+                      fill="none"
+                      stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
+                      stroke-linecap="round" opacity="${el.opacity??1}"/>
+            </svg>`;
+        },
+
         // ── level helpers ──────────────────────────────────────────────────────
         cLevelFill(el, pct) {
             const color = el.colorGood || '#56d364';
@@ -2331,7 +2402,28 @@ function app() {
                 this._selIdx = -1;
                 this.mode = "elements";
                 this.setStatus(`Екран «${this.sc.title}»`);
-                this.$nextTick(() => this.updateScale());
+                this.$nextTick(() => {
+                    this.updateScale();
+                    const _ca = document.getElementById('ca');
+                    if (_ca && !_ca._zoomBound) {
+                        _ca._zoomBound = true;
+                        _ca.addEventListener('wheel', (e) => {
+                            if (!e.ctrlKey) return;
+                            e.preventDefault();
+                            const step     = e.deltaY < 0 ? 0.1 : -0.1;
+                            const oldScale = this._scale;
+                            const newScale = Math.max(0.1, Math.min(4, parseFloat((oldScale + step).toFixed(2))));
+                            if (newScale === oldScale) return;
+                            const rect  = _ca.getBoundingClientRect();
+                            const mx    = e.clientX - rect.left;
+                            const my    = e.clientY - rect.top;
+                            const ratio = newScale / oldScale;
+                            _ca.scrollLeft = (_ca.scrollLeft + mx) * ratio - mx;
+                            _ca.scrollTop  = (_ca.scrollTop  + my) * ratio - my;
+                            this._scale = newScale;
+                        }, { passive: false });
+                    }
+                });
             } catch(e) { this.setStatus("Помилка: "+e.message, false); }
         },
 
@@ -2585,7 +2677,7 @@ updateScale() {
         typeName(t) {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
-                     group_box:"Група", ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник",
+                     group_box:"Група", ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник", arc:"Дуга",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад",
                      ctrl_opmode:"Режим роботи", ctrl_signal:"Управляючий сигнал",

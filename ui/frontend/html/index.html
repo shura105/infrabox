@@ -499,7 +499,7 @@
                         <div class="c-el"
                              :style="`left:${el.x*100}%;top:${el.y*100}%;
                                       width:${el.w*sc.width}px;height:${el.h*sc.height}px;
-                                      z-index:${el.type==='group_box'?1:2};`">
+                                      z-index:${el.onTop?8:el.type==='group_box'?1:2};`">
 
                             <!-- label -->
                             <template x-if="el.type==='label'">
@@ -660,6 +660,11 @@
                             <!-- triangle -->
                             <template x-if="el.type==='triangle'">
                                 <div class="r-shape" x-html="svgTriangle(el)"></div>
+                            </template>
+
+                            <!-- arc -->
+                            <template x-if="el.type==='arc'">
+                                <div class="r-shape" x-html="svgArc(el)"></div>
                             </template>
 
                             <!-- bistable: pump / motor / valve / relay / reed / optical / image -->
@@ -1238,6 +1243,29 @@ function app() {
                 <polygon points="${pts}" fill="${el.fill||'#1e2130'}"
                          stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
                          stroke-linejoin="round" opacity="${el.opacity??1}"/></svg>`;
+        },
+
+        svgArc(el) {
+            const sw = el.strokeWidth || 4;
+            const r  = 50 - sw / 2;
+            const sa = ((el.startAngle || 0)   - 90) * Math.PI / 180;
+            const ea = ((el.endAngle   || 270) - 90) * Math.PI / 180;
+            const span = ((el.endAngle || 270) - (el.startAngle || 0) + 360) % 360 || 360;
+            if (span >= 360) {
+                return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="50" rx="${r.toFixed(2)}" ry="${r.toFixed(2)}"
+                             fill="none" stroke="${el.strokeColor||'#58a6ff'}"
+                             stroke-width="${sw}" opacity="${el.opacity??1}"/></svg>`;
+            }
+            const x1 = (50 + r * Math.cos(sa)).toFixed(2);
+            const y1 = (50 + r * Math.sin(sa)).toFixed(2);
+            const x2 = (50 + r * Math.cos(ea)).toFixed(2);
+            const y2 = (50 + r * Math.sin(ea)).toFixed(2);
+            const large = span > 180 ? 1 : 0;
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <path d="M ${x1} ${y1} A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} 1 ${x2} ${y2}"
+                      fill="none" stroke="${el.strokeColor||'#58a6ff'}" stroke-width="${sw}"
+                      stroke-linecap="round" opacity="${el.opacity??1}"/></svg>`;
         },
 
         // ── bistable elements (pump, motor, valve, relay, reed, optical) ─────
