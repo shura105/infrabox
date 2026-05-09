@@ -15,6 +15,6 @@
     "id": "electric",
     "name": "Електропостачання",
     "drop": "garageServ1",
-    "operation_mode": "manual"
+    "operation_mode": "auto"
   }
 ]

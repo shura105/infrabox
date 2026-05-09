@@ -29,8 +29,9 @@ class UserUpdate(BaseModel):
 
 
 class PermissionsUpdate(BaseModel):
-    pages:   Optional[list[str]] = None   # slugs; None = no restriction
-    objects: Optional[list[str]] = None   # object names; None or ["*"] = all
+    pages:      Optional[list[str]] = None   # slugs; None = no restriction
+    objects:    Optional[list[str]] = None   # object names; None or ["*"] = all
+    ctrl_opmode: Optional[bool]     = None   # may change operation mode
 
 
 class UserPublic(BaseModel):

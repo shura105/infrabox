@@ -1,8 +1,9 @@
 import json
 import os
 
-POINTS_PATH  = "/app/config/points.json"
-SOCKETS_PATH = "/app/config/sockets.json"
+POINTS_PATH   = "/app/config/points.json"
+SOCKETS_PATH  = "/app/config/sockets.json"
+SYSTEMS_PATH  = "/app/config/systems.json"
 OBJECT_DEFAULT = os.environ.get("OBJECT", "home")
 
 
@@ -80,7 +81,6 @@ def load_points():
             meta["formula_off"]            = p.get("formula_off", "")
             meta["transport"]              = p.get("transport", "mqtt")
             meta["target"]                 = p.get("target", "")
-            meta["opmode_id"]              = p.get("opmode_id")
             meta["feedback_id"]            = p.get("feedback_id")
             meta["feedback_timeout_ticks"] = p.get("feedback_timeout_ticks", 3)
             meta["limits"] = {
@@ -105,3 +105,13 @@ def load_points():
         meta_cache[pid] = meta
 
     return meta_cache
+
+
+def load_systems():
+    """Load systems.json → {sys_id: system_dict}"""
+    try:
+        with open(SYSTEMS_PATH) as f:
+            systems = json.load(f)
+        return {s["id"]: s for s in systems}
+    except Exception:
+        return {}

@@ -75,7 +75,7 @@ def setup_logger():
 def load_points():
     with open(CONFIG_PATH) as f:
         points = json.load(f)
-    return [p for p in points if p["id"] >= 100 and p.get("type") != "diagnostic"]
+    return [p for p in points if 100 <= p["id"] <= 1000 and p.get("type") != "diagnostic"]
 
 
 def load_control_points():

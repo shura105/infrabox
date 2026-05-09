@@ -2840,7 +2840,6 @@ function _fillPointForm(p) {
     document.getElementById("pt_ctrl_transport").value           = p.transport              ?? "mqtt";
     document.getElementById("pt_ctrl_target").value              = p.target                 ?? "";
     document.getElementById("pt_ctrl_feedback_id").value         = p.feedback_id            ?? "";
-
     document.getElementById("pt_ctrl_feedback_timeout").value    = p.feedback_timeout_ticks ?? 3;
     onCtrlTransportChange();
     // operation_mode fields
@@ -2922,7 +2921,10 @@ function validateCtrlCond(which) {
     };
     if (!raw) { show(false, "✗ Порожньо"); return; }
     if (raw.includes("__")) { show(false, "✗ Недопустимі символи (__)"); return; }
-    const expr = raw.replace(/\$(\d+)/g, "1.0");
+    const expr = raw.replace(/\$(\d+)/g, "1.0")
+                    .replace(/\band\b/g, "&&")
+                    .replace(/\bor\b/g,  "||")
+                    .replace(/\bnot\b/g, "!");
     const _M = Math;
     const ns = {
         sin:_M.sin, cos:_M.cos, tan:_M.tan, asin:_M.asin, acos:_M.acos,
@@ -2964,7 +2966,10 @@ function validateFormula() {
     };
     if (!raw) { show(false, "✗ Формула порожня"); return; }
     if (raw.includes("__")) { show(false, "✗ Недопустимі символи (__)"); return; }
-    const expr = raw.replace(/\$(\d+)/g, "1.0");
+    const expr = raw.replace(/\$(\d+)/g, "1.0")
+                    .replace(/\band\b/g, "&&")
+                    .replace(/\bor\b/g,  "||")
+                    .replace(/\bnot\b/g, "!");
     const _M = Math;
     const ns = {
         sin:_M.sin, cos:_M.cos, tan:_M.tan, asin:_M.asin, acos:_M.acos,

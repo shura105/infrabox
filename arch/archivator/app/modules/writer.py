@@ -36,7 +36,7 @@ class Writer:
 
     def _load_points_meta(self):
         try:
-            with open("/app/config/points.json") as f:
+            with open("/app/core_config/points.json") as f:
                 points = json.load(f)
             return {p["id"]: p for p in points}
         except Exception as e:
@@ -151,12 +151,14 @@ class Writer:
                     if ptype in _BINARY_TYPES:
                         if quality in ("NODATA", "UNCERT"):
                             # gap marker: write null once on entering bad quality
+                            # use current wall-clock time, not Redis ts (which is
+                            # the last-data timestamp — same as the value → breaks chart)
                             if prev is not None:
                                 prev_values[point_id] = None
                                 with self._ts_lock:
                                     self.last_archive_ts[point_id] = time.time()
                                 self.volume.write("values", {
-                                    "ts": ts,
+                                    "ts": int(time.time()),
                                     "point_id": point_id,
                                     "value": None
                                 })
@@ -297,7 +299,7 @@ class Writer:
             time.sleep(60)
 
     def _watch_points_file(self):
-        path = "/app/config/points.json"
+        path = "/app/core_config/points.json"
         try:
             last_mtime = os.path.getmtime(path)
         except Exception:

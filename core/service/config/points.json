@@ -772,10 +772,23 @@
     "system": "electric",
     "pointname": "relay1_ctrl",
     "formula_on": "$101 > 215",
-    "formula_off": "$101 < 200",
+    "formula_off": "$101 <= 215",
     "transport": "mqtt",
     "target": "cmd/home/reserv_power/door1/600",
     "feedback_id": 600,
     "feedback_timeout_ticks": 3
+  },
+  {
+    "id": 1001,
+    "type": "discrete",
+    "object": "home",
+    "drop": "homeServ-1",
+    "system": "electric",
+    "pointname": "Мотор №2",
+    "onArchive": 1,
+    "normal_value": 0,
+    "severity": "none",
+    "label_0": "Closed",
+    "label_1": "Opened"
   }
 ]

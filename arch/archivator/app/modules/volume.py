@@ -95,7 +95,7 @@ class Volume:
         self._write_file("meta.json", meta, append=False)
 
     def _write_config_snap(self):
-        config_path = "/app/config/points.json"
+        config_path = "/app/core_config/points.json"
         if os.path.exists(config_path):
             with open(config_path) as f:
                 points = json.load(f)

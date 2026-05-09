@@ -19,15 +19,8 @@ services:
       - /etc/hostname:/host_hostname:ro
       - ../ui/adm/main.py:/app/main.py
       - ./data:/app/data
+      - ../core/service/config:/app/config
       - ../infrabox.json:/app/config/infrabox.json
-      - /home/shura/infrabox/core/service/config/points.json:/app/config/points.json
-      - /home/shura/infrabox/core/service/config/objects.json:/app/config/objects.json
-      - /home/shura/infrabox/core/service/config/drops.json:/app/config/drops.json
-      - /home/shura/infrabox/core/service/config/systems.json:/app/config/systems.json
-      - /home/shura/infrabox/core/service/config/sys_params.json:/app/config/sys_params.json
-      - /home/shura/infrabox/core/service/config/serv_subsystems.json:/app/config/serv_subsystems.json
-      - /home/shura/infrabox/core/service/config/sockets.json:/app/config/sockets.json
-      - /home/shura/infrabox/core/service/config/backup:/app/config/backup
 
 networks:
   infrabox-net:

@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import re
 import subprocess
 import threading
@@ -10,7 +11,7 @@ import redis
 
 from modules.mqtt import start_mqtt
 from modules.quality import process_quality
-from modules.init import load_points
+from modules.init import load_points, load_systems
 from modules.watchdog import RedisWatchdog
 from modules.logger import setup_logger
 
@@ -169,6 +170,29 @@ def main():
     log.info("Core started")
 
     meta_cache = load_points()
+    systems_cache = load_systems()
+    log.info(f"Loaded {len(systems_cache)} systems")
+
+    def _watch_systems():
+        path = "/app/config/systems.json"
+        try:
+            last_mtime = os.path.getmtime(path)
+        except Exception:
+            last_mtime = 0
+        while True:
+            time.sleep(60)
+            try:
+                mtime = os.path.getmtime(path)
+                if mtime != last_mtime:
+                    last_mtime = mtime
+                    new = load_systems()
+                    systems_cache.clear()
+                    systems_cache.update(new)
+                    log.info(f"systems.json reloaded — {len(systems_cache)} systems")
+            except Exception as e:
+                log.error(f"systems.json watch error: {e}")
+
+    threading.Thread(target=_watch_systems, daemon=True).start()
 
     r = get_redis(config)
 
@@ -415,6 +439,36 @@ def main():
             if calc_has:
                 calc_pipe.execute()
 
+            # --- SYNC operation_mode points (Redis → systems_cache + systems.json) ---
+            # set_point_value() writes directly to Redis (bypasses MQTT/buffer),
+            # so we poll here once per tick to catch UI-driven mode changes.
+            _sys_path    = "/app/config/systems.json"
+            _sys_changed = False
+            for _om_pid, _om_meta in meta_cache.items():
+                if _om_meta.get("type") != "operation_mode":
+                    continue
+                _sys_id = _om_meta.get("system")
+                if not _sys_id:
+                    continue
+                _raw  = r.hgetall(f"point:{_om_pid}")
+                _val  = int(_raw.get("value", 0)) if _raw else 0
+                _mode = "auto" if _val == 1 else "manual"
+                _om_meta["last_value"] = _val
+                sys_entry = systems_cache.setdefault(_sys_id, {})
+                if sys_entry.get("operation_mode") != _mode:
+                    sys_entry["operation_mode"] = _mode
+                    _sys_changed = True
+                    log.info(f"[OPMODE] system={_sys_id} → {_mode}")
+            if _sys_changed:
+                try:
+                    _tmp = _sys_path + ".tmp"
+                    with open(_tmp, "w") as _sf:
+                        json.dump(list(systems_cache.values()), _sf,
+                                  indent=2, ensure_ascii=False)
+                    os.replace(_tmp, _sys_path)
+                except Exception as _e:
+                    log.error(f"systems.json persist error: {_e}")
+
             # --- CONTROL POINTS ---
             now_ms_ctrl = int(time.time() * 1000)
             ctrl_pipe = r.pipeline()
@@ -425,8 +479,9 @@ def main():
                 refs = [int(x) for x in re.findall(r'\$(\d+)', fml)]
                 for ref_id in set(refs):
                     rm = meta_cache.get(ref_id)
-                    if not rm or rm.get("last_value") is None:
-                        return None
+                    if (not rm or rm.get("last_value") is None or
+                            rm.get("state") in ("INIT", "UNCERT", "NODATA")):
+                        return None  # no data yet or unreliable → hold
                 try:
                     expr = re.sub(
                         r'\$(\d+)',
@@ -454,7 +509,7 @@ def main():
                     lim = meta["limits"]
                     ctrl_pipe.hset(f"point:{pid}", mapping={
                         "value":     str(meta["cmd_value"]) if meta["cmd_value"] is not None else "",
-                        "ts":        str(now_ms_ctrl),
+                        "ts":        str(now_ms_ctrl // 1000),
                         "quality":   q,
                         "type":      "control",
                         "object":    meta["object"],
@@ -491,16 +546,15 @@ def main():
                         ctrl_has = True
                     continue  # don't re-evaluate while pending
 
-                # --- GATE 1: opmode ---
-                opmode_id = c_meta.get("opmode_id")
-                if opmode_id:
-                    om = meta_cache.get(opmode_id)
-                    if not om or int(om.get("last_value") or 0) != 1:
-                        if c_meta["ctrl_status"] != "NODATA":
-                            c_meta["ctrl_status"] = "NODATA"
-                            _ctrl_write()
-                            ctrl_has = True
-                        continue
+                # --- GATE 1: system operation mode ---
+                sys_id = c_meta.get("system")
+                sys_cfg = systems_cache.get(sys_id, {}) if sys_id else {}
+                if sys_cfg.get("operation_mode", "auto") != "auto":
+                    if c_meta["ctrl_status"] != "NODATA":
+                        c_meta["ctrl_status"] = "NODATA"
+                        _ctrl_write()
+                        ctrl_has = True
+                    continue
 
                 # --- GATE 2: feedback quality ---
                 fb_id   = c_meta.get("feedback_id")
@@ -513,6 +567,20 @@ def main():
                             c_meta["ctrl_status"] = new_st
                             _ctrl_write()
                             ctrl_has = True
+                        continue
+
+                # --- ALARM RECOVERY: feedback confirmed last command ---
+                # If in ALARM and feedback has since confirmed cmd_value, clear to GOOD.
+                # This handles the case where formulas are in "hold" zone so GATE 3
+                # is never reached, yet the device eventually responded.
+                if c_meta["ctrl_status"] == "ALARM":
+                    cv = c_meta.get("cmd_value")
+                    if (cv is not None and fb_meta and
+                            fb_meta.get("last_value") is not None and
+                            int(fb_meta["last_value"]) == cv):
+                        c_meta["ctrl_status"] = "GOOD"
+                        _ctrl_write()
+                        ctrl_has = True
                         continue
 
                 # --- SR-LATCH FORMULAS ---
@@ -546,10 +614,6 @@ def main():
                             _ctrl_write()
                             ctrl_has = True
                         continue
-
-                # --- GATE 4: value unchanged ---
-                if c_meta["cmd_value"] == new_val:
-                    continue
 
                 # --- SEND ---
                 target    = c_meta.get("target", "")
@@ -597,8 +661,10 @@ def main():
                     if meta["state"] == "NODATA":
                         continue
 
-                    # calculated points are not MQTT-driven — skip desync
-                    if meta.get("type") == "calculated":
+                    # binary/discrete types send only on state change —
+                    # stable silence is normal; skip desync for them
+                    if meta.get("type") in ("calculated", "discrete",
+                                            "operation_mode", "control"):
                         continue
 
                     if now_ms - meta["last_update_ts"] > timeout:

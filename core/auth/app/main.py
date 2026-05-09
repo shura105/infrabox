@@ -181,11 +181,15 @@ async def set_permissions(
     if not await redis_client.get_user(username):
         raise HTTPException(status_code=404, detail="User not found")
 
-    perms: dict = {}
+    # read existing perms so we do a merge, not a full overwrite
+    db_user = await redis_client.get_user(username)
+    perms: dict = _parse_perms(db_user.get("permissions", "")) if db_user else {}
     if req.pages is not None:
         perms["pages"] = req.pages
     if req.objects is not None:
         perms["objects"] = req.objects
+    if req.ctrl_opmode is not None:
+        perms["ctrl_opmode"] = req.ctrl_opmode
 
     await redis_client.set_user(username, {"permissions": json.dumps(perms)})
     return {"ok": True}
