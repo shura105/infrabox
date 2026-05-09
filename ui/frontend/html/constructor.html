@@ -1179,16 +1179,19 @@
                                 </div>
                                 <div style="font-size:11px;color:#8b949e;margin:6px 0 3px">Кольори рамки за станом</div>
                                 <div class="pr">
-                                    <label>INIT (запуск)</label>
-                                    <input type="color" :value="selEl.colorInit||'#484f58'" @input="selEl.colorInit=$event.target.value">
+                                    <label>Стан</label>
+                                    <select x-model="selOpmodeColor"
+                                            x-effect="if (!ctrlOpmodeColorOptions.find(o => o.value === selOpmodeColor)) selOpmodeColor = ctrlOpmodeColorOptions[0].value">
+                                        <template x-for="opt in ctrlOpmodeColorOptions" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label"></option>
+                                        </template>
+                                    </select>
                                 </div>
                                 <div class="pr">
-                                    <label>UNCERT / NODATA</label>
-                                    <input type="color" :value="selEl.colorUncert||'#6e7681'" @input="selEl.colorUncert=$event.target.value">
-                                </div>
-                                <div class="pr">
-                                    <label>GOOD (активний)</label>
-                                    <input type="color" :value="selEl.colorGood||'#3fb950'" @input="selEl.colorGood=$event.target.value">
+                                    <label>Колір</label>
+                                    <input type="color"
+                                           :value="selEl[selOpmodeColor] || ctrlOpmodeColorOptions.find(o=>o.value===selOpmodeColor)?.def || '#888888'"
+                                           @input="selEl[selOpmodeColor] = $event.target.value">
                                 </div>
                                 <div class="pr-sep"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="opmodeLblCb"><label for="opmodeLblCb">Показати підпис</label></div>
@@ -1199,10 +1202,6 @@
                                 <div class="pr" x-show="selEl.showLabel">
                                     <label>Розмір шрифту</label>
                                     <input type="number" x-model.number="selEl.fontSize" min="8" max="60">
-                                </div>
-                                <div class="pr" x-show="selEl.showLabel">
-                                    <label>Колір підпису</label>
-                                    <input type="color" :value="selEl.color||'#e6edf3'" @input="selEl.color=$event.target.value">
                                 </div>
                             </div>
                         </template>
@@ -1257,24 +1256,19 @@
                                 </div>
                                 <div style="font-size:11px;color:#8b949e;margin:6px 0 3px">Кольори рамки за станом</div>
                                 <div class="pr">
-                                    <label>INIT (запуск)</label>
-                                    <input type="color" :value="selEl.colorInit||'#484f58'" @input="selEl.colorInit=$event.target.value">
+                                    <label>Стан</label>
+                                    <select x-model="selCtrlColor"
+                                            x-effect="if (!ctrlSignalColorOptions.find(o => o.value === selCtrlColor)) selCtrlColor = ctrlSignalColorOptions[0].value">
+                                        <template x-for="opt in ctrlSignalColorOptions" :key="opt.value">
+                                            <option :value="opt.value" x-text="opt.label"></option>
+                                        </template>
+                                    </select>
                                 </div>
                                 <div class="pr">
-                                    <label>NODATA (немає даних)</label>
-                                    <input type="color" :value="selEl.colorNodata||'#6e7681'" @input="selEl.colorNodata=$event.target.value">
-                                </div>
-                                <div class="pr">
-                                    <label>GOOD (підтверджено)</label>
-                                    <input type="color" :value="selEl.colorGood||'#3fb950'" @input="selEl.colorGood=$event.target.value">
-                                </div>
-                                <div class="pr">
-                                    <label>WARN (очікування фідбеку)</label>
-                                    <input type="color" :value="selEl.colorWarn||'#f0ad4e'" @input="selEl.colorWarn=$event.target.value">
-                                </div>
-                                <div class="pr">
-                                    <label>ALARM (таймаут команди)</label>
-                                    <input type="color" :value="selEl.colorAlarm||'#f47067'" @input="selEl.colorAlarm=$event.target.value">
+                                    <label>Колір</label>
+                                    <input type="color"
+                                           :value="selEl[selCtrlColor] || ctrlSignalColorOptions.find(o=>o.value===selCtrlColor)?.def || '#888888'"
+                                           @input="selEl[selCtrlColor] = $event.target.value">
                                 </div>
                                 <div class="pr-sep"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="ctrlsigLblCb"><label for="ctrlsigLblCb">Показати підпис</label></div>
@@ -1285,10 +1279,6 @@
                                 <div class="pr" x-show="selEl.showLabel">
                                     <label>Розмір шрифту</label>
                                     <input type="number" x-model.number="selEl.fontSize" min="8" max="60">
-                                </div>
-                                <div class="pr" x-show="selEl.showLabel">
-                                    <label>Колір підпису</label>
-                                    <input type="color" :value="selEl.color||'#e6edf3'" @input="selEl.color=$event.target.value">
                                 </div>
                             </div>
                         </template>
@@ -1429,7 +1419,9 @@ function app() {
         selIndQ:      'GOOD',
         selLevelColor:'colorGood',
         selGaugeColor:'colorGood',
-        selBiColor:   'colorOn',
+        selBiColor:     'colorOn',
+        selCtrlColor:   'colorGood',
+        selOpmodeColor: 'colorGood',
 
         // elements
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
@@ -1524,6 +1516,24 @@ function app() {
             opts.push({ value: 'colorBorder', label: '□ Рамка' });
             opts.push({ value: 'color',       label: 'T Текст підпису' });
             return opts;
+        },
+        get ctrlSignalColorOptions() {
+            return [
+                { value: 'colorInit',   label: '● INIT (запуск)',           def: '#484f58' },
+                { value: 'colorNodata', label: '● NODATA (немає даних)',     def: '#6e7681' },
+                { value: 'colorGood',   label: '● GOOD (підтверджено)',      def: '#3fb950' },
+                { value: 'colorWarn',   label: '● WARN (очікування)',        def: '#f0ad4e' },
+                { value: 'colorAlarm',  label: '● ALARM (таймаут)',          def: '#f47067' },
+                { value: 'color',       label: 'T Текст підпису',            def: '#e6edf3' },
+            ];
+        },
+        get ctrlOpmodeColorOptions() {
+            return [
+                { value: 'colorInit',   label: '● INIT (запуск)',            def: '#484f58' },
+                { value: 'colorUncert', label: '● UNCERT / NODATA',          def: '#6e7681' },
+                { value: 'colorGood',   label: '● GOOD (активний)',          def: '#3fb950' },
+                { value: 'color',       label: 'T Текст підпису',            def: '#e6edf3' },
+            ];
         },
 
         paletteGroups: [
