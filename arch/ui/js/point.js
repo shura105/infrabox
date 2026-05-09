@@ -4,6 +4,9 @@ let _currentMode = false;
 let _abortController = null;
 let _renderGeneration = 0;
 
+const _BINARY_TYPES  = new Set(["discrete", "operation_mode", "control"]);
+const _CHART_COLORS  = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
+
 
 function _newRequest() {
     if (_abortController) _abortController.abort();
@@ -184,10 +187,41 @@ function pointApp() {
             _chartInstance.data.datasets.forEach((ds, i) => {
                 const p = this.points[i];
                 if (!p) return;
-                const isActive = p.id === this.activePointId;
-                ds.data = (this.records[p.id] || []).map(r => ({ x: r.ts * 1000, y: r.value }));
-                ds.borderWidth = isActive ? 2 : 1;
-                ds.pointRadius = isActive ? 1.5 : 0;
+                const isActive  = p.id === this.activePointId;
+                const isBinary  = _BINARY_TYPES.has(p.type);
+                const records   = this.records[p.id] || [];
+                if (isBinary) {
+                    const baseColor  = _CHART_COLORS[i % _CHART_COLORS.length];
+                    const baseRad    = isActive ? 2 : 0;
+                    const accentRad  = isActive ? 4 : 0;
+                    const dataPoints = records.map(r => {
+                        const v = r.value;
+                        return { x: r.ts * 1000, y: (v === 0 || v === 1) ? v : null };
+                    });
+                    const bg = [], br = [], rad = [];
+                    for (let k = 0; k < dataPoints.length; k++) {
+                        const cur  = dataPoints[k].y;
+                        const prev = k > 0 ? dataPoints[k-1].y : undefined;
+                        const next = k < dataPoints.length - 1 ? dataPoints[k+1].y : undefined;
+                        if (cur == null) {
+                            bg.push(baseColor); br.push(baseColor); rad.push(0);
+                        } else if (next === null && isActive) {
+                            bg.push("#f47067"); br.push("#f47067"); rad.push(accentRad);
+                        } else if (prev === null && isActive) {
+                            bg.push("#56d364"); br.push("#56d364"); rad.push(accentRad);
+                        } else {
+                            bg.push(baseColor); br.push(baseColor); rad.push(baseRad);
+                        }
+                    }
+                    ds.data = dataPoints;
+                    ds.pointBackgroundColor = bg;
+                    ds.pointBorderColor = br;
+                    ds.pointRadius = rad;
+                } else {
+                    ds.data = records.map(r => ({ x: r.ts * 1000, y: r.value ?? null }));
+                    ds.borderWidth = isActive ? 2 : 1;
+                    ds.pointRadius = isActive ? 1.5 : 0;
+                }
                 ds.order = isActive ? 0 : 1;
                 ds.yAxisID = `y_${p.id}`;
             });
@@ -207,28 +241,27 @@ function pointApp() {
 
         renderChart(xMin = null, xMax = null) {
             const generation = ++_renderGeneration;
-            const colors = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
             const isSingle = this.points.length === 1;
 
             const datasets = this.points.map((p, i) => {
                 const records   = this.records[p.id] || [];
-                const isActive   = p.id === this.activePointId;
-                const isDiscrete = p.type === "discrete";
-                const baseColor  = colors[i];
+                const isActive  = p.id === this.activePointId;
+                const isBinary  = _BINARY_TYPES.has(p.type);
+                const baseColor = _CHART_COLORS[i % _CHART_COLORS.length];
 
-                // For discrete: glitch (out-of-range) values become null in the
-                // dataset — combined with spanGaps:false this breaks the line
-                // at unreliable moments.
+                // Binary (discrete/operation_mode/control): out-of-range or null
+                // values become null in the dataset — spanGaps:false breaks the
+                // step-line at UNCERT/NODATA moments.
                 let dataPoints, pointBg, pointBorder, pointRad;
-                if (isDiscrete) {
+                if (isBinary) {
                     dataPoints = records.map(r => {
                         const v = r.value;
                         const valid = (v === 0 || v === 1);
                         return { x: r.ts * 1000, y: valid ? v : null };
                     });
 
-                    // Mark transition points around gaps: last valid before
-                    // gap → red, first valid after gap → green, both ~2× size
+                    // Mark gap boundaries: last valid before gap → red,
+                    // first valid after gap → green, both ~2× size.
                     const baseRad   = isActive ? 2 : 0;
                     const accentRad = isActive ? 4 : 0;
                     const bg = [], br = [], rad = [];
@@ -265,8 +298,8 @@ function pointApp() {
                     pointBorderColor: pointBorder,
                     pointRadius: pointRad,
                     pointHoverRadius: isActive ? 4 : 0,
-                    stepped: isDiscrete ? "before" : false,
-                    tension:  isDiscrete ? 0 : 0.2,
+                    stepped: isBinary ? "before" : false,
+                    tension:  isBinary ? 0       : 0.2,
                     order: isActive ? 0 : 1,
                     yAxisID: `y_${p.id}`,
                     hidden: !this.pointVisible[p.id]
@@ -276,7 +309,7 @@ function pointApp() {
             const annotations = {};
 
             // Analog single-point: classic warn/alarm horizontal bands
-            if (isSingle && this.points[0] && this.points[0].type !== "discrete") {
+            if (isSingle && this.points[0] && !_BINARY_TYPES.has(this.points[0].type)) {
                 const p = this.points[0];
                 annotations.alarmHigh = { type: "box", yMin: p.alarm_max, yMax: p.max, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
                 annotations.warnHigh  = { type: "box", yMin: p.warn_max, yMax: p.alarm_max, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
@@ -325,13 +358,12 @@ function pointApp() {
             ].filter(Boolean);
 
             orderedPoints.forEach(p => {
-                const isActive   = p.id === this.activePointId;
-                const isDiscrete = p.type === "discrete";
-                const tickColor  = isActive ? "#4caf50" : "#6b7280";
+                const isActive  = p.id === this.activePointId;
+                const isBinary  = _BINARY_TYPES.has(p.type);
+                const tickColor = isActive ? "#4caf50" : "#6b7280";
 
-                if (isDiscrete) {
-                    // narrow range with only 0/1 ticks visible — glitches are
-                    // shown as vertical line markers (annotations), not values
+                if (isBinary) {
+                    // Narrow 0/1 range; label_0/label_1 as tick labels
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
                         position: "left",
@@ -357,9 +389,9 @@ function pointApp() {
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
                         position: "left",
-                        ticks:  { color: tickColor },
-                        border: { color: isActive ? "#4caf50" : "#4b5563" },
-                        grid:   { color: "#1e2130", drawOnChartArea: isActive },
+                        ticks:   { color: tickColor },
+                        border:  { color: isActive ? "#4caf50" : "#4b5563" },
+                        grid:    { color: "#1e2130", drawOnChartArea: isActive },
                         ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
                     };
                 }
@@ -383,10 +415,10 @@ function pointApp() {
                                 label: function(ctx) {
                                     const p = self.points[ctx.datasetIndex];
                                     const v = ctx.parsed.y;
-                                    if (p && p.type === "discrete") {
+                                    if (p && _BINARY_TYPES.has(p.type)) {
                                         if (v === 0) return `${p.pointname}: ${p.label_0 || "0"}`;
                                         if (v === 1) return `${p.pointname}: ${p.label_1 || "1"}`;
-                                        return `${p.pointname}: ${v} (UNCERT)`;
+                                        return `${p.pointname}: —`;
                                     }
                                     const unit = p?.unit ? ` ${p.unit}` : "";
                                     return `${p?.pointname || ""}: ${v}${unit}`;

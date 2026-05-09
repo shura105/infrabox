@@ -16,6 +16,7 @@ services:
       - ./archivator/data:/app/data
       - ../log:/app/log
       - ../core/service/config/points.json:/app/config/points.json:ro
+      - ./archivator/app/modules/writer.py:/app/modules/writer.py:ro
 
   arch-backend:
     build: ./backend

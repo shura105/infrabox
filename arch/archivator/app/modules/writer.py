@@ -4,6 +4,8 @@ import time
 import threading
 import redis
 
+_BINARY_TYPES = frozenset({"discrete", "operation_mode", "control"})
+
 
 class Writer:
     def __init__(self, config, volume, log):
@@ -47,8 +49,8 @@ class Writer:
         if meta.get("onArchive", 1) == 0:
             return False
 
-        # discrete: archive every transition only — no deadband, no interval
-        if meta.get("type") == "discrete":
+        # binary 2-state types: archive every state transition only
+        if meta.get("type") in _BINARY_TYPES:
             return prev_value is None or value != prev_value
 
         archive_on_change = meta.get("archive_on_change", 1)
@@ -141,19 +143,51 @@ class Writer:
 
                     self.last_received_ts[point_id] = time.time()
 
-                    value = float(data.get("value", 0))
-                    ts = int(data.get("ts", time.time()))
-                    prev = prev_values.get(point_id)
+                    ptype   = meta.get("type", "analog")
+                    quality = data.get("quality", "GOOD")
+                    ts      = int(data.get("ts", time.time()))
+                    prev    = prev_values.get(point_id)
 
-                    if self._should_archive(point_id, value, prev):
-                        prev_values[point_id] = value
-                        with self._ts_lock:
-                            self.last_archive_ts[point_id] = time.time()
-                        self.volume.write("values", {
-                            "ts": ts,
-                            "point_id": point_id,
-                            "value": value
-                        })
+                    if ptype in _BINARY_TYPES:
+                        if quality in ("NODATA", "UNCERT"):
+                            # gap marker: write null once on entering bad quality
+                            if prev is not None:
+                                prev_values[point_id] = None
+                                with self._ts_lock:
+                                    self.last_archive_ts[point_id] = time.time()
+                                self.volume.write("values", {
+                                    "ts": ts,
+                                    "point_id": point_id,
+                                    "value": None
+                                })
+                        else:
+                            try:
+                                value = float(data.get("value") or 0)
+                            except (TypeError, ValueError):
+                                continue
+                            if self._should_archive(point_id, value, prev):
+                                prev_values[point_id] = value
+                                with self._ts_lock:
+                                    self.last_archive_ts[point_id] = time.time()
+                                self.volume.write("values", {
+                                    "ts": ts,
+                                    "point_id": point_id,
+                                    "value": value
+                                })
+                    else:
+                        try:
+                            value = float(data.get("value") or 0)
+                        except (TypeError, ValueError):
+                            continue
+                        if self._should_archive(point_id, value, prev):
+                            prev_values[point_id] = value
+                            with self._ts_lock:
+                                self.last_archive_ts[point_id] = time.time()
+                            self.volume.write("values", {
+                                "ts": ts,
+                                "point_id": point_id,
+                                "value": value
+                            })
 
             except Exception as e:
                 self.log.error(f"Writer values error: {e}")
@@ -184,8 +218,8 @@ class Writer:
                 if meta.get("onArchive", 1) == 0:
                     continue
 
-                # discrete: stable state during silence is normal — no gap fill
-                if meta.get("type") == "discrete":
+                # binary types: stable silence is normal — no gap fill
+                if meta.get("type") in _BINARY_TYPES:
                     continue
 
                 interval = meta.get("interval", 60)

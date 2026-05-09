@@ -597,8 +597,8 @@ def main():
                     if meta["state"] == "NODATA":
                         continue
 
-                    # discrete and calculated signals are not MQTT-driven
-                    if meta.get("type") in ("discrete", "calculated"):
+                    # calculated points are not MQTT-driven — skip desync
+                    if meta.get("type") == "calculated":
                         continue
 
                     if now_ms - meta["last_update_ts"] > timeout:
