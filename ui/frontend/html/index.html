@@ -939,6 +939,10 @@
 // Bypasses Alpine reactivity, so storing here doesn't trigger re-renders.
 const _gaugeMemo = new WeakMap();
 
+// Frozen elapsed_s per timer element: saved when active, returned when inactive.
+// Plain Map (not reactive) — updates here never trigger Alpine re-renders.
+const _timerFrozen = new Map();
+
 // Validate JWT in localStorage; clear stale entries so we don't show a
 // previous login (e.g. expired admin token) as still active.
 function _readAuth() {
@@ -991,7 +995,6 @@ function app() {
         systemsFull:  {},
         _cntdExpired: {},
         _barFired:    {},
-        _lastElapsed: {},   // last non-zero elapsed_s per point_id (for freeze display)
         userPerms:    {},
         userRole:     _auth.role || '',
         opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
@@ -1164,8 +1167,6 @@ function app() {
                 if (msg.type === 'snapshot') {
                     const pts = {};
                     msg.data.forEach(p => {
-                        const es = parseInt(p.elapsed_s);
-                        if (es > 0) this._lastElapsed[String(p.id)] = es;
                         pts[p.id] = p;
                         if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
                             this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
@@ -1173,8 +1174,6 @@ function app() {
                     this.points = pts;
                 } else if (msg.type === 'update') {
                     msg.data.forEach(p => {
-                        const es = parseInt(p.elapsed_s);
-                        if (es > 0) this._lastElapsed[String(p.id)] = es;
                         this.points[p.id] = p;
                         if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
                             this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
@@ -1696,14 +1695,18 @@ function app() {
             const sec = s % 60;
             return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
         },
-        // Seconds elapsed. When inactive: freezes at last known value (from _lastElapsed).
+        // Seconds elapsed. When active: saves to _timerFrozen and returns live value.
+        // When inactive: returns the frozen value saved during last active period.
         timerElapsedS(el) {
             const pt = this.points[el.point_id];
-            const frozen = this._lastElapsed[String(el.point_id)] || 0;
-            if (!pt) return frozen;
             const tv = el.trigger_value;
-            if (tv != null && parseFloat(pt.value) !== parseFloat(tv)) return frozen;
-            return parseInt(pt.elapsed_s) || 0;
+            const isActive = pt && (tv == null || parseFloat(pt.value) === parseFloat(tv));
+            if (isActive) {
+                const s = parseInt(pt.elapsed_s) || 0;
+                if (s > 0) _timerFrozen.set(el.id, s);
+                return s;
+            }
+            return _timerFrozen.get(el.id) || 0;
         },
         // Text color for elapsed timer: colorOff when frozen/inactive, el.color when running.
         timerElapsedColor(el) {
@@ -1716,18 +1719,16 @@ function app() {
         // Seconds remaining for countdown. Frozen at last remaining when inactive.
         timerCountdownS(el) {
             const pt = this.points[el.point_id];
-            if (!pt) return 0;
+            if (!pt) return _timerFrozen.get(el.id + '_cd') ?? 0;
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 0;
             const tv = el.trigger_value;
             const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
-            if (!isActive) {
-                // freeze at last remaining time
-                const frozenElapsed = this._lastElapsed[String(el.point_id)] || 0;
-                return Math.max(0, dur - frozenElapsed);
-            }
+            if (!isActive) return _timerFrozen.get(el.id + '_cd') ?? 0;
             const elapsed = parseInt(pt.elapsed_s) || 0;
             const remaining = Math.max(0, dur - elapsed);
+            // save remaining so inactive state shows the frozen value
+            _timerFrozen.set(el.id + '_cd', remaining);
             const expired = (remaining === 0);
             if (this._cntdExpired[el.id] !== expired) this._cntdExpired[el.id] = expired;
             return remaining;
