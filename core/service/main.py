@@ -235,6 +235,12 @@ def main():
         if meta.get("hb_service")
     }
 
+    # --- SCHEDULER STATE (multi_timer server-side) ---
+    sched_cache      = {}   # {el_id: {"point_id": int, "schedule": [{"on":..,"off":..}]}}
+    sched_state      = {}   # {el_id: bool | None}  — last known ON/OFF per element
+    sched_reload_ctr = 0.0  # countdown seconds until next Redis reload
+    SCHED_RELOAD_S   = 60.0
+
     # --- MAIN LOOP ---
     while True:
 
@@ -733,6 +739,126 @@ def main():
 
             if ctrl_has:
                 ctrl_pipe.execute()
+
+            # --- SCHEDULER: multi_timer server-side ---
+            sched_reload_ctr -= tick
+
+            if sched_reload_ctr <= 0:
+                sched_reload_ctr = SCHED_RELOAD_S
+                _new_cache = {}
+                for _sk in r.keys("scheduler:*"):
+                    _sk_str = _sk.decode() if isinstance(_sk, bytes) else _sk
+                    _el_id  = _sk_str.split(":", 1)[1]
+                    _sd = r.hgetall(_sk)
+                    if not _sd:
+                        continue
+                    _dec = {
+                        (k.decode() if isinstance(k, bytes) else k):
+                        (v.decode() if isinstance(v, bytes) else v)
+                        for k, v in _sd.items()
+                    }
+                    try:
+                        _schedule = json.loads(_dec.get("schedule", "[]"))
+                    except Exception:
+                        _schedule = []
+                    _pid = int(_dec.get("point_id", 0))
+                    if _pid > 0 and _schedule:
+                        _new_cache[_el_id] = {"point_id": _pid, "schedule": _schedule}
+                # drop states for removed elements
+                for _gone in set(sched_state) - set(_new_cache):
+                    del sched_state[_gone]
+                sched_cache = _new_cache
+                if sched_cache:
+                    log.debug(f"[SCHED] loaded {len(sched_cache)} schedule(s)")
+
+            if sched_cache:
+                _now_t   = time.localtime()
+                _now_hms = f"{_now_t.tm_hour:02d}:{_now_t.tm_min:02d}:{_now_t.tm_sec:02d}"
+                _sc_pipe  = r.pipeline()
+                _sc_has   = False
+
+                for _el_id, _sc in sched_cache.items():
+                    _is_on = any(
+                        (
+                            (s["on"] < s["off"] and _now_hms >= s["on"] and _now_hms < s["off"]) or
+                            (s["on"] > s["off"] and (_now_hms >= s["on"] or _now_hms < s["off"]))
+                        )
+                        for s in _sc["schedule"]
+                        if s.get("on") and s.get("off")
+                    )
+
+                    _prev = sched_state.get(_el_id)
+                    if _prev is None:
+                        sched_state[_el_id] = _is_on   # first tick — record without firing
+                        continue
+                    if _is_on == _prev:
+                        continue
+
+                    # state transition → fire command
+                    sched_state[_el_id] = _is_on
+                    _target_val  = 1 if _is_on else 0
+                    _sc_ctrl_id  = _sc["point_id"]
+                    _sc_meta     = meta_cache.get(_sc_ctrl_id)
+
+                    if not _sc_meta or _sc_meta.get("type") != "control":
+                        log.warning(f"[SCHED] {_el_id}: point {_sc_ctrl_id} not found or not type=control")
+                        continue
+
+                    # respect system operation mode — only fire in auto mode
+                    _sc_sys   = _sc_meta.get("system")
+                    _sc_syscfg = systems_cache.get(_sc_sys, {}) if _sc_sys else {}
+                    if _sc_syscfg.get("operation_mode", "auto") != "auto":
+                        log.info(f"[SCHED] skip {_el_id} → {_sc_ctrl_id}: system in manual mode")
+                        continue
+
+                    _sc_target = _sc_meta.get("target", "")
+                    _sc_trans  = _sc_meta.get("transport", "mqtt")
+                    _sc_sent   = False
+                    _sc_now_ms = int(time.time() * 1000)
+
+                    if _sc_target and _sc_trans == "mqtt":
+                        mqtt_client.publish(_sc_target, json.dumps({
+                            "value":       _target_val,
+                            "feedback_id": _sc_meta.get("feedback_id"),
+                            "ts":          _sc_now_ms,
+                        }))
+                        log.info(f"[SCHED] {_el_id} → ctrl:{_sc_ctrl_id} ({_sc_target}) = {_target_val}")
+                        _sc_sent = True
+
+                    elif _sc_target and _sc_trans == "shell":
+                        threading.Thread(
+                            target=_run_shell,
+                            args=(_sc_target.replace("{value}", str(_target_val)), _sc_ctrl_id, log),
+                            daemon=True
+                        ).start()
+                        log.info(f"[SCHED] {_el_id} → shell:{_sc_target} = {_target_val}")
+                        _sc_sent = True
+
+                    if _sc_sent:
+                        _sc_meta["cmd_value"]           = _target_val
+                        _sc_meta["ctrl_status"]         = "WARN"
+                        _sc_meta["feedback_ticks_left"] = _sc_meta["feedback_timeout_ticks"]
+                        _sc_meta["last_change_ts"]      = _sc_now_ms
+                        _sc_lim = _sc_meta["limits"]
+                        _sc_pipe.hset(f"point:{_sc_ctrl_id}", mapping={
+                            "value":          str(_target_val),
+                            "ts":             str(_sc_now_ms // 1000),
+                            "quality":        "WARN",
+                            "type":           "control",
+                            "object":         _sc_meta["object"],
+                            "system":         _sc_meta["system"],
+                            "pointname":      _sc_meta["pointname"],
+                            "unit":           "",
+                            "last_change_ts": str(_sc_now_ms),
+                            "min":       _sc_lim["min"],  "max":       _sc_lim["max"],
+                            "warn_min":  _sc_lim["warn_min"], "warn_max":  _sc_lim["warn_max"],
+                            "alarm_min": _sc_lim["alarm_min"], "alarm_max": _sc_lim["alarm_max"],
+                        })
+                        _sc_pipe.publish("bus:data", str(_sc_ctrl_id))
+                        _sc_has = True
+
+                if _sc_has:
+                    _sc_pipe.execute()
 
             # --- DESYNC GUARD ---
             if config["system"]["desync_guard"]:

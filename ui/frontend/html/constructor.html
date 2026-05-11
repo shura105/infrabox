@@ -1633,9 +1633,24 @@
                         <!-- multi_timer property panel -->
                         <template x-if="selEl.type === 'multi_timer'">
                             <div>
+                                <div class="pr">
+                                    <label>Управляючий дискрет</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void controlPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in controlPoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div x-show="controlPoints.length === 0" style="font-size:11px;color:#f0ad4e;padding:4px 0 6px">
+                                    Немає управляючих сигналів — створіть у адмінці (Параметри → + Додати, тип "Управляючий сигнал").
+                                </div>
+                                <div class="pr-sep"></div>
                                 <div style="font-size:11px;color:#8b949e;margin-bottom:6px">Зображення</div>
                                 <div class="pr">
-                                    <label>Стан ВКОЛ (SVG/PNG)</label>
+                                    <label>Стан ВКЛ (SVG/PNG)</label>
                                     <div style="display:flex;gap:6px;align-items:center">
                                         <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
                                             <img x-show="selEl.imageOn" :src="selEl.imageOn" style="max-width:100%;max-height:100%;object-fit:contain">
@@ -1667,15 +1682,24 @@
                                 <div class="pr-sep"></div>
                                 <div style="font-size:11px;color:#8b949e;margin-bottom:6px">Розклад включень</div>
                                 <template x-for="(slot, idx) in selEl.schedule" :key="idx">
-                                    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
-                                        <input type="text" x-model="selEl.schedule[idx].on"
-                                               placeholder="ВКЛ ГГ:ХХ:СС"
-                                               style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:3px;padding:2px 5px;color:#e6edf3;font-size:11px;font-family:monospace">
-                                        <input type="text" x-model="selEl.schedule[idx].off"
-                                               placeholder="ВИКЛ ГГ:ХХ:СС"
-                                               style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:3px;padding:2px 5px;color:#e6edf3;font-size:11px;font-family:monospace">
-                                        <button @click="selEl.schedule.splice(idx,1)"
-                                                style="padding:2px 6px;background:#21262d;border:1px solid #30363d;border-radius:3px;cursor:pointer;font-size:11px">✕</button>
+                                    <div style="border:1px solid #30363d;border-radius:4px;padding:5px 6px;margin-bottom:5px;background:#0d1117">
+                                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                                            <span style="font-size:10px;color:#8b949e">Інтервал <span x-text="idx+1"></span></span>
+                                            <button @click="selEl.schedule.splice(idx,1)"
+                                                    style="padding:1px 6px;background:#21262d;border:1px solid #30363d;border-radius:3px;cursor:pointer;font-size:11px">✕</button>
+                                        </div>
+                                        <div style="margin-bottom:3px">
+                                            <div style="font-size:10px;color:#3fb950;margin-bottom:2px">ВКЛ</div>
+                                            <input type="text" x-model="selEl.schedule[idx].on"
+                                                   placeholder="ГГ:ХХ:СС"
+                                                   style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:3px;padding:3px 6px;color:#e6edf3;font-size:12px;font-family:monospace">
+                                        </div>
+                                        <div>
+                                            <div style="font-size:10px;color:#f47067;margin-bottom:2px">ВИКЛ</div>
+                                            <input type="text" x-model="selEl.schedule[idx].off"
+                                                   placeholder="ГГ:ХХ:СС"
+                                                   style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #30363d;border-radius:3px;padding:3px 6px;color:#e6edf3;font-size:12px;font-family:monospace">
+                                        </div>
                                     </div>
                                 </template>
                                 <button @click="selEl.schedule.push({on:'08:00:00', off:'18:00:00'})"
@@ -2115,7 +2139,7 @@ function app() {
                                bgColor:"#21262d", borderColor:"#30363d", borderWidth:1, borderRadius:4,
                                showValue:true, fontSize:11, colorFill:"#3fb950", colorExpired:"#f47067", color:"#e6edf3",
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
-            multi_timer:     { w:120, h:120,
+            multi_timer:     { w:120, h:120, point_id:0,
                                imageOn:"", imageOff:"",
                                schedule:[],
                                colorOn:"#3fb950", colorOff:"#484f58",

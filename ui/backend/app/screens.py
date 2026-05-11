@@ -6,6 +6,53 @@ import shutil
 
 from fastapi import APIRouter, HTTPException, Depends
 from .auth_guard import require_admin
+from .redis_client import redis_client
+
+
+async def _sync_scheduler(screen_path: str, elements: list):
+    """Sync multi_timer schedules to Redis for server-side (core) execution.
+
+    Called on every screen save and on screen delete (elements=[]).
+    Keys written:
+      scheduler:{el_id}  → HASH  point_id, schedule (JSON), screen
+      scheduler_screen:{screen_path}  → SET of el_ids for this screen
+    """
+    r = redis_client.redis
+    if r is None:
+        return
+
+    idx_key = f"scheduler_screen:{screen_path}"
+
+    # remove old entries for this screen
+    old_ids = await r.smembers(idx_key)
+    if old_ids:
+        pipe = r.pipeline()
+        for raw in old_ids:
+            eid = raw.decode() if isinstance(raw, bytes) else raw
+            pipe.delete(f"scheduler:{eid}")
+        pipe.delete(idx_key)
+        await pipe.execute()
+
+    # build new entries
+    new_timers = [
+        el for el in elements
+        if el.get("type") == "multi_timer"
+        and int(el.get("point_id") or 0) > 0
+        and el.get("schedule")
+    ]
+    if not new_timers:
+        return
+
+    pipe = r.pipeline()
+    for el in new_timers:
+        el_id = el["id"]
+        pipe.hset(f"scheduler:{el_id}", mapping={
+            "point_id": str(int(el["point_id"])),
+            "schedule":  json.dumps(el["schedule"]),
+            "screen":    screen_path,
+        })
+        pipe.sadd(idx_key, el_id)
+    await pipe.execute()
 
 DATA_DIR     = "/app/data/screens"
 PROJECT_FILE = "/app/data/project.json"
@@ -85,6 +132,8 @@ async def put_screen(screen_path: str, data: dict, _: dict = Depends(require_adm
             f.write(svg_bytes)
     with open(os.path.join(screen_dir, "screen.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    # sync multi_timer schedules to Redis for server-side execution
+    await _sync_scheduler(screen_path, data.get("elements", []))
     return {"ok": True}
 
 
@@ -99,4 +148,6 @@ async def delete_screen(screen_path: str, _: dict = Depends(require_admin)):
     parent = os.path.dirname(screen_dir)
     if parent != DATA_DIR and os.path.isdir(parent) and not os.listdir(parent):
         os.rmdir(parent)
+    # cleanup scheduler entries for deleted screen
+    await _sync_scheduler(screen_path, [])
     return {"ok": True}
