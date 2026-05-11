@@ -786,11 +786,51 @@
                                 <div style="position:absolute;inset:0;overflow:visible">
                                     <div class="r-tbar"
                                          :style="`background:${el.bgColor||'#21262d'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'}`">
-                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${el.color||'#3fb950'};transition:width .9s linear`"></div>
+                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${el.colorFill||el.color||'#3fb950'};transition:width .9s linear`"></div>
                                         <div x-show="el.showValue"
                                              style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
                                             <span :style="`font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};font-weight:600;font-variant-numeric:tabular-nums`"
                                                   x-text="fmtHMS(timerElapsedS(el))"></span>
+                                        </div>
+                                    </div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label"></div>
+                                </div>
+                            </template>
+
+                            <!-- countdown_bar: shrinking bar, fires setPointValue when empty -->
+                            <template x-if="el.type === 'countdown_bar'">
+                                <div style="position:absolute;inset:0;overflow:visible">
+                                    <div class="r-tbar"
+                                         :style="`background:${el.bgColor||'#21262d'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??4}px`">
+                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${countdownBarPct(el)}%;background:${countdownBarColor(el)};transition:width 1s linear`"></div>
+                                        <div x-show="el.showValue"
+                                             style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+                                            <span :style="`font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};font-weight:600;font-variant-numeric:tabular-nums`"
+                                                  x-text="fmtHMS(countdownBarS(el))"></span>
+                                        </div>
+                                    </div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label"></div>
+                                </div>
+                            </template>
+
+                            <!-- multi_timer: schedule-based ON/OFF display with SVG images -->
+                            <template x-if="el.type === 'multi_timer'">
+                                <div style="position:absolute;inset:0;overflow:visible">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??2}px solid ${multiTimerIsOn(el) ? (el.colorOn||'#3fb950') : (el.colorOff||'#484f58')};border-radius:${el.borderRadius??8}px;overflow:hidden;box-sizing:border-box`">
+                                        <img x-show="multiTimerIsOn(el) && el.imageOn"
+                                             :src="el.imageOn"
+                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+                                        <img x-show="!multiTimerIsOn(el) && el.imageOff"
+                                             :src="el.imageOff"
+                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+                                        <div x-show="!(multiTimerIsOn(el) ? el.imageOn : el.imageOff)"
+                                             style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                            <span :style="`font-size:${el.fontSize||14}px;font-weight:600;color:${multiTimerIsOn(el) ? (el.colorOn||'#3fb950') : (el.colorOff||'#484f58')}`"
+                                                  x-text="multiTimerIsOn(el) ? 'ВКЛ' : 'ВИКЛ'"></span>
                                         </div>
                                     </div>
                                     <div x-show="el.showLabel"
@@ -950,6 +990,7 @@ function app() {
         systemsMap:   {},
         systemsFull:  {},
         _cntdExpired: {},
+        _barFired:    {},
         userPerms:    {},
         userRole:     _auth.role || '',
         opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
@@ -1695,6 +1736,65 @@ function app() {
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 100;
             return Math.min(100, Math.max(0, (this.timerCountdownS(el) / dur) * 100));
+        },
+
+        // ── countdown_bar helpers ──────────────────────────────────────────
+        // Seconds remaining for the standalone countdown bar element
+        countdownBarS(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return 0;
+            const dur = parseInt(el.duration_s) || 0;
+            if (!dur) return 0;
+            const tv = el.trigger_value;
+            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
+            if (!isActive) return 0;
+            const elapsed = parseInt(pt.elapsed_s) || 0;
+            const remaining = Math.max(0, dur - elapsed);
+            if (remaining === 0 && !this._barFired[el.id]) {
+                this._barFired[el.id] = true;
+                if (el.target_point_id && el.expire_value != null)
+                    this._firePointValue(el.target_point_id, el.expire_value);
+            } else if (remaining > 0 && this._barFired[el.id]) {
+                this._barFired[el.id] = false;
+            }
+            return remaining;
+        },
+        countdownBarPct(el) {
+            const dur = parseInt(el.duration_s) || 0;
+            if (!dur) return 0;
+            const rem = this.countdownBarS(el);
+            return Math.min(100, Math.max(0, (rem / dur) * 100));
+        },
+        countdownBarColor(el) {
+            return this._barFired[el.id]
+                ? (el.colorExpired || '#f47067')
+                : (el.colorFill   || '#3fb950');
+        },
+        async _firePointValue(pointId, value) {
+            const token = localStorage.getItem('token');
+            try {
+                await fetch(`/api/points/${pointId}/value`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ value: parseInt(value) || 0 })
+                });
+            } catch(e) { console.error('[countdown_bar] fire failed:', e); }
+        },
+
+        // ── multi_timer helper ─────────────────────────────────────────────
+        // Returns true if current wall-clock time falls within any schedule slot.
+        // Reads this.clock to create reactive dependency (re-evaluates every second).
+        multiTimerIsOn(el) {
+            void this.clock; // reactive dependency
+            if (!el.schedule || !el.schedule.length) return false;
+            const d = new Date();
+            const hms = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+            return el.schedule.some(({ on, off }) => {
+                if (!on || !off) return false;
+                if (on < off) return hms >= on && hms < off;
+                if (on > off) return hms >= on || hms < off; // cross-midnight
+                return false;
+            });
         },
         async _loadMe() {
             const token = localStorage.getItem('token');
