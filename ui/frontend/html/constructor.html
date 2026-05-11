@@ -1512,11 +1512,14 @@
                                         </template>
                                         <div class="pr2" style="margin-top:6px">
                                             <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                                            <div><label>Заморожений</label><input type="color" x-model="selEl.colorOff"></div>
+                                        </div>
+                                        <div class="pr2">
                                             <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
                                         </div>
                                         <template x-if="selEl.type === 'timer_countdown'">
                                             <div class="pr2">
-                                                <div><label>Колір після завершення</label><input type="color" x-model="selEl.colorExpired"></div>
+                                                <div><label>Після завершення</label><input type="color" x-model="selEl.colorExpired"></div>
                                             </div>
                                         </template>
                                         <div class="pr2">
@@ -1534,10 +1537,11 @@
                                         <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="tmrValCb"><label for="tmrValCb">Показати значення</label></div>
                                         <div class="pr2">
                                             <div><label>Колір заповнення</label><input type="color" x-model="selEl.colorFill"></div>
-                                            <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
+                                            <div><label>Заморожений</label><input type="color" x-model="selEl.colorOff"></div>
                                         </div>
                                         <div class="pr2">
                                             <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                                            <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
                                         </div>
                                         <div class="pr2">
                                             <div><label>Рамка (px)</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
@@ -2122,17 +2126,17 @@ function app() {
                            colorActive:"#3fb950", colorInactive:"#484f58" },
             timer_elapsed:   { w:160, h:60, point_id:0, trigger_value:"1", fontSize:22,
                                caption:"в роботі", showCaption:true,
-                               color:"#e6edf3", bgColor:"#161b22",
+                               color:"#e6edf3", colorOff:"#484f58", bgColor:"#161b22",
                                borderWidth:1, borderColor:"#30363d", borderRadius:4,
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             timer_countdown: { w:160, h:60, point_id:0, trigger_value:"1", duration_s:3600, fontSize:22,
                                caption:"до завершення", showCaption:true,
-                               color:"#e6edf3", colorExpired:"#f47067", bgColor:"#161b22",
+                               color:"#e6edf3", colorOff:"#484f58", colorExpired:"#f47067", bgColor:"#161b22",
                                borderWidth:1, borderColor:"#30363d", borderRadius:4,
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             timer_bar:       { w:200, h:18, point_id:0, trigger_value:"1", duration_s:3600,
                                bgColor:"#21262d", borderColor:"#30363d", borderWidth:1, borderRadius:4,
-                               showValue:true, fontSize:11, colorFill:"#3fb950", color:"#e6edf3",
+                               showValue:true, fontSize:11, colorFill:"#3fb950", colorOff:"#484f58", color:"#e6edf3",
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             countdown_bar:   { w:200, h:24, point_id:0, trigger_value:"1", duration_s:3600,
                                target_point_id:0, expire_value:0,

@@ -749,7 +749,7 @@
                                     <div class="r-timer"
                                          :style="`background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'rgba(255,255,255,.08)'};border-radius:${el.borderRadius??4}px`">
                                         <span class="tv"
-                                              :style="`font-size:${el.fontSize||22}px;color:${el.color||'#e6edf3'}`"
+                                              :style="`font-size:${el.fontSize||22}px;color:${timerElapsedColor(el)}`"
                                               x-text="fmtHMS(timerElapsedS(el))"></span>
                                         <span class="tcd" x-show="el.showCaption"
                                               x-text="el.caption||'в роботі'"></span>
@@ -786,10 +786,10 @@
                                 <div style="position:absolute;inset:0;overflow:visible">
                                     <div class="r-tbar"
                                          :style="`background:${el.bgColor||'#21262d'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'}`">
-                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${el.colorFill||el.color||'#3fb950'};transition:width .9s linear`"></div>
+                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${timerBarColor(el)};transition:width .9s linear`"></div>
                                         <div x-show="el.showValue"
                                              style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-                                            <span :style="`font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};font-weight:600;font-variant-numeric:tabular-nums`"
+                                            <span :style="`font-size:${el.fontSize||11}px;color:${timerElapsedColor(el)};font-weight:600;font-variant-numeric:tabular-nums`"
                                                   x-text="fmtHMS(timerElapsedS(el))"></span>
                                         </div>
                                     </div>
@@ -991,6 +991,7 @@ function app() {
         systemsFull:  {},
         _cntdExpired: {},
         _barFired:    {},
+        _lastElapsed: {},   // last non-zero elapsed_s per point_id (for freeze display)
         userPerms:    {},
         userRole:     _auth.role || '',
         opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
@@ -1163,6 +1164,8 @@ function app() {
                 if (msg.type === 'snapshot') {
                     const pts = {};
                     msg.data.forEach(p => {
+                        const es = parseInt(p.elapsed_s);
+                        if (es > 0) this._lastElapsed[String(p.id)] = es;
                         pts[p.id] = p;
                         if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
                             this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
@@ -1170,6 +1173,8 @@ function app() {
                     this.points = pts;
                 } else if (msg.type === 'update') {
                     msg.data.forEach(p => {
+                        const es = parseInt(p.elapsed_s);
+                        if (es > 0) this._lastElapsed[String(p.id)] = es;
                         this.points[p.id] = p;
                         if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
                             this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
@@ -1691,17 +1696,24 @@ function app() {
             const sec = s % 60;
             return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
         },
-        // Seconds elapsed for this element (respects trigger_value filter)
+        // Seconds elapsed. When inactive: freezes at last known value (from _lastElapsed).
         timerElapsedS(el) {
             const pt = this.points[el.point_id];
-            if (!pt) return 0;
+            const frozen = this._lastElapsed[String(el.point_id)] || 0;
+            if (!pt) return frozen;
             const tv = el.trigger_value;
-            if (tv != null && parseFloat(pt.value) !== parseFloat(tv)) return 0;
+            if (tv != null && parseFloat(pt.value) !== parseFloat(tv)) return frozen;
             return parseInt(pt.elapsed_s) || 0;
         },
-        // Seconds remaining for countdown.
-        // Returns 0 (not duration) when point is not at trigger_value, so display
-        // stays at 00:00:00 instead of jumping to full duration when inactive.
+        // Text color for elapsed timer: colorOff when frozen/inactive, el.color when running.
+        timerElapsedColor(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return el.colorOff || '#484f58';
+            const tv = el.trigger_value;
+            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
+            return isActive ? (el.color || '#e6edf3') : (el.colorOff || '#484f58');
+        },
+        // Seconds remaining for countdown. Frozen at last remaining when inactive.
         timerCountdownS(el) {
             const pt = this.points[el.point_id];
             if (!pt) return 0;
@@ -1709,21 +1721,35 @@ function app() {
             if (!dur) return 0;
             const tv = el.trigger_value;
             const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
-            if (!isActive) return 0;
+            if (!isActive) {
+                // freeze at last remaining time
+                const frozenElapsed = this._lastElapsed[String(el.point_id)] || 0;
+                return Math.max(0, dur - frozenElapsed);
+            }
             const elapsed = parseInt(pt.elapsed_s) || 0;
             const remaining = Math.max(0, dur - elapsed);
-            // Track expired state: true when countdown reaches 0 while active.
-            // Stays true while inactive (keeps expired color after point goes off).
-            // Resets when new active cycle starts with remaining > 0.
             const expired = (remaining === 0);
             if (this._cntdExpired[el.id] !== expired) this._cntdExpired[el.id] = expired;
             return remaining;
         },
-        // Text color for countdown: colorExpired when done, el.color when running
+        // Text/bar color for countdown: colorOff when frozen, colorExpired when expired, el.color otherwise.
         timerCountdownColor(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return el.colorOff || '#484f58';
+            const tv = el.trigger_value;
+            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
+            if (!isActive) return el.colorOff || '#484f58';
             return this._cntdExpired[el.id]
                 ? (el.colorExpired || '#f47067')
                 : (el.color || '#e6edf3');
+        },
+        // Fill color for timer_bar: colorOff when frozen, colorFill when running.
+        timerBarColor(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return el.colorOff || '#484f58';
+            const tv = el.trigger_value;
+            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
+            return isActive ? (el.colorFill || el.color || '#3fb950') : (el.colorOff || '#484f58');
         },
         // Bar fill % for elapsed bar (timer_bar)
         timerBarPct(el) {
