@@ -342,6 +342,8 @@ def main():
                     mapping["label_1"]      = meta.get("label_1", "")
                     mapping["normal_value"] = meta.get("normal_value", 0)
                     mapping["severity"]     = meta.get("severity", "none")
+                if result:
+                    mapping["last_change_ts"] = result["ts"]
                 batch_pipe.hset(key, mapping=mapping)
                 batch_pipe.publish("bus:data", point_id)
 
@@ -370,6 +372,13 @@ def main():
             }
             _QRANK = {"GOOD": 0, "INIT": 1, "WARN": 2, "ALARM": 3}
             now_ms_c = int(time.time() * 1000)
+            _CALC_NS["now"] = now_ms_c // 1000
+            def _age_fn(pid, _cache=meta_cache, _now=now_ms_c):
+                m = _cache.get(int(pid))
+                if not m or not m.get("last_change_ts"):
+                    return 0.0
+                return max(0.0, (_now - m["last_change_ts"]) / 1000.0)
+            _CALC_NS["age"] = _age_fn
             calc_pipe = r.pipeline()
             calc_has  = False
 
@@ -473,6 +482,14 @@ def main():
             now_ms_ctrl = int(time.time() * 1000)
             ctrl_pipe = r.pipeline()
             ctrl_has  = False
+            # keep formula 'now' and 'age()' current for control conditions
+            _CALC_NS["now"] = now_ms_ctrl // 1000
+            def _age_fn_ctrl(pid, _cache=meta_cache, _now=now_ms_ctrl):
+                m = _cache.get(int(pid))
+                if not m or not m.get("last_change_ts"):
+                    return 0.0
+                return max(0.0, (_now - m["last_change_ts"]) / 1000.0)
+            _CALC_NS["age"] = _age_fn_ctrl
 
             def _eval_ctrl_cond(fml, pid):
                 """Evaluate a boolean control condition; return True/False or None on error."""
@@ -507,15 +524,17 @@ def main():
                     }
                     q = _Q.get(meta["ctrl_status"], "NODATA")
                     lim = meta["limits"]
+                    meta["last_change_ts"] = now_ms_ctrl
                     ctrl_pipe.hset(f"point:{pid}", mapping={
-                        "value":     str(meta["cmd_value"]) if meta["cmd_value"] is not None else "",
-                        "ts":        str(now_ms_ctrl // 1000),
-                        "quality":   q,
-                        "type":      "control",
-                        "object":    meta["object"],
-                        "system":    meta["system"],
-                        "pointname": meta["pointname"],
-                        "unit":      "",
+                        "value":          str(meta["cmd_value"]) if meta["cmd_value"] is not None else "",
+                        "ts":             str(now_ms_ctrl // 1000),
+                        "quality":        q,
+                        "type":           "control",
+                        "object":         meta["object"],
+                        "system":         meta["system"],
+                        "pointname":      meta["pointname"],
+                        "unit":           "",
+                        "last_change_ts": now_ms_ctrl,
                         "min":       lim["min"],  "max":       lim["max"],
                         "warn_min":  lim["warn_min"], "warn_max":  lim["warn_max"],
                         "alarm_min": lim["alarm_min"], "alarm_max": lim["alarm_max"],
@@ -621,6 +640,28 @@ def main():
                         c_meta["ctrl_status"] = "GOOD"
                         _ctrl_write()
                         ctrl_has = True
+                        continue
+
+                # --- GATE RUN_LIMIT: auto-shutoff after max runtime ---
+                run_limit = c_meta.get("run_limit_s")
+                if run_limit and c_meta["ctrl_status"] == "GOOD" and fb_meta:
+                    fb_lcts = fb_meta.get("last_change_ts", 0)
+                    if fb_lcts and (now_ms_ctrl - fb_lcts) / 1000 >= run_limit:
+                        target    = c_meta.get("target", "")
+                        transport = c_meta.get("transport", "mqtt")
+                        if target and transport == "mqtt":
+                            payload = json.dumps({
+                                "value":       0,
+                                "feedback_id": c_meta.get("feedback_id"),
+                                "ts":          now_ms_ctrl,
+                            })
+                            mqtt_client.publish(target, payload)
+                            log.info(f"[CTRL RUN_LIMIT] {c_id} → OFF after {run_limit}s")
+                            c_meta["cmd_value"]           = 0
+                            c_meta["ctrl_status"]         = "WARN"
+                            c_meta["feedback_ticks_left"] = c_meta["feedback_timeout_ticks"]
+                            _ctrl_write()
+                            ctrl_has = True
                         continue
 
                 # --- SR-LATCH FORMULAS ---
@@ -733,6 +774,40 @@ def main():
                         pipe.execute()
 
                         # log.warning(f"[DESYNC] point {point_id} → NODATA")
+
+            # --- ELAPSED TIMERS ---
+            # For discrete/control/operation_mode points: write elapsed_s + timer_state
+            # once per second (only when value changes). Used by timer UI elements.
+            elapsed_pipe = r.pipeline()
+            elapsed_has  = False
+            now_elapsed  = int(time.time() * 1000)
+            for _et_pid, _et_meta in meta_cache.items():
+                _et_type = _et_meta.get("type")
+                if _et_type not in ("discrete", "control", "operation_mode"):
+                    continue
+                lcts = _et_meta.get("last_change_ts", 0)
+                if not lcts:
+                    continue
+                elapsed_s = int((now_elapsed - lcts) / 1000)
+                if elapsed_s == _et_meta.get("_last_elapsed_s", -1):
+                    continue  # no change this second
+                _et_meta["_last_elapsed_s"] = elapsed_s
+                run_lim   = _et_meta.get("run_limit_s")
+                warn_aft  = _et_meta.get("warn_after_s")
+                if run_lim and elapsed_s >= run_lim:
+                    tstate = "ALARM"
+                elif warn_aft and elapsed_s >= warn_aft:
+                    tstate = "WARN"
+                else:
+                    tstate = "GOOD"
+                elapsed_pipe.hset(f"point:{_et_pid}", mapping={
+                    "elapsed_s":   elapsed_s,
+                    "timer_state": tstate,
+                })
+                elapsed_pipe.publish("bus:data", _et_pid)
+                elapsed_has = True
+            if elapsed_has:
+                elapsed_pipe.execute()
 
             # --- STATS ---
             r.set("system:buffer_size", len(updates))

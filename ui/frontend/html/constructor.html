@@ -500,7 +500,7 @@
                          @click.self="selectEl(null); ctxClose()">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='timer_elapsed'||el.type==='timer_countdown'||el.type==='timer_bar'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent
                                  @contextmenu.prevent.stop="ctxOpen($event,el.id)">
                                 <template x-if="el.type==='group_box'">
@@ -1410,6 +1410,80 @@
                             </div>
                         </template>
 
+                        <!-- timer_elapsed property panel -->
+                        <template x-if="selEl.type === 'timer_elapsed' || selEl.type === 'timer_countdown' || selEl.type === 'timer_bar'">
+                            <div>
+                                <div class="pr">
+                                    <label>Точка (дискретна / управляюча)</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void allTimerPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in allTimerPoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr">
+                                    <label>Значення запуску таймера</label>
+                                    <input type="text" x-model="selEl.trigger_value" placeholder="1">
+                                </div>
+                                <template x-if="selEl.type !== 'timer_elapsed'">
+                                    <div class="pr">
+                                        <label>Тривалість (секунди)</label>
+                                        <input type="number" x-model.number="selEl.duration_s" min="1">
+                                    </div>
+                                </template>
+                                <div class="pr-sep"></div>
+                                <div class="pr">
+                                    <label>Розмір шрифту</label>
+                                    <input type="number" x-model.number="selEl.fontSize" min="8" max="72">
+                                </div>
+                                <template x-if="selEl.type !== 'timer_bar'">
+                                    <div>
+                                        <div class="pr-inline"><input type="checkbox" x-model="selEl.showCaption" id="tmrCapCb"><label for="tmrCapCb">Показати підпис стану</label></div>
+                                        <template x-if="selEl.showCaption">
+                                            <div class="pr"><label>Текст підпису</label><input type="text" x-model="selEl.caption"></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="selEl.type === 'timer_bar'">
+                                    <div>
+                                        <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="tmrValCb"><label for="tmrValCb">Показати значення</label></div>
+                                        <div class="pr2">
+                                            <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                                            <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
+                                        </div>
+                                        <div class="pr2">
+                                            <div><label>Рамка (px)</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
+                                            <div><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Кольори таймера</div>
+                                <div class="pr2">
+                                    <div><label>GOOD</label><input type="color" x-model="selEl.colorGood"></div>
+                                    <div><label>WARN</label><input type="color" x-model="selEl.colorWarn"></div>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>ALARM</label><input type="color" x-model="selEl.colorAlarm"></div>
+                                    <div><label>Вимкнено</label><input type="color" x-model="selEl.colorOff"></div>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="tmrLblCb"><label for="tmrLblCb">Підпис під елементом</label></div>
+                                <template x-if="selEl.showLabel">
+                                    <div>
+                                        <div class="pr"><label>Підпис</label><input type="text" x-model="selEl.label"></div>
+                                        <div class="pr2">
+                                            <div><label>Розмір</label><input type="number" x-model.number="selEl.labelFontSize" min="8" max="60"></div>
+                                            <div><label>Колір</label><input type="color" x-model="selEl.labelColor"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
                         <!-- calc_box property panel -->
                         <template x-if="selEl.type === 'calc_box'">
                             <div>
@@ -1618,6 +1692,9 @@ function app() {
         get controlPoints() {
             return this.allPoints.filter(p => p.type === "control");
         },
+        get allTimerPoints() {
+            return this.allPoints.filter(p => ["discrete","control","operation_mode"].includes(p.type));
+        },
         // Severity of the discrete point currently bound to selEl, or null when
         // unbound. Drives which colour-state options are offered.
         get _biSeverity() {
@@ -1724,9 +1801,12 @@ function app() {
             {
                 group: "Управління",
                 items: [
-                    { type:"ctrl_opmode",  icon:"⊙", label:"Режим роботи" },
-                    { type:"ctrl_signal",  icon:"⚡", label:"Управляючий сигнал" },
-                    { type:"ctrl_btn",     icon:"▣",  label:"Кнопка управління" },
+                    { type:"ctrl_opmode",       icon:"⊙",  label:"Режим роботи" },
+                    { type:"ctrl_signal",        icon:"⚡", label:"Управляючий сигнал" },
+                    { type:"ctrl_btn",           icon:"▣",  label:"Кнопка управління" },
+                    { type:"timer_elapsed",      icon:"⏱",  label:"Лічильник часу" },
+                    { type:"timer_countdown",    icon:"⏳",  label:"Зворотній відлік" },
+                    { type:"timer_bar",          icon:"▬",  label:"Прогрес-таймер" },
                 ]
             },
         ],
@@ -1780,6 +1860,19 @@ function app() {
                            labelFontSize:11, labelColor:"#8b949e",
                            borderWidth:2, borderRadius:8,
                            colorActive:"#3fb950", colorInactive:"#484f58" },
+            timer_elapsed:   { w:160, h:60, point_id:0, trigger_value:"1", fontSize:22,
+                               caption:"в роботі", showCaption:true,
+                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
+                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
+            timer_countdown: { w:160, h:60, point_id:0, trigger_value:"1", duration_s:3600, fontSize:22,
+                               caption:"до завершення", showCaption:true,
+                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
+                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
+            timer_bar:       { w:200, h:18, point_id:0, trigger_value:"1", duration_s:3600,
+                               bgColor:"#21262d", borderColor:"#30363d", borderWidth:1, borderRadius:4,
+                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58",
+                               showValue:true, fontSize:11, color:"#e6edf3",
+                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
         },
 
         get gridImg() {
@@ -2814,6 +2907,7 @@ updateScale() {
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад",
                      ctrl_opmode:"Режим роботи", ctrl_signal:"Управляючий сигнал", ctrl_btn:"Кнопка управління",
+                     timer_elapsed:"Лічильник часу", timer_countdown:"Зворотній відлік", timer_bar:"Прогрес-таймер",
                      calc_box:"Розрахунковий", bi_image:"Зображення (бістабільне)" }[t]??t;
         },
 
