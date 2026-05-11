@@ -317,6 +317,10 @@ def main():
                 if result:
                     meta["state"] = result["new_state"]
                     meta["last_change_ts"] = result["ts"]
+                elif meta.get("type") in ("discrete", "operation_mode"):
+                    # value changed but quality didn't (e.g. severity=none: 0→1 stays GOOD)
+                    # still need to reset last_change_ts so elapsed timer counts correctly
+                    meta["last_change_ts"] = int(time.time() * 1000)
 
                 # --- REDIS WRITE + PUB DATA (queued; flushed once after loop) ---
                 key = f"point:{point_id}"
@@ -342,8 +346,9 @@ def main():
                     mapping["label_1"]      = meta.get("label_1", "")
                     mapping["normal_value"] = meta.get("normal_value", 0)
                     mapping["severity"]     = meta.get("severity", "none")
-                if result:
-                    mapping["last_change_ts"] = result["ts"]
+                # always write last_change_ts for timer-capable types
+                if meta.get("type") in ("discrete", "operation_mode") or result:
+                    mapping["last_change_ts"] = meta["last_change_ts"]
                 batch_pipe.hset(key, mapping=mapping)
                 batch_pipe.publish("bus:data", point_id)
 
