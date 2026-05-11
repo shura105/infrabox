@@ -162,6 +162,11 @@
         <a class="nav-item" :class="{active:active==='elements'}"       @click="scrollTo('elements')">Типи елементів</a>
         <a class="nav-item" :class="{active:active==='drawing'}"        @click="scrollTo('drawing')">Малювання</a>
 
+        <div class="nav-section" style="margin-top:10px">Управління</div>
+        <a class="nav-item" :class="{active:active==='control'}"        @click="scrollTo('control')">Режими та елементи</a>
+        <a class="nav-item" :class="{active:active==='control-states'}" @click="scrollTo('control-states')">Стани та кольори</a>
+        <a class="nav-item" :class="{active:active==='control-flow'}"   @click="scrollTo('control-flow')">Потік команди</a>
+
         <div class="nav-section" style="margin-top:10px">Дані</div>
         <a class="nav-item" :class="{active:active==='points'}"    @click="scrollTo('points')">Параметри (точки)</a>
         <a class="nav-item" :class="{active:active==='sockets'}"   @click="scrollTo('sockets')">Сокети та діагностика</a>
@@ -533,6 +538,28 @@
                     <div class="el-icon">⇗</div>
                     <div class="el-name">Веб-лінк</div>
                     <div class="el-desc">Картка з SVG-фоном. Відкриває зовнішню URL-адресу.</div>
+                </div>
+            </div>
+
+            <h3>Управління</h3>
+            <div class="el-grid">
+                <div class="el-card">
+                    <div class="el-icon">⊡</div>
+                    <div class="el-name">Управляючий сигнал</div>
+                    <div class="el-desc">Відображає стан контрольної точки (WARN / GOOD / ALARM) через колір рамки. Клік — ручна команда. Активний тільки в ручному режимі.</div>
+                    <span class="el-tag new">new</span>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">⊙</div>
+                    <div class="el-name">Режим системи</div>
+                    <div class="el-desc">Відображає та перемикає режим управління системою (Авто / Ручний). Рамка видима тільки в автоматичному режимі.</div>
+                    <span class="el-tag new">new</span>
+                </div>
+                <div class="el-card">
+                    <div class="el-icon">⊞</div>
+                    <div class="el-name">Кнопка управління</div>
+                    <div class="el-desc">Кнопка ручного інвертування стану точки. Затемнюється в автоматичному режимі (управління заблоковано).</div>
+                    <span class="el-tag new">new</span>
                 </div>
             </div>
 
@@ -1110,6 +1137,121 @@
                     <tr><td><code>bus:event</code></td><td>core (при зміні якості)</td><td>archiver</td></tr>
                 </tbody>
             </table>
+        </section>
+
+        <!-- ── Управління: режими та елементи ── -->
+        <section id="control">
+            <h2>Управління — режими та елементи</h2>
+            <p>Infrabox підтримує два режими управління підсистемами: <strong>автоматичний</strong> і <strong>ручний</strong>. Режим встановлюється на рівні системи (наприклад, <em>reserv_power</em>, <em>electric</em>…) і впливає на поведінку всіх контрольних точок, що входять до неї.</p>
+
+            <h3>Режими управління</h3>
+            <table class="doc-table">
+                <thead><tr><th>Режим</th><th>Опис</th><th>Поведінка контрольної точки</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Авто</strong></td>
+                        <td>Core автоматично обчислює команди за SR-latch формулами (<code>formula_on</code> / <code>formula_off</code>)</td>
+                        <td>Команди видаються автоматично. Ручні команди ігноруються. Колір рамки — за станом якості фідбеку.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ручний</strong></td>
+                        <td>Оператор видає команди вручну через UI</td>
+                        <td>Автоматичні формули не застосовуються. Ручна команда → WARN → GOOD (після підтвердження). Колір рамки GOOD показує <em>colorManual</em>.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Елемент «Режим системи» (ctrl_opmode)</h3>
+            <p>Відображає поточний режим підсистеми. Клік → діалог підтвердження зміни режиму. Рамка видима лише в автоматичному режимі (value = 1). Перемикання потребує права <code>ctrl_signal</code> або ролі <code>admin</code>.</p>
+
+            <h3>Елемент «Управляючий сигнал» (ctrl_signal)</h3>
+            <p>Прив'язується до контрольної точки типу <code>control</code>. Показує стан точки через колір рамки. Активний (клікабельний) лише в ручному режимі відповідної системи. Клік — ручна команда на інвертування поточного значення.</p>
+
+            <h3>Елемент «Кнопка управління» (ctrl_btn)</h3>
+            <p>Аналог ctrl_signal у вигляді кнопки з текстом та SVG-іконками. В автоматичному режимі затемнюється (<code>opacity: 0.45</code>) і не реагує на кліки. Колір тексту в авто-режимі задається окремим параметром <code>colorInactiveText</code>.</p>
+
+            <div class="note"><strong>Права доступу:</strong> клік на будь-якому елементі управління без права <code>ctrl_signal</code> (і не маючи ролі <code>admin</code>) показує сповіщення про відмову в доступі — без зміни стану.</div>
+        </section>
+
+        <!-- ── Управління: стани та кольори ── -->
+        <section id="control-states">
+            <h2>Управління — стани та кольори</h2>
+            <p>Контрольна точка (<code>type: control</code>) має власний статус <code>ctrl_status</code>, який відображається кольором рамки елемента. Статус не залежить від якості самої точки — він відображає стан циклу управління.</p>
+
+            <h3>Стани ctrl_status</h3>
+            <table class="doc-table">
+                <thead><tr><th>Стан</th><th>Колір (за замовч.)</th><th>Значення</th></tr></thead>
+                <tbody>
+                    <tr><td><code>NODATA</code></td><td style="color:#6e7681">● темно-сірий</td><td>Початковий стан до першої оцінки (тільки при старті системи)</td></tr>
+                    <tr><td><code>WARN</code></td><td style="color:#f0ad4e">● жовтий</td><td>Команда видана, очікується підтвердження від фідбек-параметра</td></tr>
+                    <tr><td><code>GOOD</code></td><td style="color:#3fb950">● зелений</td><td>Фідбек підтвердив команду. В ручному режимі показується колір <em>colorManual</em>.</td></tr>
+                    <tr><td><code>ALARM</code></td><td style="color:#f47067">● червоний</td><td>Таймаут очікування фідбеку <em>або</em> фідбек-параметр у поганому стані (WARN/ALARM/NODATA/INIT). Відображається в обох режимах.</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Кольори в ручному режимі</h3>
+            <p>У ручному режимі WARN і ALARM завжди показують свій колір (попередження та аварія). Стан GOOD відображається кольором <strong>colorManual</strong> (за замовч. сірий <code>#8b949e</code>) — щоб оператор розрізняв ручне підтвердження від автоматичного.</p>
+
+            <h3>Налаштування кольорів у конструкторі</h3>
+            <table class="doc-table">
+                <thead><tr><th>Параметр</th><th>Стан</th><th>За замовч.</th></tr></thead>
+                <tbody>
+                    <tr><td><code>colorManual</code></td><td>GOOD у ручному режимі</td><td><code>#8b949e</code></td></tr>
+                    <tr><td><code>colorGood</code></td><td>GOOD в автоматичному режимі</td><td><code>#3fb950</code></td></tr>
+                    <tr><td><code>colorWarn</code></td><td>WARN (очікування фідбеку)</td><td><code>#f0ad4e</code></td></tr>
+                    <tr><td><code>colorAlarm</code></td><td>ALARM (таймаут або проблема фідбеку)</td><td><code>#f47067</code></td></tr>
+                </tbody>
+            </table>
+
+            <h3>Вплив якості фідбек-параметра</h3>
+            <p>Якщо фідбек-параметр переходить у стан <code>ALARM</code>, <code>WARN</code>, <code>NODATA</code> або <code>INIT</code> — контрольна точка незалежно від режиму (авто або ручний) переходить у <code>ALARM</code>. Управління при цьому <strong>не блокується</strong> — оператор може видати нову команду, але бачить сигнал аварії.</p>
+        </section>
+
+        <!-- ── Управління: потік команди ── -->
+        <section id="control-flow">
+            <h2>Управління — потік команди</h2>
+
+            <h3>Ручна команда (ручний режим)</h3>
+            <ol>
+                <li>Оператор клікає на елемент управління → підтверджує дію у діалозі</li>
+                <li>UI надсилає <code>POST /api/points/{id}/value</code> з новим значенням (інверсія поточного)</li>
+                <li>Backend одразу пише в Redis: <code>point:{id} quality=WARN</code>, встановлює ключ <code>manual_cmd:{id}</code> (TTL 30с), публікує <code>bus:data</code></li>
+                <li>UI отримує WS-оновлення і показує стан <strong>WARN</strong> (жовта рамка) — ще до обробки core</li>
+                <li>На наступному такті (до 1с) Core читає <code>manual_cmd:{id}</code>, видає команду через MQTT на пристрій, встановлює <code>ctrl_status=WARN</code></li>
+                <li>Пристрій реагує → фідбек-параметр змінює значення → на наступному такті Core бачить збіг і встановлює <code>ctrl_status=GOOD</code></li>
+                <li>UI отримує GOOD — рамка показує <em>colorManual</em> (сірий)</li>
+            </ol>
+
+            <div class="note"><strong>Мінімальна тривалість WARN:</strong> один такт системи (за замовч. 1с). Якщо пристрій відповідає за 50мс — все одно WARN видно 1 такт, потім одразу GOOD.</div>
+
+            <h3>Автоматична команда (авто режим)</h3>
+            <ol>
+                <li>Core щотакту обчислює <code>formula_on</code> / <code>formula_off</code> (SR-latch)</li>
+                <li>Якщо умова спрацювала і значення фідбеку ще не відповідає команді — видає MQTT-команду, встановлює <code>ctrl_status=WARN</code></li>
+                <li>Фідбек підтверджує → <code>GOOD</code>. Таймаут (за замовч. 10 тактів) → <code>ALARM</code></li>
+                <li>ALARM RECOVERY: якщо пристрій пізніше таки відповів — <code>ALARM → GOOD</code> автоматично</li>
+            </ol>
+
+            <h3>SR-latch логіка формул</h3>
+            <p>Команди визначаються формулами у форматі <code>$&lt;point_id&gt;</code>:</p>
+            <table class="doc-table">
+                <thead><tr><th>Умова</th><th>Дія</th></tr></thead>
+                <tbody>
+                    <tr><td><code>formula_on</code> = true, <code>formula_off</code> = false</td><td>Видати команду ON (value = 1)</td></tr>
+                    <tr><td><code>formula_on</code> = false, <code>formula_off</code> = true</td><td>Видати команду OFF (value = 0)</td></tr>
+                    <tr><td>Обидві = true</td><td>Безпечний стан: команда OFF</td></tr>
+                    <tr><td>Обидві = false</td><td>Утримати поточний стан (hold)</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Ключ manual_cmd у Redis</h3>
+            <p>Механізм передачі команди з UI в Core:</p>
+            <ul>
+                <li>Ключ <code>manual_cmd:{point_id}</code> — рядок із значенням команди (0 або 1)</li>
+                <li>TTL = 30 секунд (команда автоматично скасовується якщо Core не прочитав)</li>
+                <li>Core читає і видаляє ключ на початку GATE 1 (перевірка режиму) — до виконання формул</li>
+                <li>Після відправки MQTT-команди Core встановлює <code>ctrl_status=WARN</code> і запускає зворотний відлік тактів очікування фідбеку</li>
+            </ul>
         </section>
 
     </main>
