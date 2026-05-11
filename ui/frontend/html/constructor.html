@@ -1611,9 +1611,10 @@
                                 </div>
                                 <div class="pr2">
                                     <div><label>Заповнення</label><input type="color" x-model="selEl.colorFill"></div>
-                                    <div><label>Після завершення</label><input type="color" x-model="selEl.colorExpired"></div>
+                                    <div><label>Заморожений</label><input type="color" x-model="selEl.colorOff"></div>
                                 </div>
                                 <div class="pr2">
+                                    <div><label>Після завершення</label><input type="color" x-model="selEl.colorExpired"></div>
                                     <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
                                 </div>
                                 <div class="pr2">
@@ -2141,7 +2142,7 @@ function app() {
             countdown_bar:   { w:200, h:24, point_id:0, trigger_value:"1", duration_s:3600,
                                target_point_id:0, expire_value:0,
                                bgColor:"#21262d", borderColor:"#30363d", borderWidth:1, borderRadius:4,
-                               showValue:true, fontSize:11, colorFill:"#3fb950", colorExpired:"#f47067", color:"#e6edf3",
+                               showValue:true, fontSize:11, colorFill:"#3fb950", colorOff:"#484f58", colorExpired:"#f47067", color:"#e6edf3",
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             multi_timer:     { w:120, h:120, point_id:0,
                                imageOn:"", imageOff:"",

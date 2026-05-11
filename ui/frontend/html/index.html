@@ -1766,17 +1766,20 @@ function app() {
         },
 
         // ── countdown_bar helpers ──────────────────────────────────────────
-        // Seconds remaining for the standalone countdown bar element
+        // Seconds remaining for the standalone countdown bar element.
+        // Active: saves remaining to _timerFrozen, fires target point at 0.
+        // Inactive: returns frozen value (bar freezes in place, color → colorOff).
         countdownBarS(el) {
             const pt = this.points[el.point_id];
-            if (!pt) return 0;
+            const key = el.id + '_cb';
+            const tv = el.trigger_value;
+            const isActive = pt && (tv == null || parseFloat(pt.value) === parseFloat(tv));
+            if (!isActive) return _timerFrozen.get(key) ?? 0;
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 0;
-            const tv = el.trigger_value;
-            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
-            if (!isActive) return 0;
             const elapsed = parseInt(pt.elapsed_s) || 0;
             const remaining = Math.max(0, dur - elapsed);
+            _timerFrozen.set(key, remaining);
             if (remaining === 0 && !this._barFired[el.id]) {
                 this._barFired[el.id] = true;
                 if (el.target_point_id && el.expire_value != null)
@@ -1789,10 +1792,13 @@ function app() {
         countdownBarPct(el) {
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 0;
-            const rem = this.countdownBarS(el);
-            return Math.min(100, Math.max(0, (rem / dur) * 100));
+            return Math.min(100, Math.max(0, (this.countdownBarS(el) / dur) * 100));
         },
         countdownBarColor(el) {
+            const pt = this.points[el.point_id];
+            const tv = el.trigger_value;
+            const isActive = pt && (tv == null || parseFloat(pt.value) === parseFloat(tv));
+            if (!isActive) return el.colorOff || '#484f58';
             return this._barFired[el.id]
                 ? (el.colorExpired || '#f47067')
                 : (el.colorFill   || '#3fb950');
