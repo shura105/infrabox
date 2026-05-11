@@ -142,6 +142,10 @@
 
         /* ── modal ── */
         .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:200}
+        .ctx-menu{position:fixed;background:#1c2333;border:1px solid #30363d;border-radius:6px;padding:4px 0;min-width:186px;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+        .ctx-item{padding:7px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;color:#c9d1d9}
+        .ctx-item:hover{background:#243047;color:#e6edf3}
+        .ctx-sep{height:1px;background:#30363d;margin:3px 0}
         .overlay.open{display:flex}
         .modal{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;width:340px}
         .modal h2{font-size:15px;margin-bottom:18px;color:#e6edf3}
@@ -493,11 +497,12 @@
                          :style="`position:relative;width:${sc.width}px;height:${sc.height}px;background-color:${sc.bg};
                                   background-image:${cvBgImage()};background-size:${cvBgSize()};
                                   box-shadow:0 0 0 1px #333;`"
-                         @click.self="selectEl(null)">
+                         @click.self="selectEl(null); ctxClose()">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
-                                 @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent>
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
+                                 @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent
+                                 @contextmenu.prevent.stop="ctxOpen($event,el.id)">
                                 <template x-if="el.type==='group_box'">
                                     <div style="position:absolute;inset:0">
                                         <!-- фон окремо, щоб opacity не впливала на текст -->
@@ -666,6 +671,22 @@
                                              x-text="el.label || 'Команда'"></div>
                                     </div>
                                 </template>
+                                <!-- ctrl_btn: control button, active/inactive by system mode -->
+                                <template x-if="el.type === 'ctrl_btn'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${el.colorInactive||'#484f58'};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(el.imageInactive||el.imageActive||'')}`">
+                                            <template x-if="!el.imageActive && !el.imageInactive">
+                                                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                                    <span :style="`font-size:${(el.fontSize||14)*fScale()}px;color:${el.color||'#e6edf3'}`"
+                                                          x-text="el.text||'CMD'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.labelFontSize||11)*fScale()}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label"></div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -673,7 +694,7 @@
             </div>
 
             <!-- elements layer panel -->
-            <div class="el-layer">
+            <div class="el-layer" x-show="_showLayer">
                 <template x-for="el in els" :key="el.id">
                     <div class="el-chip" :class="{'el-active': sel===el.id}"
                          @click="selectEl(el.id)"
@@ -1320,6 +1341,75 @@
                             </div>
                         </template>
 
+                        <!-- ctrl_btn property panel -->
+                        <template x-if="selEl.type === 'ctrl_btn'">
+                            <div>
+                                <div class="pr">
+                                    <label>Управляючий сигнал</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void controlPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in controlPoints" :key="p.id">
+                                            <option :value="p.id"
+                                                    x-text="`#${p.id} · ${p.pointname}` + (p.object ? ' ('+p.object+')' : '')"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Зображення за станом системи (SVG / PNG)</div>
+                                <template x-for="slot in [
+                                    { key:'imageActive',   label:'Активний — ручний режим' },
+                                    { key:'imageInactive', label:'Неактивний — авто режим' }
+                                ]" :key="slot.key">
+                                    <div class="pr">
+                                        <label x-text="slot.label"></label>
+                                        <div style="display:flex;gap:4px;align-items:center">
+                                            <label class="btn" style="flex:1;text-align:center;cursor:pointer">
+                                                <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
+                                                <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
+                                                       @change="uploadBiImage(slot.key, $event)"
+                                                       style="display:none">
+                                            </label>
+                                            <button class="btn btn-red" x-show="selEl[slot.key]"
+                                                    @click="selEl[slot.key]=''" style="padding:3px 8px">✕</button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="pr">
+                                    <label>Текст (без зображення)</label>
+                                    <input type="text" x-model="selEl.text" placeholder="CMD">
+                                </div>
+                                <div class="pr">
+                                    <label>Розмір тексту</label>
+                                    <input type="number" x-model.number="selEl.fontSize" min="8" max="72">
+                                </div>
+                                <div class="pr2">
+                                    <div><label>Колір тексту (ручний)</label><input type="color" x-model="selEl.color"></div>
+                                    <div><label>Колір тексту (авто)</label><input type="color" x-model="selEl.colorInactiveText"></div>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr2">
+                                    <div><label>Товщина рамки</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="20"></div>
+                                    <div><label>Скруглення (px)</label><input type="number" x-model.number="selEl.borderRadius" min="0" max="100"></div>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>Рамка активна</label><input type="color" x-model="selEl.colorActive"></div>
+                                    <div><label>Рамка неактивна</label><input type="color" x-model="selEl.colorInactive"></div>
+                                </div>
+                                <div class="pr-sep"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="ctrlbtnLblCb"><label for="ctrlbtnLblCb">Показати підпис</label></div>
+                                <template x-if="selEl.showLabel">
+                                    <div>
+                                        <div class="pr"><label>Підпис</label><input type="text" x-model="selEl.label"></div>
+                                        <div class="pr2">
+                                            <div><label>Розмір підпису</label><input type="number" x-model.number="selEl.labelFontSize" min="8" max="60"></div>
+                                            <div><label>Колір підпису</label><input type="color" x-model="selEl.labelColor"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
                         <!-- calc_box property panel -->
                         <template x-if="selEl.type === 'calc_box'">
                             <div>
@@ -1457,7 +1547,7 @@ function app() {
         selLevelColor:'colorGood',
         selGaugeColor:'colorGood',
         selBiColor:     'colorOn',
-        selCtrlColor:   'colorGood',
+        selCtrlColor:   'colorManual',
         selOpmodeColor: 'colorGood',
 
         // elements
@@ -1468,6 +1558,8 @@ function app() {
         status: { msg:"Готово", ok:true },
         createModal: { open:false },
         deleteModal:  { open:false, node:null },
+        _ctxMenu:     { open:false, x:0, y:0, elId:null },
+        _showLayer:   false,
         _createType: 'pc',
         _createDevType: 1,
         structView: 'canvas',   // 'canvas' | 'table'
@@ -1563,12 +1655,11 @@ function app() {
         },
         get ctrlSignalColorOptions() {
             return [
-                { value: 'colorInit',   label: '● INIT (запуск)',           def: '#484f58' },
-                { value: 'colorNodata', label: '● NODATA (немає даних)',     def: '#6e7681' },
-                { value: 'colorGood',   label: '● GOOD (підтверджено)',      def: '#3fb950' },
-                { value: 'colorWarn',   label: '● WARN (очікування)',        def: '#f0ad4e' },
-                { value: 'colorAlarm',  label: '● ALARM (таймаут)',          def: '#f47067' },
-                { value: 'color',       label: 'T Текст підпису',            def: '#e6edf3' },
+                { value: 'colorManual', label: '● РУЧНИЙ (manual)',           def: '#8b949e' },
+                { value: 'colorGood',   label: '● GOOD (підтверджено)',       def: '#3fb950' },
+                { value: 'colorWarn',   label: '● WARN (очікування)',         def: '#f0ad4e' },
+                { value: 'colorAlarm',  label: '● ALARM (таймаут/проблема)',  def: '#f47067' },
+                { value: 'color',       label: 'T Текст підпису',             def: '#e6edf3' },
             ];
         },
         get ctrlOpmodeColorOptions() {
@@ -1635,6 +1726,7 @@ function app() {
                 items: [
                     { type:"ctrl_opmode",  icon:"⊙", label:"Режим роботи" },
                     { type:"ctrl_signal",  icon:"⚡", label:"Управляючий сигнал" },
+                    { type:"ctrl_btn",     icon:"▣",  label:"Кнопка управління" },
                 ]
             },
         ],
@@ -1682,8 +1774,12 @@ function app() {
             // control signal: frame with 2 SVG images (cmd 0/1), border color per ctrl_status
             ctrl_signal: { w:120, h:120, point_id:0, image0:"", image1:"", label:"", showLabel:false, fontSize:11, color:"#e6edf3",
                            borderWidth:2, borderRadius:8,
-                           colorInit:"#484f58", colorNodata:"#6e7681", colorGood:"#3fb950",
-                           colorWarn:"#f0ad4e", colorAlarm:"#f47067" },
+                           colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorManual:"#8b949e" },
+            ctrl_btn:    { w:100, h:100, point_id:0, imageActive:"", imageInactive:"", text:"CMD",
+                           label:"", showLabel:false, fontSize:14, color:"#e6edf3", colorInactiveText:"#8b949e",
+                           labelFontSize:11, labelColor:"#8b949e",
+                           borderWidth:2, borderRadius:8,
+                           colorActive:"#3fb950", colorInactive:"#484f58" },
         },
 
         get gridImg() {
@@ -1713,7 +1809,7 @@ function app() {
                 if (e.baseH == null) e.baseH = e.h;
                 if (e.scale == null) e.scale = 100;
             }
-            this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood';
+            this.selIndQ = 'GOOD'; this.selLevelColor = 'colorGood'; this.selGaugeColor = 'colorGood'; this.selCtrlColor = 'colorManual';
         },
         screenType(s)    { return s?.screenType || 'pc'; },
         screenTypeCfg(s) { return this.SCREEN_TYPES[this.screenType(s)] || this.SCREEN_TYPES.pc; },
@@ -1782,11 +1878,13 @@ function app() {
         async init() {
             window.addEventListener("resize", () => this.updateScale());
             document.addEventListener("keydown", e => {
+                if (e.key === "Escape") { this.ctxClose(); return; }
                 if ((e.key==="Delete"||e.key==="Backspace") &&
                     !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)) {
                     if (this.mode==="elements" && this.sel) this.delEl();
                 }
             });
+            document.addEventListener("click", () => this.ctxClose());
             // load project and points list in parallel — points needed for
             // bistable point_id dropdown to show the bound point on first click
             await Promise.all([this.loadProject(), this.loadAllPoints()]);
@@ -2615,6 +2713,41 @@ updateScale() {
 
         onUp() { this._drag=null; this._ndrag=null; this._ddrag=null; this._rdrag=null; this._groupChildren=[]; this._groupEls=[]; this._epdrag=null; },
 
+        ctxOpen(e, id) {
+            this.selectEl(id);
+            const menuW = 190, menuH = 160;
+            const x = Math.min(e.clientX, window.innerWidth  - menuW);
+            const y = Math.min(e.clientY, window.innerHeight - menuH);
+            this._ctxMenu = { open:true, x, y, elId:id };
+        },
+        ctxClose() { this._ctxMenu.open = false; },
+        ctxDuplicate() {
+            const src = this.els.find(e => e.id === this._ctxMenu.elId);
+            if (!src) return this.ctxClose();
+            const copy = JSON.parse(JSON.stringify(src));
+            copy.id = 'el_' + Date.now();
+            copy.x  = Math.min(1 - copy.w, copy.x + 20 / this.sc.width);
+            copy.y  = Math.min(1 - copy.h, copy.y + 20 / this.sc.height);
+            if (copy.point_id != null) copy.point_id = 0;
+            this.els.push(copy);
+            this.selectEl(copy.id);
+            this.ctxClose();
+        },
+        ctxDelete() {
+            this.sel = this._ctxMenu.elId;
+            this.delEl();
+            this.ctxClose();
+        },
+        ctxToFront() {
+            const idx = this.els.findIndex(e => e.id === this._ctxMenu.elId);
+            if (idx >= 0) this.els.push(this.els.splice(idx, 1)[0]);
+            this.ctxClose();
+        },
+        ctxToBack() {
+            const idx = this.els.findIndex(e => e.id === this._ctxMenu.elId);
+            if (idx >= 0) this.els.unshift(this.els.splice(idx, 1)[0]);
+            this.ctxClose();
+        },
         delEl() {
             if (!this.sel) return;
             this.els = this.els.filter(e=>e.id!==this.sel);
@@ -2680,7 +2813,7 @@ updateScale() {
                      group_box:"Група", ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник", arc:"Дуга",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад",
-                     ctrl_opmode:"Режим роботи", ctrl_signal:"Управляючий сигнал",
+                     ctrl_opmode:"Режим роботи", ctrl_signal:"Управляючий сигнал", ctrl_btn:"Кнопка управління",
                      calc_box:"Розрахунковий", bi_image:"Зображення (бістабільне)" }[t]??t;
         },
 
@@ -2697,5 +2830,20 @@ updateScale() {
     };
 }
 </script>
+
+<!-- custom context menu -->
+<div class="ctx-menu" x-show="_ctxMenu.open"
+     :style="`left:${_ctxMenu.x}px;top:${_ctxMenu.y}px`"
+     @click.stop x-cloak>
+    <div class="ctx-item" @click="ctxDuplicate()">⧉ Дублювати</div>
+    <div class="ctx-item" @click="ctxDelete()" style="color:#f47067">🗑 Видалити</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" @click="ctxToFront()">⬆ На передній план</div>
+    <div class="ctx-item" @click="ctxToBack()">⬇ На задній план</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" @click="_showLayer=!_showLayer;ctxClose()">
+        <span x-text="_showLayer ? '✓ Панель елементів' : '☰ Панель елементів'"></span>
+    </div>
+</div>
 </body>
 </html>

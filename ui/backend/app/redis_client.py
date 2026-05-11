@@ -135,7 +135,9 @@ class RedisClient:
 
     async def set_point_value(self, point_id: str, value: int):
         key = f"point:{point_id}"
-        await self.redis.hset(key, mapping={"value": str(value), "quality": "GOOD"})
+        # WARN = command queued, waiting for core to send MQTT and receive feedback
+        await self.redis.hset(key, mapping={"value": str(value), "quality": "WARN"})
+        await self.redis.set(f"manual_cmd:{point_id}", str(value), ex=30)
         await self.redis.publish("bus:data", str(point_id))
 
 

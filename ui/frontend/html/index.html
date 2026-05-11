@@ -261,7 +261,7 @@
             background: rgba(0,0,0,.25);
             overflow: hidden;
         }
-        .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; margin-bottom: 1px; }
+        .r-value .vl { font-size: 11px; color: var(--text-dim); flex-shrink: 0; margin-top: 2px; }
         .r-value .vrow { display: flex; align-items: baseline; gap: 4px; min-width: 0; flex: 1; }
         .r-value .vv  { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
         .r-value .vu  { flex-shrink: 0; color: var(--text-dim); text-align: right; }
@@ -512,17 +512,20 @@
 
                             <!-- value -->
                             <template x-if="el.type==='value'">
-                                <div class="r-value">
-                                    <span class="vl" x-show="el.showLabel" x-text="el.label"
-                                          :style="el.labelFontSize ? `font-size:${el.labelFontSize}px` : ''"></span>
-                                    <div class="vrow">
-                                        <span class="vv"
-                                              :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
-                                              x-text="ptValue(el.point_id)"></span>
-                                        <span class="vu" x-show="ptUnit(el.point_id)"
-                                              :style="`font-size:${el.fontSize}px;`"
-                                              x-text="ptUnit(el.point_id)"></span>
+                                <div style="position:absolute;inset:0;overflow:visible">
+                                    <div class="r-value">
+                                        <div class="vrow">
+                                            <span class="vv"
+                                                  :style="`font-size:${el.fontSize}px;color:${valueColor(el)};`"
+                                                  x-text="ptValue(el.point_id)"></span>
+                                            <span class="vu" x-show="ptUnit(el.point_id)"
+                                                  :style="`font-size:${el.fontSize}px;`"
+                                                  x-text="ptUnit(el.point_id)"></span>
+                                        </div>
                                     </div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label || (points[el.point_id]?.pointname || '')"></div>
                                 </div>
                             </template>
 
@@ -670,7 +673,7 @@
                             <!-- bistable: pump / motor / valve / relay / reed / optical / image -->
                             <template x-if="el.type && el.type.startsWith('bi_')">
                                 <div style="position:absolute;inset:0">
-                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||0}px solid ${el.colorBorder||'#8b949e'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${el.type==='bi_image' ? biImageBgStyle(biImageSrcEl(el)) : ''}`"
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??0}px solid ${el.colorBorder||'#8b949e'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${el.type==='bi_image' ? biImageBgStyle(biImageSrcEl(el)) : ''}`"
                                          x-html="el.type==='bi_image' ? '' : bistableSvgEl(el)"></div>
                                     <div x-show="el.showLabel"
                                          :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
@@ -692,7 +695,7 @@
                             <template x-if="el.type === 'ctrl_opmode'">
                                 <div style="position:absolute;inset:0;overflow:visible;cursor:pointer"
                                      @click.stop="ctrlOpmodeClick(el)">
-                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${ctrlOpmodeColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlOpmodeImageSrc(el))}`"></div>
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??2}px solid ${ctrlOpmodeColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlOpmodeImageSrc(el))}`"></div>
                                     <div x-show="el.showLabel"
                                          :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
                                          x-text="el.label || 'Режим'"></div>
@@ -701,8 +704,10 @@
 
                             <!-- ctrl_signal: control signal element, border color by ctrl_status quality -->
                             <template x-if="el.type === 'ctrl_signal'">
-                                <div style="position:absolute;inset:0;overflow:visible">
-                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${ctrlSignalColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlSignalImageSrc(el))}`">
+                                <div style="position:absolute;inset:0;overflow:visible"
+                                     :style="sysIsManual(points[el.point_id]?.system) ? 'cursor:pointer' : 'cursor:default'"
+                                     @click.stop="sysIsManual(points[el.point_id]?.system) && ctrlBtnClick(el)">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??2}px solid ${ctrlSignalColor(el)};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;${biImageBgStyle(ctrlSignalImageSrc(el))}`">
                                         <template x-if="!el.image0 && !el.image1">
                                             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
                                                 <span style="font-size:20px;color:#8b949e">⚡</span>
@@ -712,6 +717,25 @@
                                     <div x-show="el.showLabel"
                                          :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
                                          x-text="el.label || 'Команда'"></div>
+                                </div>
+                            </template>
+
+                            <!-- ctrl_btn: control button, active/inactive by system mode -->
+                            <template x-if="el.type === 'ctrl_btn'">
+                                <div style="position:absolute;inset:0;overflow:visible"
+                                     :style="sysIsManual(points[el.point_id]?.system) ? 'cursor:pointer' : 'cursor:default'"
+                                     @click.stop="sysIsManual(points[el.point_id]?.system) && ctrlBtnClick(el)">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth||2}px solid ${sysIsManual(points[el.point_id]?.system)?(el.colorActive||'#3fb950'):(el.colorInactive||'#484f58')};border-radius:${el.borderRadius||8}px;box-sizing:border-box;overflow:hidden;opacity:${sysIsManual(points[el.point_id]?.system)?1:0.45};${biImageBgStyle(sysIsManual(points[el.point_id]?.system)?(el.imageActive||''):(el.imageInactive||''))}`">
+                                        <template x-if="!el.imageActive && !el.imageInactive">
+                                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                                <span :style="`font-size:${el.fontSize||14}px;color:${sysIsManual(points[el.point_id]?.system)?(el.color||'#e6edf3'):(el.colorInactiveText||el.color||'#8b949e')}`"
+                                                      x-text="el.text||'CMD'"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div x-show="el.showLabel"
+                                         :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                         x-text="el.label"></div>
                                 </div>
                             </template>
 
@@ -737,6 +761,27 @@
             </button>
             <button @click="ctrlOpmodeConfirm()"
                     style="padding:7px 18px;background:#238636;border:1px solid #2ea043;border-radius:6px;color:#fff;cursor:pointer;font-size:13px">
+                Підтвердити
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ CTRL SIGNAL CONFIRM MODAL ═══════════ -->
+<div x-show="ctrlBtnModal.show"
+     @click.self="ctrlBtnModal.show=false"
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65)">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px 28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+        <div style="color:#e6edf3;font-size:15px;line-height:1.55;margin-bottom:22px">
+            Ви підтверджуєте видачу управляючого сигналу?
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button @click="ctrlBtnModal.show=false"
+                    style="padding:7px 18px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:13px">
+                Скасувати
+            </button>
+            <button @click="ctrlBtnConfirm()"
+                    style="padding:7px 18px;background:#b91c1c;border:1px solid #ef4444;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;font-weight:600">
                 Підтвердити
             </button>
         </div>
@@ -842,11 +887,13 @@ function app() {
         viewScale:   1,
         lastUpdate:  '',
         _ws:         null,
-        systemsMap:  {},
-        userPerms:   {},
-        userRole:    _auth.role || '',
-        opmodeModal: { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
-        opmodeDeny:  { show: false },
+        systemsMap:   {},
+        systemsFull:  {},
+        userPerms:    {},
+        userRole:     _auth.role || '',
+        opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
+        ctrlBtnModal: { show: false, el: null },
+        opmodeDeny:   { show: false },
         permsDeny:   { show: false },
 
         async init() {
@@ -1013,10 +1060,18 @@ function app() {
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'snapshot') {
                     const pts = {};
-                    msg.data.forEach(p => { pts[p.id] = p; });
+                    msg.data.forEach(p => {
+                        pts[p.id] = p;
+                        if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
+                            this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
+                    });
                     this.points = pts;
                 } else if (msg.type === 'update') {
-                    msg.data.forEach(p => { this.points[p.id] = p; });
+                    msg.data.forEach(p => {
+                        this.points[p.id] = p;
+                        if (p.type === 'operation_mode' && p.system && this.systemsFull[p.system])
+                            this.systemsFull[p.system] = { ...this.systemsFull[p.system], operation_mode: parseInt(p.value) === 1 ? 'auto' : 'manual' };
+                    });
                 }
                 const now = new Date();
                 this.lastUpdate = now.toLocaleTimeString('uk-UA');
@@ -1418,16 +1473,25 @@ function app() {
             return v === 1 ? (el.image1 || "") : (el.image0 || "");
         },
 
-        // ── ctrl_signal: border color by ctrl_status quality, image by cmd_value ──
+        // ── ctrl_signal: border color ──
+        // WARN/ALARM always show feedback state (both modes)
+        // GOOD: manual→colorManual, auto→colorGood
+        // everything else (INIT/NODATA/startup): dim color
         ctrlSignalColor(el) {
             const pt = this.points[el.point_id];
-            if (!pt) return el.colorInit  || '#484f58';
+            if (!pt) return '#484f58';
             const q = pt.quality || "NODATA";
-            if (q === "INIT")   return el.colorInit  || '#484f58';
-            if (q === "NODATA") return el.colorNodata || '#6e7681';
-            if (q === "WARN")   return el.colorWarn   || '#f0ad4e';
-            if (q === "ALARM")  return el.colorAlarm  || '#f47067';
-            return el.colorGood || '#3fb950'; // GOOD
+            if (q === "WARN")  return el.colorWarn  || '#f0ad4e';
+            if (q === "ALARM") return el.colorAlarm || '#f47067';
+            if (q === "GOOD") {
+                const sysId = pt.system;
+                const manual = sysId ? (this.systemsFull[sysId]?.operation_mode === 'manual') : false;
+                return manual ? (el.colorManual || '#8b949e') : (el.colorGood || '#3fb950');
+            }
+            // INIT / NODATA / startup
+            const sysId = pt.system;
+            const manual = sysId ? (this.systemsFull[sysId]?.operation_mode === 'manual') : false;
+            return manual ? (el.colorManual || '#8b949e') : '#484f58';
         },
         ctrlSignalImageSrc(el) {
             const pt = this.points[el.point_id];
@@ -1435,6 +1499,38 @@ function app() {
             return v === 1 ? (el.image1 || "") : (el.image0 || "");
         },
 
+        ctrlBtnClick(el) {
+            if (!el.point_id) return;
+            if (this.userRole !== 'admin' && !this.userPerms.ctrl_signal) {
+                this.opmodeDeny.show = true;
+                return;
+            }
+            this.ctrlBtnModal = { show: true, el };
+        },
+        async ctrlBtnConfirm() {
+            const { el } = this.ctrlBtnModal;
+            this.ctrlBtnModal.show = false;
+            if (!this.sysIsManual(this.points[String(el.point_id)]?.system)) return;
+            const id = String(el.point_id);
+            const raw = this.points[id]?.value;
+            const cur = (raw !== '' && raw != null) ? (parseInt(raw) || 0) : 0;
+            const next = (cur === 1) ? 0 : 1;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/points/${el.point_id}/value`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ value: next })
+                });
+                if (res.ok) {
+                    // optimistic: WARN immediately, core confirms via WS
+                    if (this.points[id])
+                        this.points[id] = { ...this.points[id], value: String(next), quality: 'WARN' };
+                } else {
+                    console.error('ctrl_signal send failed:', res.status);
+                }
+            } catch(e) { console.error('ctrl_signal send failed:', e); }
+        },
         ctrlOpmodeClick(el) {
             if (!el.point_id) return;
             if (this.userRole !== 'admin' && !this.userPerms.ctrl_opmode) {
@@ -1469,11 +1565,19 @@ function app() {
                 const r = await fetch('/adm/api/systems');
                 if (r.ok) {
                     const data = await r.json();
-                    const m = {};
-                    data.forEach(s => { m[s.id] = s.name; });
-                    this.systemsMap = m;
+                    const names = {}, full = {};
+                    data.forEach(s => {
+                        names[s.id] = s.name;
+                        full[s.id] = s;
+                    });
+                    this.systemsMap  = names;
+                    this.systemsFull = full;
                 }
             } catch(e) {}
+        },
+        sysIsManual(sysId) {
+            if (!sysId) return false;
+            return this.systemsFull[sysId]?.operation_mode === 'manual';
         },
         async _loadMe() {
             const token = localStorage.getItem('token');

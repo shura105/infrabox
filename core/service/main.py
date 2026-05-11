@@ -550,10 +550,51 @@ def main():
                 sys_id = c_meta.get("system")
                 sys_cfg = systems_cache.get(sys_id, {}) if sys_id else {}
                 if sys_cfg.get("operation_mode", "auto") != "auto":
-                    if c_meta["ctrl_status"] != "NODATA":
-                        c_meta["ctrl_status"] = "NODATA"
-                        _ctrl_write()
-                        ctrl_has = True
+                    # check for pending manual command from UI
+                    cmd_raw = r.get(f"manual_cmd:{c_id}")
+                    if cmd_raw is not None:
+                        r.delete(f"manual_cmd:{c_id}")
+                        try:
+                            user_val = int(cmd_raw)
+                        except (ValueError, TypeError):
+                            user_val = None
+                        if user_val is not None:
+                            target    = c_meta.get("target", "")
+                            transport = c_meta.get("transport", "mqtt")
+                            sent = False
+                            if target and transport == "mqtt":
+                                fb_id = c_meta.get("feedback_id")
+                                payload = json.dumps({
+                                    "value": user_val,
+                                    "feedback_id": fb_id,
+                                    "ts": now_ms_ctrl,
+                                })
+                                mqtt_client.publish(target, payload)
+                                log.info(f"[CTRL MANUAL] {c_id} → mqtt:{target} val={user_val}")
+                                sent = True
+                            if sent:
+                                c_meta["cmd_value"]           = user_val
+                                c_meta["ctrl_status"]         = "WARN"
+                                c_meta["feedback_ticks_left"] = c_meta["feedback_timeout_ticks"]
+                                _ctrl_write()
+                                ctrl_has = True
+                                continue  # PENDING will handle feedback on next ticks
+                    # check feedback quality in manual mode too
+                    fb_id_m  = c_meta.get("feedback_id")
+                    fb_meta_m = meta_cache.get(fb_id_m) if fb_id_m else None
+                    if fb_meta_m:
+                        fb_q_m = fb_meta_m.get("state", "NODATA")
+                        if fb_q_m in ("ALARM", "WARN", "NODATA", "UNCERT", "INIT"):
+                            if c_meta["ctrl_status"] != "ALARM":
+                                c_meta["ctrl_status"] = "ALARM"
+                                _ctrl_write()
+                                ctrl_has = True
+                            continue
+                    if c_meta["ctrl_status"] not in ("WARN", "ALARM", "GOOD"):
+                        if c_meta["ctrl_status"] != "NODATA":
+                            c_meta["ctrl_status"] = "NODATA"
+                            _ctrl_write()
+                            ctrl_has = True
                     continue
 
                 # --- GATE 2: feedback quality ---
@@ -561,10 +602,9 @@ def main():
                 fb_meta = meta_cache.get(fb_id) if fb_id else None
                 if fb_meta:
                     fb_q = fb_meta.get("state", "NODATA")
-                    if fb_q in ("ALARM", "WARN", "NODATA", "UNCERT"):
-                        new_st = "ALARM" if fb_q == "ALARM" else "NODATA"
-                        if c_meta["ctrl_status"] != new_st:
-                            c_meta["ctrl_status"] = new_st
+                    if fb_q in ("ALARM", "WARN", "NODATA", "UNCERT", "INIT"):
+                        if c_meta["ctrl_status"] != "ALARM":
+                            c_meta["ctrl_status"] = "ALARM"
                             _ctrl_write()
                             ctrl_has = True
                         continue
