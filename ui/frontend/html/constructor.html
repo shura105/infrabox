@@ -687,6 +687,36 @@
                                              x-text="el.label"></div>
                                     </div>
                                 </template>
+
+                                <!-- timer_elapsed / timer_countdown / timer_bar: preview -->
+                                <template x-if="el.type === 'timer_elapsed' || el.type === 'timer_countdown'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div :style="`position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:4px 8px;background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??4}px;overflow:hidden`">
+                                            <span :style="`font-size:${(el.fontSize||22)*fScale()}px;font-weight:600;color:${el.colorGood||'#3fb950'};font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`"
+                                                  x-text="el.type==='timer_elapsed' ? '0хв 00с' : '1г 00хв'"></span>
+                                            <span x-show="el.showCaption"
+                                                  :style="`font-size:${(el.labelFontSize||11)*fScale()}px;color:#8b949e;margin-top:1px`"
+                                                  x-text="el.caption||(el.type==='timer_elapsed'?'в роботі':'до завершення')"></span>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.labelFontSize||11)*fScale()}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label"></div>
+                                    </div>
+                                </template>
+                                <template x-if="el.type === 'timer_bar'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div :style="`position:absolute;inset:0;background:${el.bgColor||'#21262d'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??4}px;overflow:hidden`">
+                                            <div style="position:absolute;top:0;left:0;bottom:0;width:35%;background:#3fb950;transition:width .9s linear"></div>
+                                            <div x-show="el.showValue"
+                                                 style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+                                                <span :style="`font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};font-weight:600`">21хв 00с</span>
+                                            </div>
+                                        </div>
+                                        <div x-show="el.showLabel"
+                                             :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.labelFontSize||11)*fScale()}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
+                                             x-text="el.label"></div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -1445,6 +1475,18 @@
                                         <template x-if="selEl.showCaption">
                                             <div class="pr"><label>Текст підпису</label><input type="text" x-model="selEl.caption"></div>
                                         </template>
+                                        <div class="pr2" style="margin-top:6px">
+                                            <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                                            <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
+                                        </div>
+                                        <div class="pr2">
+                                            <div><label>Рамка (px)</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
+                                            <div><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
+                                        </div>
+                                        <div class="pr">
+                                            <label>Заокруглення рамки (px)</label>
+                                            <input type="number" x-model.number="selEl.borderRadius" min="0" max="40">
+                                        </div>
                                     </div>
                                 </template>
                                 <template x-if="selEl.type === 'timer_bar'">
@@ -1867,10 +1909,14 @@ function app() {
                            colorActive:"#3fb950", colorInactive:"#484f58" },
             timer_elapsed:   { w:160, h:60, point_id:0, trigger_value:"1", fontSize:22,
                                caption:"в роботі", showCaption:true,
+                               color:"#e6edf3", bgColor:"#161b22",
+                               borderWidth:1, borderColor:"#30363d", borderRadius:4,
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
                                colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
             timer_countdown: { w:160, h:60, point_id:0, trigger_value:"1", duration_s:3600, fontSize:22,
                                caption:"до завершення", showCaption:true,
+                               color:"#e6edf3", bgColor:"#161b22",
+                               borderWidth:1, borderColor:"#30363d", borderRadius:4,
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
                                colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
             timer_bar:       { w:200, h:18, point_id:0, trigger_value:"1", duration_s:3600,

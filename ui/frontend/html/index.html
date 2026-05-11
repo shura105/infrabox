@@ -746,7 +746,8 @@
                             <!-- timer_elapsed: elapsed time since point last changed to trigger_value -->
                             <template x-if="el.type === 'timer_elapsed'">
                                 <div style="position:absolute;inset:0;overflow:visible">
-                                    <div class="r-timer">
+                                    <div class="r-timer"
+                                         :style="`background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'rgba(255,255,255,.08)'};border-radius:${el.borderRadius??4}px`">
                                         <span class="tv"
                                               :style="`font-size:${el.fontSize||22}px;color:${timerColor(el)}`"
                                               x-text="fmtElapsed(timerElapsedS(el))"></span>
@@ -762,7 +763,8 @@
                             <!-- timer_countdown: countdown to run_limit (duration_s) -->
                             <template x-if="el.type === 'timer_countdown'">
                                 <div style="position:absolute;inset:0;overflow:visible">
-                                    <div class="r-timer">
+                                    <div class="r-timer"
+                                         :style="`background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'rgba(255,255,255,.08)'};border-radius:${el.borderRadius??4}px`">
                                         <span class="tv"
                                               :style="`font-size:${el.fontSize||22}px;color:${timerColor(el)}`"
                                               x-text="fmtElapsed(timerCountdownS(el))"></span>
@@ -1651,7 +1653,7 @@ function app() {
             const pt = this.points[el.point_id];
             if (!pt) return 0;
             const tv = el.trigger_value;
-            if (tv != null && String(pt.value) !== String(tv)) return 0;
+            if (tv != null && parseFloat(pt.value) !== parseFloat(tv)) return 0;
             return parseInt(pt.elapsed_s) || 0;
         },
         // Seconds remaining for countdown
@@ -1670,7 +1672,7 @@ function app() {
         timerColor(el) {
             const pt = this.points[el.point_id];
             const tv = el.trigger_value;
-            if (!pt || (tv != null && String(pt.value) !== String(tv)))
+            if (!pt || (tv != null && parseFloat(pt.value) !== parseFloat(tv)))
                 return el.colorOff || '#484f58';
             const ts = pt.timer_state || 'GOOD';
             if (ts === 'ALARM') return el.colorAlarm || '#f47067';
