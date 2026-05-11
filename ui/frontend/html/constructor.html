@@ -692,11 +692,17 @@
                                 <template x-if="el.type === 'timer_elapsed' || el.type === 'timer_countdown'">
                                     <div style="position:absolute;inset:0;overflow:visible">
                                         <div :style="`position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:4px 8px;background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'};border-radius:${el.borderRadius??4}px;overflow:hidden`">
-                                            <span :style="`font-size:${(el.fontSize||22)*fScale()}px;font-weight:600;color:${el.colorGood||'#3fb950'};font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`"
-                                                  x-text="el.type==='timer_elapsed' ? '0хв 00с' : '1г 00хв'"></span>
+                                            <span :style="`font-size:${(el.fontSize||22)*fScale()}px;font-weight:600;color:${el.color||'#e6edf3'};font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`"
+                                                  x-text="el.type==='timer_elapsed' ? '00:00:23' : '00:59:37'"></span>
                                             <span x-show="el.showCaption"
                                                   :style="`font-size:${(el.labelFontSize||11)*fScale()}px;color:#8b949e;margin-top:1px`"
                                                   x-text="el.caption||(el.type==='timer_elapsed'?'в роботі':'до завершення')"></span>
+                                            <!-- countdown progress bar preview -->
+                                            <template x-if="el.type==='timer_countdown'">
+                                                <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);border-radius:0 0 3px 3px;overflow:hidden">
+                                                    <div :style="`height:100%;width:99%;background:${el.color||'#e6edf3'}`"></div>
+                                                </div>
+                                            </template>
                                         </div>
                                         <div x-show="el.showLabel"
                                              :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.labelFontSize||11)*fScale()}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
@@ -1479,6 +1485,11 @@
                                             <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
                                             <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
                                         </div>
+                                        <template x-if="selEl.type === 'timer_countdown'">
+                                            <div class="pr2">
+                                                <div><label>Колір після завершення</label><input type="color" x-model="selEl.colorExpired"></div>
+                                            </div>
+                                        </template>
                                         <div class="pr2">
                                             <div><label>Рамка (px)</label><input type="number" x-model.number="selEl.borderWidth" min="0" max="10"></div>
                                             <div><label>Колір рамки</label><input type="color" x-model="selEl.borderColor"></div>
@@ -1493,7 +1504,7 @@
                                     <div>
                                         <div class="pr-inline"><input type="checkbox" x-model="selEl.showValue" id="tmrValCb"><label for="tmrValCb">Показати значення</label></div>
                                         <div class="pr2">
-                                            <div><label>Колір тексту</label><input type="color" x-model="selEl.color"></div>
+                                            <div><label>Колір заповнення</label><input type="color" x-model="selEl.color"></div>
                                             <div><label>Фон</label><input type="color" x-model="selEl.bgColor"></div>
                                         </div>
                                         <div class="pr2">
@@ -1502,16 +1513,6 @@
                                         </div>
                                     </div>
                                 </template>
-                                <div class="pr-sep"></div>
-                                <div style="font-size:11px;color:#8b949e;margin-bottom:5px">Кольори таймера</div>
-                                <div class="pr2">
-                                    <div><label>GOOD</label><input type="color" x-model="selEl.colorGood"></div>
-                                    <div><label>WARN</label><input type="color" x-model="selEl.colorWarn"></div>
-                                </div>
-                                <div class="pr2">
-                                    <div><label>ALARM</label><input type="color" x-model="selEl.colorAlarm"></div>
-                                    <div><label>Вимкнено</label><input type="color" x-model="selEl.colorOff"></div>
-                                </div>
                                 <div class="pr-sep"></div>
                                 <div class="pr-inline"><input type="checkbox" x-model="selEl.showLabel" id="tmrLblCb"><label for="tmrLblCb">Підпис під елементом</label></div>
                                 <template x-if="selEl.showLabel">
@@ -1911,18 +1912,15 @@ function app() {
                                caption:"в роботі", showCaption:true,
                                color:"#e6edf3", bgColor:"#161b22",
                                borderWidth:1, borderColor:"#30363d", borderRadius:4,
-                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
-                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
+                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             timer_countdown: { w:160, h:60, point_id:0, trigger_value:"1", duration_s:3600, fontSize:22,
                                caption:"до завершення", showCaption:true,
-                               color:"#e6edf3", bgColor:"#161b22",
+                               color:"#e6edf3", colorExpired:"#f47067", bgColor:"#161b22",
                                borderWidth:1, borderColor:"#30363d", borderRadius:4,
-                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e",
-                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58" },
+                               label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
             timer_bar:       { w:200, h:18, point_id:0, trigger_value:"1", duration_s:3600,
                                bgColor:"#21262d", borderColor:"#30363d", borderWidth:1, borderRadius:4,
-                               colorGood:"#3fb950", colorWarn:"#f0ad4e", colorAlarm:"#f47067", colorOff:"#484f58",
-                               showValue:true, fontSize:11, color:"#e6edf3",
+                               showValue:true, fontSize:11, color:"#3fb950",
                                label:"", showLabel:false, labelFontSize:11, labelColor:"#8b949e" },
         },
 

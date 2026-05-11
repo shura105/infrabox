@@ -749,8 +749,8 @@
                                     <div class="r-timer"
                                          :style="`background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'rgba(255,255,255,.08)'};border-radius:${el.borderRadius??4}px`">
                                         <span class="tv"
-                                              :style="`font-size:${el.fontSize||22}px;color:${timerColor(el)}`"
-                                              x-text="fmtElapsed(timerElapsedS(el))"></span>
+                                              :style="`font-size:${el.fontSize||22}px;color:${el.color||'#e6edf3'}`"
+                                              x-text="fmtHMS(timerElapsedS(el))"></span>
                                         <span class="tcd" x-show="el.showCaption"
                                               x-text="el.caption||'в роботі'"></span>
                                     </div>
@@ -760,16 +760,20 @@
                                 </div>
                             </template>
 
-                            <!-- timer_countdown: countdown to run_limit (duration_s) -->
+                            <!-- timer_countdown: countdown + shrinking progress bar -->
                             <template x-if="el.type === 'timer_countdown'">
                                 <div style="position:absolute;inset:0;overflow:visible">
                                     <div class="r-timer"
                                          :style="`background:${el.bgColor||'rgba(0,0,0,.25)'};border:${el.borderWidth??1}px solid ${el.borderColor||'rgba(255,255,255,.08)'};border-radius:${el.borderRadius??4}px`">
                                         <span class="tv"
-                                              :style="`font-size:${el.fontSize||22}px;color:${timerColor(el)}`"
-                                              x-text="fmtElapsed(timerCountdownS(el))"></span>
+                                              :style="`font-size:${el.fontSize||22}px;color:${timerCountdownColor(el)}`"
+                                              x-text="fmtHMS(timerCountdownS(el))"></span>
                                         <span class="tcd" x-show="el.showCaption"
                                               x-text="el.caption||'до завершення'"></span>
+                                        <!-- shrinking bar at bottom -->
+                                        <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);border-radius:0 0 3px 3px;overflow:hidden">
+                                            <div :style="`height:100%;width:${timerCountdownBarPct(el)}%;background:${timerCountdownColor(el)};transition:width 1s linear`"></div>
+                                        </div>
                                     </div>
                                     <div x-show="el.showLabel"
                                          :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
@@ -782,11 +786,11 @@
                                 <div style="position:absolute;inset:0;overflow:visible">
                                     <div class="r-tbar"
                                          :style="`background:${el.bgColor||'#21262d'};border:${el.borderWidth??1}px solid ${el.borderColor||'#30363d'}`">
-                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${timerColor(el)};transition:width .9s linear`"></div>
+                                        <div :style="`position:absolute;top:0;left:0;bottom:0;width:${timerBarPct(el)}%;background:${el.color||'#3fb950'};transition:width .9s linear`"></div>
                                         <div x-show="el.showValue"
                                              style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
                                             <span :style="`font-size:${el.fontSize||11}px;color:${el.color||'#e6edf3'};font-weight:600;font-variant-numeric:tabular-nums`"
-                                                  x-text="fmtElapsed(timerElapsedS(el))"></span>
+                                                  x-text="fmtHMS(timerElapsedS(el))"></span>
                                         </div>
                                     </div>
                                     <div x-show="el.showLabel"
@@ -945,6 +949,7 @@ function app() {
         _ws:         null,
         systemsMap:   {},
         systemsFull:  {},
+        _cntdExpired: {},
         userPerms:    {},
         userRole:     _auth.role || '',
         opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
@@ -1637,16 +1642,13 @@ function app() {
         },
 
         // ── Timer helpers ──────────────────────────────────────────────────────
-        // Format seconds → "1г 17хв 43с" (human) or "1:17:43" (clock)
-        fmtElapsed(s) {
-            if (s == null || s < 0) return '—';
-            s = Math.floor(s);
+        // Format seconds → HH:MM:SS
+        fmtHMS(s) {
+            s = Math.max(0, Math.floor(s) || 0);
             const h = Math.floor(s / 3600);
             const m = Math.floor((s % 3600) / 60);
             const sec = s % 60;
-            if (h > 0)  return `${h}г ${String(m).padStart(2,'0')}хв`;
-            if (m > 0)  return `${m}хв ${String(sec).padStart(2,'0')}с`;
-            return `${sec}с`;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
         },
         // Seconds elapsed for this element (respects trigger_value filter)
         timerElapsedS(el) {
@@ -1656,28 +1658,43 @@ function app() {
             if (tv != null && parseFloat(pt.value) !== parseFloat(tv)) return 0;
             return parseInt(pt.elapsed_s) || 0;
         },
-        // Seconds remaining for countdown
+        // Seconds remaining for countdown.
+        // Returns 0 (not duration) when point is not at trigger_value, so display
+        // stays at 00:00:00 instead of jumping to full duration when inactive.
         timerCountdownS(el) {
+            const pt = this.points[el.point_id];
+            if (!pt) return 0;
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 0;
-            return Math.max(0, dur - this.timerElapsedS(el));
+            const tv = el.trigger_value;
+            const isActive = tv == null || parseFloat(pt.value) === parseFloat(tv);
+            if (!isActive) return 0;
+            const elapsed = parseInt(pt.elapsed_s) || 0;
+            const remaining = Math.max(0, dur - elapsed);
+            // Track expired state: true when countdown reaches 0 while active.
+            // Stays true while inactive (keeps expired color after point goes off).
+            // Resets when new active cycle starts with remaining > 0.
+            const expired = (remaining === 0);
+            if (this._cntdExpired[el.id] !== expired) this._cntdExpired[el.id] = expired;
+            return remaining;
         },
-        // Bar fill percentage
+        // Text color for countdown: colorExpired when done, el.color when running
+        timerCountdownColor(el) {
+            return this._cntdExpired[el.id]
+                ? (el.colorExpired || '#f47067')
+                : (el.color || '#e6edf3');
+        },
+        // Bar fill % for elapsed bar (timer_bar)
         timerBarPct(el) {
             const dur = parseInt(el.duration_s) || 0;
             if (!dur) return 0;
             return Math.min(100, (this.timerElapsedS(el) / dur) * 100);
         },
-        // Color based on timer_state from point
-        timerColor(el) {
-            const pt = this.points[el.point_id];
-            const tv = el.trigger_value;
-            if (!pt || (tv != null && parseFloat(pt.value) !== parseFloat(tv)))
-                return el.colorOff || '#484f58';
-            const ts = pt.timer_state || 'GOOD';
-            if (ts === 'ALARM') return el.colorAlarm || '#f47067';
-            if (ts === 'WARN')  return el.colorWarn  || '#f0ad4e';
-            return el.colorGood || '#3fb950';
+        // Bar fill % for countdown bar (shrinks from 100 → 0)
+        timerCountdownBarPct(el) {
+            const dur = parseInt(el.duration_s) || 0;
+            if (!dur) return 100;
+            return Math.min(100, Math.max(0, (this.timerCountdownS(el) / dur) * 100));
         },
         async _loadMe() {
             const token = localStorage.getItem('token');
