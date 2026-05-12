@@ -1314,7 +1314,7 @@
                         </select>
                     </div>
                     <div class="field" style="margin-bottom:6px">
-                        <label>Точка фідбеку</label>
+                        <label>Актуатор</label>
                         <select id="ctrl_tb_point" onchange="_tbOnPointChange()" disabled>
                             <option value="">— обрати —</option>
                         </select>
@@ -1328,13 +1328,17 @@
             <!-- MQTT help -->
             <div id="ctrl_help_mqtt" style="display:none;margin-top:6px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.8;color:#c9d1d9">
                 <div style="margin-bottom:5px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Формат топіка</div>
-                <div><code style="color:#a5d6ff">cmd/{object}/{system}/{pointname}/{feedback_id}</code></div>
-                <div style="margin-top:4px">Payload (JSON): <code style="color:#a5d6ff">{"value": 0|1, "feedback_id": 600, "ts": ...}</code></div>
+                <div><code style="color:#a5d6ff">cmd/{object}/{system}/{ctrl_name}/{actuator_id}</code></div>
+                <div style="margin-top:4px;color:#8b949e;font-size:10px;line-height:1.7">
+                    <b style="color:#c9d1d9">{actuator_id}</b> — ID дискретної точки актуатора (реле, клапан…)<br>
+                    <b style="color:#c9d1d9">feedback_id</b> — окремий незалежний сенсор (розрахунковий дискрет зі струму/обертів тощо), задається нижче
+                </div>
+                <div style="margin-top:5px">Payload: <code style="color:#a5d6ff">{"value": 0|1, "feedback_id": &lt;sensor_id&gt;, "ts": ...}</code></div>
                 <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
-                <div><code style="color:#a5d6ff">cmd/home/electric/relay1/600</code></div>
+                <div><code style="color:#a5d6ff">cmd/home/reserv_power/door1/600</code></div>
                 <div><code style="color:#a5d6ff">cmd/home/pump_room/pump1/201</code></div>
                 <div style="margin-top:6px;padding:4px 8px;background:#0d1117;border-radius:4px;color:#8b949e;font-size:10px">
-                    Симулятор підписується на <b>cmd/#</b> і утримує точку фідбеку на отриманому значенні протягом кількох тактів.
+                    Симулятор підписується на <b>cmd/#</b> і імітує відповідь актуатора: записує в точку <b>feedback_id</b> отримане значення на кілька тактів.
                 </div>
             </div>
 
@@ -1362,8 +1366,8 @@
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Зворотній зв'язок</div>
             <div class="form-grid">
                 <div class="field">
-                    <label>ID точки фідбеку (feedback_id)</label>
-                    <input type="number" id="pt_ctrl_feedback_id" min="0" placeholder="600">
+                    <label>Незалежний сенсор / feedback_id</label>
+                    <input type="number" id="pt_ctrl_feedback_id" min="0" placeholder="ID розрахункового дискрету або сенсора">
                 </div>
                 <div class="field">
                     <label>Тактів очікування (feedback_timeout_ticks)</label>
@@ -3019,7 +3023,7 @@ function _tbOnSysChange() {
         return;
     }
     const pts = _allPoints.filter(p =>
-        p.object === obj &&
+        p.object === obj && p.system === sys &&
         !["control","calculated","diagnostic"].includes(p.type)
     );
     ptSel.innerHTML = '<option value="">— обрати —</option>' +
@@ -3039,8 +3043,7 @@ function _tbOnPointChange() {
     const topic = `cmd/${obj}/${sys}/${ctrlName}/${pt.id}`;
     document.getElementById("ctrl_tb_preview_text").textContent = topic;
     prev.style.display = "";
-    document.getElementById("pt_ctrl_target").value      = topic;
-    document.getElementById("pt_ctrl_feedback_id").value = pt.id;
+    document.getElementById("pt_ctrl_target").value = topic;
 }
 
 // reverse-parse existing target topic back into builder selects
@@ -3061,9 +3064,7 @@ function _tbFromTarget(topic) {
     _tbOnSysChange();
     const ptSel = document.getElementById("ctrl_tb_point");
     ptSel.value = pid;
-    const _prevFbId = document.getElementById("pt_ctrl_feedback_id").value;
     _tbOnPointChange();
-    document.getElementById("pt_ctrl_feedback_id").value = _prevFbId;
 }
 
 function onCtrlTransportChange() {
