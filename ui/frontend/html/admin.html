@@ -3026,7 +3026,8 @@ function _tbOnPointChange() {
     if (!pid) { prev.style.display = "none"; return; }
     const pt = _allPoints.find(p => String(p.id) === String(pid));
     if (!pt) return;
-    const topic = `cmd/${obj}/${sys}/${pt.pointname}/${pt.id}`;
+    const ctrlName = (document.getElementById("pt_pointname_tech").value || "").trim() || pt.pointname;
+    const topic = `cmd/${obj}/${sys}/${ctrlName}/${pt.id}`;
     document.getElementById("ctrl_tb_preview_text").textContent = topic;
     prev.style.display = "";
     document.getElementById("pt_ctrl_target").value      = topic;
