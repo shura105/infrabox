@@ -66,6 +66,53 @@ def _validate_path(path: str) -> None:
             raise HTTPException(status_code=400, detail=f"Invalid path segment: '{seg}'")
 
 
+# ── runtime schedule editor ──────────────────────────────────────────────────
+
+@router.patch("/api/scheduler/{el_id}")
+async def patch_scheduler(el_id: str, data: dict, _: dict = Depends(require_admin)):
+    """Update a multi_timer schedule at runtime.
+    Writes to Redis (scheduler picks up within 60 s) and persists to screen.json.
+    Body: { "schedule": [...], "screen": "<screen_path>" }
+    """
+    new_schedule = data.get("schedule", [])
+    screen_path  = data.get("screen", "")
+
+    r = redis_client.redis
+    if r is None:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+
+    # update Redis entry if it exists
+    key = f"scheduler:{el_id}"
+    existing = await r.hgetall(key)
+    if existing:
+        await r.hset(key, "schedule", json.dumps(new_schedule, ensure_ascii=False))
+    else:
+        # element not registered (no point_id bound) — create minimal entry
+        await r.hset(key, mapping={
+            "schedule":  json.dumps(new_schedule, ensure_ascii=False),
+            "point_id":  "0",
+            "screen":    screen_path,
+        })
+
+    # persist to screen.json so change survives Redis restart
+    if screen_path:
+        _validate_path(screen_path)
+        screen_file = os.path.join(DATA_DIR, screen_path, "screen.json")
+        if os.path.exists(screen_file):
+            with open(screen_file, encoding="utf-8") as f:
+                screen_data = json.load(f)
+            for el in screen_data.get("elements", []):
+                if el.get("id") == el_id:
+                    el["schedule"] = new_schedule
+                    break
+            tmp = screen_file + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(screen_data, f, indent=2, ensure_ascii=False)
+            os.replace(tmp, screen_file)
+
+    return {"ok": True}
+
+
 # ── public read-only (no auth) ────────────────────────────────────────────────
 
 @router.get("/api/pub/project")

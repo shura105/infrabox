@@ -820,18 +820,22 @@
                             <!-- multi_timer: schedule-based ON/OFF display with SVG images -->
                             <template x-if="el.type === 'multi_timer'">
                                 <div style="position:absolute;inset:0;overflow:visible">
-                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??2}px solid ${multiTimerIsOn(el) ? (el.colorOn||'#3fb950') : (el.colorOff||'#484f58')};border-radius:${el.borderRadius??8}px;overflow:hidden;box-sizing:border-box`">
+                                    <div :style="`position:absolute;inset:0;border:${el.borderWidth??2}px solid ${multiTimerIsOn(el) ? (el.colorOn||'#3fb950') : (el.colorOff||'#484f58')};border-radius:${el.borderRadius??8}px;overflow:hidden;box-sizing:border-box;cursor:${sysIsManual(points[el.point_id]?.system)?'pointer':'default'};opacity:${sysIsManual(points[el.point_id]?.system)?1:0.75}`"
+                                         @click.stop="sysIsManual(points[el.point_id]?.system) && openSchedModal(el)">
                                         <img x-show="multiTimerIsOn(el) && el.imageOn"
                                              :src="el.imageOn"
-                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none">
                                         <img x-show="!multiTimerIsOn(el) && el.imageOff"
                                              :src="el.imageOff"
-                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+                                             style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none">
                                         <div x-show="!(multiTimerIsOn(el) ? el.imageOn : el.imageOff)"
-                                             style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                                             style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
                                             <span :style="`font-size:${el.fontSize||14}px;font-weight:600;color:${multiTimerIsOn(el) ? (el.colorOn||'#3fb950') : (el.colorOff||'#484f58')}`"
                                                   x-text="multiTimerIsOn(el) ? 'ВКЛ' : 'ВИКЛ'"></span>
                                         </div>
+                                        <!-- manual-mode indicator -->
+                                        <div x-show="sysIsManual(points[el.point_id]?.system)"
+                                             style="position:absolute;top:3px;right:4px;font-size:9px;color:rgba(255,255,255,.45);pointer-events:none">✎</div>
                                     </div>
                                     <div x-show="el.showLabel"
                                          :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${el.labelFontSize||11}px;color:${el.labelColor||'#8b949e'};white-space:nowrap;line-height:1.1;pointer-events:none`"
@@ -883,6 +887,62 @@
             <button @click="ctrlBtnConfirm()"
                     style="padding:7px 18px;background:#b91c1c;border:1px solid #ef4444;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;font-weight:600">
                 Підтвердити
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ SCHEDULE MODAL ═══════════ -->
+<div x-show="schedModal.show"
+     @click.self="schedModal.show=false"
+     @keydown.escape.window="schedModal.show=false"
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center">
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:22px 24px;width:340px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.55)">
+        <div style="font-size:14px;font-weight:600;color:#e6edf3;margin-bottom:16px">Розклад мультитаймера</div>
+
+        <!-- schedule rows -->
+        <div style="overflow-y:auto;flex:1;min-height:0;margin-bottom:12px">
+            <template x-if="schedModal.schedule.length === 0">
+                <div style="text-align:center;color:#484f58;font-size:12px;padding:16px 0">— розклад порожній —</div>
+            </template>
+            <template x-for="(slot, idx) in schedModal.schedule" :key="idx">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px">
+                    <div style="flex:1">
+                        <div style="font-size:10px;color:#3fb950;margin-bottom:3px">ВКЛ</div>
+                        <input type="time" step="1"
+                               :value="schedModal.schedule[idx].on"
+                               @change="schedModal.schedule[idx].on = $event.target.value"
+                               style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;padding:4px 6px;color:#e6edf3;font-size:13px;font-family:monospace">
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:10px;color:#f47067;margin-bottom:3px">ВИКЛ</div>
+                        <input type="time" step="1"
+                               :value="schedModal.schedule[idx].off"
+                               @change="schedModal.schedule[idx].off = $event.target.value"
+                               style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;padding:4px 6px;color:#e6edf3;font-size:13px;font-family:monospace">
+                    </div>
+                    <button @click="schedModal.schedule.splice(idx,1)"
+                            style="padding:4px 8px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#f47067;cursor:pointer;font-size:13px;flex-shrink:0;margin-top:14px">✕</button>
+                </div>
+            </template>
+        </div>
+
+        <!-- add row -->
+        <button @click="schedModal.schedule.push({on:'08:00:00', off:'18:00:00'})"
+                style="width:100%;padding:6px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:12px;margin-bottom:14px">
+            + Додати інтервал
+        </button>
+
+        <!-- actions -->
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button @click="schedModal.show=false"
+                    style="padding:7px 18px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:13px">
+                Скасувати
+            </button>
+            <button @click="saveSchedModal()"
+                    :disabled="schedModal.saving"
+                    style="padding:7px 18px;background:#1f6feb;border:1px solid #388bfd;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;font-weight:600">
+                <span x-text="schedModal.saving ? 'Збереження…' : 'Зберегти'"></span>
             </button>
         </div>
     </div>
@@ -999,6 +1059,7 @@ function app() {
         userRole:     _auth.role || '',
         opmodeModal:  { show: false, el: null, targetValue: 0, sysName: '', modeName: '' },
         ctrlBtnModal: { show: false, el: null },
+        schedModal:   { show: false, elId: '', schedule: [], saving: false },
         opmodeDeny:   { show: false },
         permsDeny:   { show: false },
 
@@ -1603,6 +1664,36 @@ function app() {
             const pt = this.points[el.point_id];
             const v = pt ? parseInt(pt.value) : 0;
             return v === 1 ? (el.image1 || "") : (el.image0 || "");
+        },
+
+        openSchedModal(el) {
+            this.schedModal = {
+                show:     true,
+                elId:     el.id,
+                schedule: JSON.parse(JSON.stringify(el.schedule || [])),
+                saving:   false,
+            };
+        },
+        async saveSchedModal() {
+            this.schedModal.saving = true;
+            const token = localStorage.getItem('token');
+            try {
+                await fetch(`/api/scheduler/${this.schedModal.elId}`, {
+                    method:  'PATCH',
+                    headers: { 'Content-Type': 'application/json',
+                               'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        schedule: this.schedModal.schedule,
+                        screen:   this.screenId,
+                    }),
+                });
+                // update local element so modal shows fresh data on next open
+                const el = this.els.find(e => e.id === this.schedModal.elId);
+                if (el) el.schedule = JSON.parse(JSON.stringify(this.schedModal.schedule));
+            } finally {
+                this.schedModal.saving = false;
+                this.schedModal.show   = false;
+            }
         },
 
         ctrlBtnClick(el) {
