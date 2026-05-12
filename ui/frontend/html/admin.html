@@ -3010,7 +3010,7 @@ function _tbOnSysChange() {
         return;
     }
     const pts = _allPoints.filter(p =>
-        p.object === obj && p.system === sys &&
+        p.object === obj &&
         !["control","calculated","diagnostic"].includes(p.type)
     );
     ptSel.innerHTML = '<option value="">— обрати —</option>' +
@@ -3051,7 +3051,9 @@ function _tbFromTarget(topic) {
     _tbOnSysChange();
     const ptSel = document.getElementById("ctrl_tb_point");
     ptSel.value = pid;
+    const _prevFbId = document.getElementById("pt_ctrl_feedback_id").value;
     _tbOnPointChange();
+    document.getElementById("pt_ctrl_feedback_id").value = _prevFbId;
 }
 
 function onCtrlTransportChange() {
