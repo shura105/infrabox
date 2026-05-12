@@ -758,9 +758,9 @@
   {
     "id": 800,
     "type": "operation_mode",
-    "object": "garage",
-    "drop": "garageServ1",
-    "system": "electric",
+    "object": "home",
+    "drop": "homeServ-1",
+    "system": "reserv_power",
     "pointname": "Режим Електропостачання",
     "onArchive": 1
   },
@@ -769,13 +769,13 @@
     "type": "control",
     "object": "home",
     "drop": "homeServ-1",
-    "system": "electric",
+    "system": "reserv_power",
     "pointname": "relay1_ctrl",
     "formula_on": "$101 > 215",
     "formula_off": "$101 <= 215",
     "transport": "mqtt",
-    "target": "cmd/home/reserv_power/door1/600",
-    "feedback_id": 600,
+    "target": "cmd/home/reserv_power/relay1_ctrl/602",
+    "feedback_id": 603,
     "feedback_timeout_ticks": 3
   },
   {
