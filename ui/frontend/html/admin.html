@@ -1235,9 +1235,18 @@
                       style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none;text-transform:none;letter-spacing:0">? довідка</span>
             </div>
             <div id="ctrl_help" style="display:none;margin-bottom:8px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.7;color:#c9d1d9">
-                <div style="margin-bottom:4px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Синтаксис</div>
+                <div style="margin-bottom:4px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Змінні та функції</div>
                 <div><span style="color:#79c0ff">$id</span> — поточне значення параметра · результат: <b>true / false</b></div>
-                <div style="margin-top:4px"><code style="color:#a5d6ff">$101 &gt; 215</code> · <code style="color:#a5d6ff">$201 == 1</code> · <code style="color:#a5d6ff">$101 &gt; 200 and $201 == 1</code></div>
+                <div style="margin-top:3px"><span style="color:#79c0ff">now</span> — поточний час (Unix timestamp, секунди)</div>
+                <div style="margin-top:3px"><span style="color:#79c0ff">age(id)</span> — секунд з останньої зміни значення параметра <span style="color:#79c0ff">id</span></div>
+                <div style="margin-top:3px">Математика: <code style="color:#8b949e">abs, min, max, round, floor, ceil, sqrt, pow, …</code></div>
+                <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+                <div style="padding:5px 8px;background:#0d1117;border-radius:4px;font-size:10px;line-height:1.9">
+                    <code style="color:#a5d6ff">$101 &gt; 215</code> — аналогова умова<br>
+                    <code style="color:#a5d6ff">$201 == 1 and $101 &gt; 200</code> — комбінована<br>
+                    <code style="color:#a5d6ff">age(201) &gt; 300</code> — точка 201 не змінювалась &gt; 5 хв<br>
+                    <code style="color:#a5d6ff">now % 86400 &gt;= 8*3600 and now % 86400 &lt; 20*3600</code> — між 08:00 і 20:00 UTC
+                </div>
                 <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Логіка</div>
                 <div>ON і OFF оцінюються незалежно кожного такту:</div>
                 <div style="margin-top:2px;padding:5px 8px;background:#0d1117;border-radius:4px;font-size:10px;line-height:1.8">
@@ -3111,6 +3120,8 @@ function validateCtrlCond(which) {
         log10:_M.log10, log2:_M.log2, exp:_M.exp, pow:_M.pow, abs:_M.abs,
         round:_M.round, floor:_M.floor, ceil:_M.ceil, min:_M.min, max:_M.max,
         pi:_M.PI, e:_M.E, True:true, False:false,
+        now: Math.floor(Date.now() / 1000),
+        age: () => 0,
     };
     try {
         const fn  = new Function(...Object.keys(ns), `"use strict"; return !!(${expr});`);
