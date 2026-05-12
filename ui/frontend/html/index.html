@@ -896,8 +896,8 @@
 <div x-show="schedModal.show"
      @click.self="schedModal.show=false"
      @keydown.escape.window="schedModal.show=false"
-     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center">
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:22px 24px;width:340px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.55)">
+     style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65)">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#161b22;border:1px solid #30363d;border-radius:12px;padding:22px 24px;width:340px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.55)">
         <div style="font-size:14px;font-weight:600;color:#e6edf3;margin-bottom:16px">Розклад мультитаймера</div>
 
         <!-- schedule rows -->
