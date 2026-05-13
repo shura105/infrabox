@@ -659,6 +659,11 @@
                                 <div class="r-shape" x-html="svgLine(el)"></div>
                             </template>
 
+                            <!-- active_line -->
+                            <template x-if="el.type==='active_line'">
+                                <div class="r-shape" x-html="svgActiveLine(el)"></div>
+                            </template>
+
                             <!-- arrow -->
                             <template x-if="el.type==='arrow'">
                                 <div class="r-shape" x-html="svgArrow(el)"></div>
@@ -1433,6 +1438,61 @@ function app() {
                 <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                       stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
                       stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/></svg>`;
+        },
+        svgActiveLine(el) {
+            const sw  = el.strokeWidth || 4;
+            const W   = Math.round(el.w * this.sc.width);
+            const H   = Math.round(el.h * this.sc.height);
+            const x1  = (el.x1??0)   / 100 * W, y1 = (el.y1??50) / 100 * H;
+            const x2  = (el.x2??100) / 100 * W, y2 = (el.y2??50) / 100 * H;
+            const pt  = this.points[el.point_id];
+            const isOn = pt ? parseFloat(pt.value) !== 0 : false;
+            const color  = isOn ? (el.color1  || '#56d364') : (el.color0  || '#484f58');
+            const effect = isOn ? (el.effect1 || 'static')  : (el.effect0 || 'static');
+            const dLen   = isOn ? (el.dashLen1 || 12) : (el.dashLen0 || 8);
+            const dGap   = isOn ? (el.dashGap1 || 6)  : (el.dashGap0 || 4);
+            const speed  = Math.max(0.1, isOn ? (el.speed1 || 1) : (el.speed0 || 1));
+            const opac   = isOn ? 1 : (el.opacity0 ?? 0.4);
+            const uid    = `al${el.id}`;
+            if (effect === 'none') return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible"></svg>`;
+            let dashAttr = '', animStyle = '', keyframes = '', defs = '';
+            switch (effect) {
+                case 'dashed':
+                    dashAttr = `stroke-dasharray="${dLen},${dGap}"`;
+                    break;
+                case 'flow_right':
+                    dashAttr = `stroke-dasharray="${dLen},${dGap}"`;
+                    keyframes = `@keyframes ${uid}_f{to{stroke-dashoffset:${-(dLen+dGap)}}}`;
+                    animStyle = `animation:${uid}_f ${((dLen+dGap)/(speed*20)).toFixed(2)}s linear infinite`;
+                    break;
+                case 'flow_left':
+                    dashAttr = `stroke-dasharray="${dLen},${dGap}"`;
+                    keyframes = `@keyframes ${uid}_f{to{stroke-dashoffset:${dLen+dGap}}}`;
+                    animStyle = `animation:${uid}_f ${((dLen+dGap)/(speed*20)).toFixed(2)}s linear infinite`;
+                    break;
+                case 'blink':
+                    keyframes = `@keyframes ${uid}_b{0%,49%{opacity:${opac}}50%,100%{opacity:0}}`;
+                    animStyle = `animation:${uid}_b ${(1/speed).toFixed(2)}s step-end infinite`;
+                    break;
+                case 'pulse':
+                    keyframes = `@keyframes ${uid}_p{0%,100%{opacity:${opac}}50%{opacity:${(opac*0.08).toFixed(2)}}}`;
+                    animStyle = `animation:${uid}_p ${(2/speed).toFixed(2)}s ease-in-out infinite`;
+                    break;
+                case 'glow': {
+                    const gid = `${uid}_gf`;
+                    defs = `<defs><filter id="${gid}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(sw*1.8).toFixed(1)}" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+                    keyframes = `@keyframes ${uid}_g{0%,100%{opacity:${opac}}50%{opacity:${(opac*0.3).toFixed(2)}}}`;
+                    animStyle = `filter:url(#${gid});animation:${uid}_g ${(2/speed).toFixed(2)}s ease-in-out infinite`;
+                    break;
+                }
+            }
+            const needsOpacStyle = ['static','dashed','flow_right','flow_left'].includes(effect);
+            const lineStyle = [needsOpacStyle ? `opacity:${opac}` : '', animStyle].filter(Boolean).join(';');
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                ${keyframes ? `<style>${keyframes}</style>` : ''}${defs}
+                <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+                      stroke="${color}" stroke-width="${sw}" stroke-linecap="round"
+                      ${dashAttr} style="${lineStyle}"/></svg>`;
         },
         svgArrow(el) {
             const sw = el.strokeWidth || 2;

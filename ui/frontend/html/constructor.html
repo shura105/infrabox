@@ -500,7 +500,7 @@
                          @click.self="selectEl(null); ctxClose()">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='timer_elapsed'||el.type==='timer_countdown'||el.type==='timer_bar'||el.type==='countdown_bar'||el.type==='multi_timer'||el.type==='line'||el.type==='arrow'||el.type==='value'?'overflow:visible;':''}`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='timer_elapsed'||el.type==='timer_countdown'||el.type==='timer_bar'||el.type==='countdown_bar'||el.type==='multi_timer'||el.type==='line'||el.type==='arrow'||el.type==='active_line'||el.type==='value'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent
                                  @contextmenu.prevent.stop="ctxOpen($event,el.id)">
                                 <template x-if="el.type==='group_box'">
@@ -561,6 +561,17 @@
                                              @mousedown.stop="endpointDown($event,el,'start')"></div>
                                         <div x-show="sel===el.id"
                                              :style="`position:absolute;left:${el.x2??100}%;top:${el.y2??100}%;width:10px;height:10px;background:#e3b341;border:2px solid #0d1117;border-radius:50%;transform:translate(-50%,-50%);cursor:crosshair;z-index:25`"
+                                             @mousedown.stop="endpointDown($event,el,'end')"></div>
+                                    </div>
+                                </template>
+                                <template x-if="el.type==='active_line'">
+                                    <div style="position:absolute;inset:0;overflow:visible">
+                                        <div class="r-shape" x-html="cActiveLineSVGHtml(el)"></div>
+                                        <div x-show="sel===el.id"
+                                             :style="`position:absolute;left:${el.x1??0}%;top:${el.y1??50}%;width:10px;height:10px;background:#56d364;border:2px solid #0d1117;border-radius:50%;transform:translate(-50%,-50%);cursor:crosshair;z-index:25`"
+                                             @mousedown.stop="endpointDown($event,el,'start')"></div>
+                                        <div x-show="sel===el.id"
+                                             :style="`position:absolute;left:${el.x2??100}%;top:${el.y2??50}%;width:10px;height:10px;background:#e3b341;border:2px solid #0d1117;border-radius:50%;transform:translate(-50%,-50%);cursor:crosshair;z-index:25`"
                                              @mousedown.stop="endpointDown($event,el,'end')"></div>
                                     </div>
                                 </template>
@@ -985,6 +996,88 @@
                                     <input type="range" x-model.number="selEl.opacity" min="0" max="1" step="0.05" style="flex:2">
                                     <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity??1)*100)+'%'"></span>
                                 </div>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='active_line'">
+                            <div>
+                                <div class="pr">
+                                    <label>Параметр (point_id)</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void allTimerPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in allTimerPoints" :key="p.id">
+                                            <option :value="p.id" x-text="`#${p.id} · ${p.pointname}`"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="40"></div>
+                                <!-- State 1 -->
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#56d364;margin-bottom:6px;font-weight:600">▶ Значення 1 (активний)</div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color1"></div>
+                                <div class="pr">
+                                    <label>Ефект</label>
+                                    <select x-model="selEl.effect1">
+                                        <option value="static">Статичний</option>
+                                        <option value="dashed">Пунктир</option>
+                                        <option value="flow_right">Потік →</option>
+                                        <option value="flow_left">Потік ←</option>
+                                        <option value="blink">Миготіння</option>
+                                        <option value="pulse">Пульсація</option>
+                                        <option value="glow">Свічення</option>
+                                        <option value="none">Прихований</option>
+                                    </select>
+                                </div>
+                                <template x-if="['dashed','flow_right','flow_left'].includes(selEl.effect1)">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label><input type="number" x-model.number="selEl.dashLen1" min="2" max="80"></div>
+                                        <div><label>Пропуск</label><input type="number" x-model.number="selEl.dashGap1" min="1" max="80"></div>
+                                    </div>
+                                </template>
+                                <template x-if="['flow_right','flow_left','blink','pulse','glow'].includes(selEl.effect1)">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Швидкість</label>
+                                        <input type="range" x-model.number="selEl.speed1" min="0.2" max="5" step="0.1" style="flex:2">
+                                        <span style="width:28px;text-align:right" x-text="selEl.speed1??1"></span>
+                                    </div>
+                                </template>
+                                <!-- State 0 -->
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#484f58;margin-bottom:6px;font-weight:600">■ Значення 0 (неактивний)</div>
+                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color0"></div>
+                                <div class="pr">
+                                    <label>Ефект</label>
+                                    <select x-model="selEl.effect0">
+                                        <option value="static">Статичний</option>
+                                        <option value="dashed">Пунктир</option>
+                                        <option value="flow_right">Потік →</option>
+                                        <option value="flow_left">Потік ←</option>
+                                        <option value="blink">Миготіння</option>
+                                        <option value="pulse">Пульсація</option>
+                                        <option value="glow">Свічення</option>
+                                        <option value="none">Прихований</option>
+                                    </select>
+                                </div>
+                                <template x-if="['dashed','flow_right','flow_left'].includes(selEl.effect0)">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label><input type="number" x-model.number="selEl.dashLen0" min="2" max="80"></div>
+                                        <div><label>Пропуск</label><input type="number" x-model.number="selEl.dashGap0" min="1" max="80"></div>
+                                    </div>
+                                </template>
+                                <template x-if="['flow_right','flow_left','blink','pulse','glow'].includes(selEl.effect0)">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Швидкість</label>
+                                        <input type="range" x-model.number="selEl.speed0" min="0.2" max="5" step="0.1" style="flex:2">
+                                        <span style="width:28px;text-align:right" x-text="selEl.speed0??1"></span>
+                                    </div>
+                                </template>
+                                <template x-if="selEl.effect0 !== 'none'">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Прозорість</label>
+                                        <input type="range" x-model.number="selEl.opacity0" min="0" max="1" step="0.05" style="flex:2">
+                                        <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity0??0.4)*100)+'%'"></span>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                         <template x-if="selEl.type==='arrow'">
@@ -2031,11 +2124,12 @@ function app() {
             {
                 group: "Активні елементи",
                 items: [
-                    { type:"value",     icon:"⌗", label:"Значення" },
-                    { type:"indicator", icon:"●", label:"Індикатор" },
-                    { type:"level_v",   icon:"⥮", label:"Рівень ↕" },
-                    { type:"level_h",   icon:"⥬", label:"Рівень ↔" },
-                    { type:"gauge",     icon:"⟳", label:"Прилад" },
+                    { type:"value",       icon:"⌗", label:"Значення" },
+                    { type:"indicator",   icon:"●", label:"Індикатор" },
+                    { type:"level_v",     icon:"⥮", label:"Рівень ↕" },
+                    { type:"level_h",     icon:"⥬", label:"Рівень ↔" },
+                    { type:"gauge",       icon:"⟳", label:"Прилад" },
+                    { type:"active_line", icon:"⟿", label:"Активна лінія" },
                 ]
             },
             {
@@ -2089,6 +2183,10 @@ function app() {
             rect:        { w:200, h:100, fill:"#1e2130", borderColor:"#444", borderWidth:1, radius:4, opacity:1 },
             ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
+            active_line: { w:200, h:60,  x1:0, y1:50, x2:100, y2:50, strokeWidth:4,
+                           point_id:0,
+                           color1:"#56d364", effect1:"flow_right", dashLen1:12, dashGap1:6, speed1:1,
+                           color0:"#484f58", effect0:"static",     dashLen0:8,  dashGap0:4, speed0:1, opacity0:0.4 },
             arrow:       { w:160, h:60,  x1:0, y1:50, x2:100, y2:50, color:"#58a6ff", strokeWidth:2, arrowSize:12, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
             arc:         { w:120, h:120, startAngle:0, endAngle:270, strokeColor:"#58a6ff", strokeWidth:4, opacity:1 },
@@ -2553,6 +2651,20 @@ function app() {
                 <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                       stroke="${el.color||'#58a6ff'}" stroke-width="${sw}"
                       stroke-linecap="round" ${dash} opacity="${el.opacity??1}"/>
+            </svg>`;
+        },
+        cActiveLineSVGHtml(el) {
+            const sw  = el.strokeWidth || 4;
+            const W   = Math.round(el.w * this.sc.width);
+            const H   = Math.round(el.h * this.sc.height);
+            const x1  = (el.x1??0)   / 100 * W, y1 = (el.y1??50) / 100 * H;
+            const x2  = (el.x2??100) / 100 * W, y2 = (el.y2??50) / 100 * H;
+            const eff = el.effect1 || 'static';
+            const dash = ['dashed','flow_right','flow_left'].includes(eff)
+                ? `stroke-dasharray="${el.dashLen1||12},${el.dashGap1||6}"` : '';
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+                <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+                      stroke="${el.color1||'#56d364'}" stroke-width="${sw}" stroke-linecap="round" ${dash}/>
             </svg>`;
         },
         cArrowSVGHtml(el) {
