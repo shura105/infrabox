@@ -1477,16 +1477,20 @@ function app() {
             return isOn ? (el.color1 || '#56d364') : (el.color0 || '#484f58');
         },
         _alDash(el) {
-            const isOn = this._alIsOn(el);
-            const eff  = isOn ? (el.effect1 || 'static') : (el.effect0 || 'static');
-            if (!['dashed','flow_right','flow_left'].includes(eff)) return null;
+            const isOn  = this._alIsOn(el);
+            const eff   = isOn ? (el.effect1 || 'static') : (el.effect0 || 'static');
+            const dashed = isOn ? !!el.dashed1 : !!el.dashed0;
+            // legacy compat: old elements stored dashed as effect='dashed'
+            if (!dashed && eff !== 'dashed' && !['flow_right','flow_left'].includes(eff)) return null;
             const dLen = isOn ? (el.dashLen1 || 12) : (el.dashLen0 || 8);
             const dGap = isOn ? (el.dashGap1 || 6)  : (el.dashGap0 || 4);
             return `${dLen},${dGap}`;
         },
         _alStyle(el) {
             const isOn  = this._alIsOn(el);
-            const eff   = isOn ? (el.effect1 || 'static') : (el.effect0 || 'static');
+            const _eff  = isOn ? (el.effect1 || 'static') : (el.effect0 || 'static');
+            // legacy: effect='dashed' treated as static (dash handled by _alDash)
+            const eff   = _eff === 'dashed' ? 'static' : _eff;
             const dLen  = isOn ? (el.dashLen1 || 12) : (el.dashLen0 || 8);
             const dGap  = isOn ? (el.dashGap1 || 6)  : (el.dashGap0 || 4);
             const speed = Math.max(0.1, isOn ? (el.speed1 || 1) : (el.speed0 || 1));

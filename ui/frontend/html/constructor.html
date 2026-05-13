@@ -1029,12 +1029,31 @@
                                            :value="alState===1 ? selEl.color1 : selEl.color0"
                                            @change="alState===1 ? (selEl.color1=$event.target.value) : (selEl.color0=$event.target.value)">
                                 </div>
+                                <div class="pr-inline">
+                                    <input type="checkbox" id="alDashedCk"
+                                           :checked="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0"
+                                           @change="alState===1 ? (selEl.dashed1=$event.target.checked) : (selEl.dashed0=$event.target.checked)">
+                                    <label for="alDashedCk">Пунктир</label>
+                                </div>
+                                <template x-if="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label>
+                                            <input type="number" min="2" max="80"
+                                                   :value="alState===1 ? selEl.dashLen1 : selEl.dashLen0"
+                                                   @change="alState===1 ? (selEl.dashLen1=+$event.target.value) : (selEl.dashLen0=+$event.target.value)">
+                                        </div>
+                                        <div><label>Пропуск</label>
+                                            <input type="number" min="1" max="80"
+                                                   :value="alState===1 ? selEl.dashGap1 : selEl.dashGap0"
+                                                   @change="alState===1 ? (selEl.dashGap1=+$event.target.value) : (selEl.dashGap0=+$event.target.value)">
+                                        </div>
+                                    </div>
+                                </template>
                                 <div class="pr">
                                     <label>Ефект</label>
                                     <select :value="alState===1 ? selEl.effect1 : selEl.effect0"
                                             @change="alState===1 ? (selEl.effect1=$event.target.value) : (selEl.effect0=$event.target.value)">
                                         <option value="static">Статичний</option>
-                                        <option value="dashed">Пунктир</option>
                                         <option value="flow_right">Потік →</option>
                                         <option value="flow_left">Потік ←</option>
                                         <option value="blink">Миготіння</option>
@@ -1043,7 +1062,7 @@
                                         <option value="none">Прихований</option>
                                     </select>
                                 </div>
-                                <template x-if="['dashed','flow_right','flow_left'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
+                                <template x-if="['flow_right','flow_left'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
                                     <div class="pr2">
                                         <div><label>Штрих</label>
                                             <input type="number" min="2" max="80"
@@ -2183,8 +2202,8 @@ function app() {
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             active_line: { w:200, h:60,  x1:0, y1:50, x2:100, y2:50, strokeWidth:4,
                            point_id:0,
-                           color1:"#56d364", effect1:"flow_right", dashLen1:12, dashGap1:6, speed1:1,
-                           color0:"#484f58", effect0:"static",     dashLen0:8,  dashGap0:4, speed0:1, opacity0:0.4 },
+                           color1:"#56d364", effect1:"flow_right", dashed1:false, dashLen1:12, dashGap1:6, speed1:1,
+                           color0:"#484f58", effect0:"static",     dashed0:false, dashLen0:8,  dashGap0:4, speed0:1, opacity0:0.4 },
             arrow:       { w:160, h:60,  x1:0, y1:50, x2:100, y2:50, color:"#58a6ff", strokeWidth:2, arrowSize:12, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
             arc:         { w:120, h:120, startAngle:0, endAngle:270, strokeColor:"#58a6ff", strokeWidth:4, opacity:1 },
@@ -2658,14 +2677,15 @@ function app() {
             const H   = Math.round(el.h * this.sc.height);
             const x1  = (el.x1??0)   / 100 * W, y1 = (el.y1??50) / 100 * H;
             const x2  = (el.x2??100) / 100 * W, y2 = (el.y2??50) / 100 * H;
-            const color = s ? (el.color1||'#56d364') : (el.color0||'#484f58');
-            const eff   = s ? (el.effect1||'static') : (el.effect0||'static');
-            const dLen  = s ? (el.dashLen1||12) : (el.dashLen0||8);
-            const dGap  = s ? (el.dashGap1||6)  : (el.dashGap0||4);
-            const opac  = s ? 1 : (el.opacity0??0.4);
-            const dash  = ['dashed','flow_right','flow_left'].includes(eff)
-                ? `stroke-dasharray="${dLen},${dGap}"` : '';
-            const vis   = eff === 'none' ? 'opacity:0' : `opacity:${opac}`;
+            const color  = s ? (el.color1||'#56d364') : (el.color0||'#484f58');
+            const eff    = s ? (el.effect1||'static') : (el.effect0||'static');
+            const dashed = s ? !!el.dashed1 : !!el.dashed0;
+            const dLen   = s ? (el.dashLen1||12) : (el.dashLen0||8);
+            const dGap   = s ? (el.dashGap1||6)  : (el.dashGap0||4);
+            const opac   = s ? 1 : (el.opacity0??0.4);
+            const showDash = dashed || ['flow_right','flow_left'].includes(eff);
+            const dash   = showDash ? `stroke-dasharray="${dLen},${dGap}"` : '';
+            const vis    = eff === 'none' ? 'opacity:0' : `opacity:${opac}`;
             return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
                 <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                       stroke="${color}" stroke-width="${sw}" stroke-linecap="round" ${dash} style="${vis}"/>
