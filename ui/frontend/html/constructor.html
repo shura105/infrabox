@@ -1011,12 +1011,28 @@
                                     </select>
                                 </div>
                                 <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="40"></div>
-                                <!-- State 1 -->
+                                <!-- state toggle -->
                                 <div class="pr-sep"></div>
-                                <div class="pr"><label>Колір</label><input type="color" x-model="selEl.color1"></div>
+                                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                                    <span style="font-size:11px;color:#8b949e;flex:1">Значення:</span>
+                                    <button @click="alState=1"
+                                            :style="alState===1?'background:#238636;color:#fff;border-color:#238636':''"
+                                            style="padding:2px 12px;font-size:11px;border:1px solid #444;border-radius:4px;cursor:pointer;background:#161b22;color:#8b949e">1</button>
+                                    <button @click="alState=0"
+                                            :style="alState===0?'background:#484f58;color:#fff;border-color:#6e7681':''"
+                                            style="padding:2px 12px;font-size:11px;border:1px solid #444;border-radius:4px;cursor:pointer;background:#161b22;color:#8b949e">0</button>
+                                </div>
+                                <!-- shared fields, bound to color1/color0 etc. via alState -->
+                                <div class="pr">
+                                    <label>Колір</label>
+                                    <input type="color"
+                                           :value="alState===1 ? selEl.color1 : selEl.color0"
+                                           @change="alState===1 ? (selEl.color1=$event.target.value) : (selEl.color0=$event.target.value)">
+                                </div>
                                 <div class="pr">
                                     <label>Ефект</label>
-                                    <select x-model="selEl.effect1">
+                                    <select :value="alState===1 ? selEl.effect1 : selEl.effect0"
+                                            @change="alState===1 ? (selEl.effect1=$event.target.value) : (selEl.effect0=$event.target.value)">
                                         <option value="static">Статичний</option>
                                         <option value="dashed">Пунктир</option>
                                         <option value="flow_right">Потік →</option>
@@ -1027,17 +1043,36 @@
                                         <option value="none">Прихований</option>
                                     </select>
                                 </div>
-                                <template x-if="['dashed','flow_right','flow_left'].includes(selEl.effect1)">
+                                <template x-if="['dashed','flow_right','flow_left'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
                                     <div class="pr2">
-                                        <div><label>Штрих</label><input type="number" x-model.number="selEl.dashLen1" min="2" max="80"></div>
-                                        <div><label>Пропуск</label><input type="number" x-model.number="selEl.dashGap1" min="1" max="80"></div>
+                                        <div><label>Штрих</label>
+                                            <input type="number" min="2" max="80"
+                                                   :value="alState===1 ? selEl.dashLen1 : selEl.dashLen0"
+                                                   @change="alState===1 ? (selEl.dashLen1=+$event.target.value) : (selEl.dashLen0=+$event.target.value)">
+                                        </div>
+                                        <div><label>Пропуск</label>
+                                            <input type="number" min="1" max="80"
+                                                   :value="alState===1 ? selEl.dashGap1 : selEl.dashGap0"
+                                                   @change="alState===1 ? (selEl.dashGap1=+$event.target.value) : (selEl.dashGap0=+$event.target.value)">
+                                        </div>
                                     </div>
                                 </template>
-                                <template x-if="['flow_right','flow_left','blink','pulse','glow'].includes(selEl.effect1)">
+                                <template x-if="['flow_right','flow_left','blink','pulse','glow'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
                                     <div class="pr" style="display:flex;align-items:center;gap:8px">
                                         <label style="flex:1">Швидкість</label>
-                                        <input type="range" x-model.number="selEl.speed1" min="0.2" max="5" step="0.1" style="flex:2">
-                                        <span style="width:28px;text-align:right" x-text="selEl.speed1??1"></span>
+                                        <input type="range" min="0.2" max="5" step="0.1" style="flex:2"
+                                               :value="alState===1 ? selEl.speed1 : selEl.speed0"
+                                               @change="alState===1 ? (selEl.speed1=+$event.target.value) : (selEl.speed0=+$event.target.value)">
+                                        <span style="width:28px;text-align:right" x-text="alState===1 ? (selEl.speed1??1) : (selEl.speed0??1)"></span>
+                                    </div>
+                                </template>
+                                <template x-if="alState===0 && (selEl.effect0||'static') !== 'none'">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Прозорість</label>
+                                        <input type="range" min="0" max="1" step="0.05" style="flex:2"
+                                               :value="selEl.opacity0??0.4"
+                                               @change="selEl.opacity0=+$event.target.value">
+                                        <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity0??0.4)*100)+'%'"></span>
                                     </div>
                                 </template>
                             </div>
@@ -1941,6 +1976,7 @@ function app() {
         sc:  { id:"", title:"", width:1280, height:720, grid:20, snap:true, bg:"#1a1a2e", bgImage:"" },
         els: [],
         sel: null,
+        alState: 1,  /* active_line: редагований стан 1 або 0 */
 
         status: { msg:"Готово", ok:true },
         createModal: { open:false },
@@ -2616,17 +2652,23 @@ function app() {
             </svg>`;
         },
         cActiveLineSVGHtml(el) {
+            const s   = this.alState;
             const sw  = el.strokeWidth || 4;
             const W   = Math.round(el.w * this.sc.width);
             const H   = Math.round(el.h * this.sc.height);
             const x1  = (el.x1??0)   / 100 * W, y1 = (el.y1??50) / 100 * H;
             const x2  = (el.x2??100) / 100 * W, y2 = (el.y2??50) / 100 * H;
-            const eff  = el.effect1 || 'static';
-            const dash = ['dashed','flow_right','flow_left'].includes(eff)
-                ? `stroke-dasharray="${el.dashLen1||12},${el.dashGap1||6}"` : '';
+            const color = s ? (el.color1||'#56d364') : (el.color0||'#484f58');
+            const eff   = s ? (el.effect1||'static') : (el.effect0||'static');
+            const dLen  = s ? (el.dashLen1||12) : (el.dashLen0||8);
+            const dGap  = s ? (el.dashGap1||6)  : (el.dashGap0||4);
+            const opac  = s ? 1 : (el.opacity0??0.4);
+            const dash  = ['dashed','flow_right','flow_left'].includes(eff)
+                ? `stroke-dasharray="${dLen},${dGap}"` : '';
+            const vis   = eff === 'none' ? 'opacity:0' : `opacity:${opac}`;
             return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
                 <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
-                      stroke="${el.color1||'#56d364'}" stroke-width="${sw}" stroke-linecap="round" ${dash}/>
+                      stroke="${color}" stroke-width="${sw}" stroke-linecap="round" ${dash} style="${vis}"/>
             </svg>`;
         },
         cArrowSVGHtml(el) {
