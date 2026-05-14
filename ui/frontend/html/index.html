@@ -692,6 +692,29 @@
                                 </div>
                             </template>
 
+                            <!-- active_arc: persistent SVG — no x-html, prevents animation restart -->
+                            <template x-if="el.type==='active_arc'">
+                                <div class="r-shape">
+                                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                                        <defs>
+                                            <filter :id="`aa_gf${el.id}`" x="-60%" y="-60%" width="220%" height="220%">
+                                                <feGaussianBlur :stdDeviation="((el.strokeWidth||4)*1.8).toFixed(1)" result="b"/>
+                                                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                            </filter>
+                                        </defs>
+                                        <path
+                                            :d="_aaD(el)"
+                                            fill="none"
+                                            :stroke="_alColor(el)"
+                                            :stroke-width="el.strokeWidth||4"
+                                            stroke-linecap="round"
+                                            :stroke-dasharray="_alDash(el)"
+                                            :style="_aaStyle(el)"
+                                        />
+                                    </svg>
+                                </div>
+                            </template>
+
                             <!-- arrow -->
                             <template x-if="el.type==='arrow'">
                                 <div class="r-shape" x-html="svgArrow(el)"></div>
@@ -1504,6 +1527,42 @@ function app() {
                 case 'blink':      s += `;animation:al-blink ${(1/speed).toFixed(2)}s step-end infinite`; break;
                 case 'pulse':      s += `;animation:al-pulse ${(2/speed).toFixed(2)}s ease-in-out infinite`; break;
                 case 'glow':       s += `;filter:url(#al_gf${el.id});animation:al-glow ${(2/speed).toFixed(2)}s ease-in-out infinite`; break;
+            }
+            return s;
+        },
+        /* ── active_arc helpers ── */
+        _aaD(el) {
+            const sw   = el.strokeWidth || 4;
+            const r    = 50 - sw / 2;
+            const rS   = r.toFixed(2);
+            const span = ((el.endAngle||270) - (el.startAngle||0) + 360) % 360 || 360;
+            if (span >= 360) {
+                const rn = (50+r).toFixed(2), ln = (50-r).toFixed(2);
+                return `M ${rn} 50 A ${rS} ${rS} 0 1 1 ${ln} 50 A ${rS} ${rS} 0 1 1 ${rn} 50`;
+            }
+            const sa  = ((el.startAngle||0) - 90) * Math.PI / 180;
+            const ea  = ((el.endAngle||270)  - 90) * Math.PI / 180;
+            const x1  = (50 + r * Math.cos(sa)).toFixed(2), y1 = (50 + r * Math.sin(sa)).toFixed(2);
+            const x2  = (50 + r * Math.cos(ea)).toFixed(2), y2 = (50 + r * Math.sin(ea)).toFixed(2);
+            return `M ${x1} ${y1} A ${rS} ${rS} 0 ${span>180?1:0} 1 ${x2} ${y2}`;
+        },
+        _aaStyle(el) {
+            // same as _alStyle but glow filter references #aa_gf
+            const isOn  = this._alIsOn(el);
+            const _eff  = isOn ? (el.effect1||'static') : (el.effect0||'static');
+            const eff   = _eff === 'dashed' ? 'static' : _eff;
+            const dLen  = isOn ? (el.dashLen1||12) : (el.dashLen0||8);
+            const dGap  = isOn ? (el.dashGap1||6)  : (el.dashGap0||4);
+            const speed = Math.max(0.1, isOn ? (el.speed1||1) : (el.speed0||1));
+            const opac  = isOn ? 1 : (el.opacity0??0.4);
+            const per   = dLen + dGap;
+            let s = `--al-end:${-per};--al-endr:${per};--al-op:${opac};opacity:${eff==='none'?0:opac}`;
+            switch (eff) {
+                case 'flow_right': s += `;animation:al-fwd   ${(per/(speed*20)).toFixed(2)}s linear infinite`; break;
+                case 'flow_left':  s += `;animation:al-rev   ${(per/(speed*20)).toFixed(2)}s linear infinite`; break;
+                case 'blink':      s += `;animation:al-blink ${(1/speed).toFixed(2)}s step-end infinite`; break;
+                case 'pulse':      s += `;animation:al-pulse ${(2/speed).toFixed(2)}s ease-in-out infinite`; break;
+                case 'glow':       s += `;filter:url(#aa_gf${el.id});animation:al-glow ${(2/speed).toFixed(2)}s ease-in-out infinite`; break;
             }
             return s;
         },

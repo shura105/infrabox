@@ -500,7 +500,7 @@
                          @click.self="selectEl(null); ctxClose()">
                         <template x-for="el in els" :key="el.id">
                             <div class="c-el" :class="{sel:sel===el.id}" draggable="false"
-                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='timer_elapsed'||el.type==='timer_countdown'||el.type==='timer_bar'||el.type==='countdown_bar'||el.type==='multi_timer'||el.type==='line'||el.type==='arrow'||el.type==='active_line'||el.type==='value'?'overflow:visible;':''}`"
+                                 :style="`left:${el.x*100}%;top:${el.y*100}%;width:${el.w*sc.width}px;height:${el.h*sc.height}px;z-index:${sel===el.id?10:el.onTop?8:el.type==='group_box'?2:3};${(el.type||'').startsWith('bi_')||el.type==='calc_box'||el.type==='ctrl_opmode'||el.type==='ctrl_signal'||el.type==='ctrl_btn'||el.type==='timer_elapsed'||el.type==='timer_countdown'||el.type==='timer_bar'||el.type==='countdown_bar'||el.type==='multi_timer'||el.type==='line'||el.type==='arrow'||el.type==='active_line'||el.type==='active_arc'||el.type==='value'?'overflow:visible;':''}`"
                                  @mousedown.stop="down($event,el)" @click.stop="selectEl(el.id)" @dragstart.prevent
                                  @contextmenu.prevent.stop="ctxOpen($event,el.id)">
                                 <template x-if="el.type==='group_box'">
@@ -574,6 +574,9 @@
                                              :style="`position:absolute;left:${el.x2??100}%;top:${el.y2??50}%;width:10px;height:10px;background:#e3b341;border:2px solid #0d1117;border-radius:50%;transform:translate(-50%,-50%);cursor:crosshair;z-index:25`"
                                              @mousedown.stop="endpointDown($event,el,'end')"></div>
                                     </div>
+                                </template>
+                                <template x-if="el.type==='active_arc'">
+                                    <div class="r-shape" x-html="cActiveArcSVGHtml(el)"></div>
                                 </template>
                                 <template x-if="el.type==='arrow'">
                                     <div style="position:absolute;inset:0;overflow:visible">
@@ -1034,6 +1037,107 @@
                                            :checked="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0"
                                            @change="alState===1 ? (selEl.dashed1=$event.target.checked) : (selEl.dashed0=$event.target.checked)">
                                     <label for="alDashedCk">Пунктир</label>
+                                </div>
+                                <template x-if="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label>
+                                            <input type="number" min="2" max="80"
+                                                   :value="alState===1 ? selEl.dashLen1 : selEl.dashLen0"
+                                                   @change="alState===1 ? (selEl.dashLen1=+$event.target.value) : (selEl.dashLen0=+$event.target.value)">
+                                        </div>
+                                        <div><label>Пропуск</label>
+                                            <input type="number" min="1" max="80"
+                                                   :value="alState===1 ? selEl.dashGap1 : selEl.dashGap0"
+                                                   @change="alState===1 ? (selEl.dashGap1=+$event.target.value) : (selEl.dashGap0=+$event.target.value)">
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="pr">
+                                    <label>Ефект</label>
+                                    <select :value="alState===1 ? selEl.effect1 : selEl.effect0"
+                                            @change="alState===1 ? (selEl.effect1=$event.target.value) : (selEl.effect0=$event.target.value)">
+                                        <option value="static">Статичний</option>
+                                        <option value="flow_right">Потік →</option>
+                                        <option value="flow_left">Потік ←</option>
+                                        <option value="blink">Миготіння</option>
+                                        <option value="pulse">Пульсація</option>
+                                        <option value="glow">Свічення</option>
+                                        <option value="none">Прихований</option>
+                                    </select>
+                                </div>
+                                <template x-if="['flow_right','flow_left'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
+                                    <div class="pr2">
+                                        <div><label>Штрих</label>
+                                            <input type="number" min="2" max="80"
+                                                   :value="alState===1 ? selEl.dashLen1 : selEl.dashLen0"
+                                                   @change="alState===1 ? (selEl.dashLen1=+$event.target.value) : (selEl.dashLen0=+$event.target.value)">
+                                        </div>
+                                        <div><label>Пропуск</label>
+                                            <input type="number" min="1" max="80"
+                                                   :value="alState===1 ? selEl.dashGap1 : selEl.dashGap0"
+                                                   @change="alState===1 ? (selEl.dashGap1=+$event.target.value) : (selEl.dashGap0=+$event.target.value)">
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="['flow_right','flow_left','blink','pulse','glow'].includes(alState===1 ? selEl.effect1 : selEl.effect0)">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Швидкість</label>
+                                        <input type="range" min="0.2" max="5" step="0.1" style="flex:2"
+                                               :value="alState===1 ? selEl.speed1 : selEl.speed0"
+                                               @change="alState===1 ? (selEl.speed1=+$event.target.value) : (selEl.speed0=+$event.target.value)">
+                                        <span style="width:28px;text-align:right" x-text="alState===1 ? (selEl.speed1??1) : (selEl.speed0??1)"></span>
+                                    </div>
+                                </template>
+                                <template x-if="alState===0 && (selEl.effect0||'static') !== 'none'">
+                                    <div class="pr" style="display:flex;align-items:center;gap:8px">
+                                        <label style="flex:1">Прозорість</label>
+                                        <input type="range" min="0" max="1" step="0.05" style="flex:2"
+                                               :value="selEl.opacity0??0.4"
+                                               @change="selEl.opacity0=+$event.target.value">
+                                        <span style="width:30px;text-align:right" x-text="Math.round((selEl.opacity0??0.4)*100)+'%'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="selEl.type==='active_arc'">
+                            <div>
+                                <div class="pr">
+                                    <label>Параметр (point_id)</label>
+                                    <select @change="selEl.point_id = +$event.target.value"
+                                            x-effect="void allTimerPoints.length; void selEl.point_id; $nextTick(() => { $el.value = String(selEl.point_id || 0); })">
+                                        <option value="0">— не привʼязано —</option>
+                                        <template x-for="p in allTimerPoints" :key="p.id">
+                                            <option :value="p.id" x-text="`#${p.id} · ${p.pointname}`"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="pr2">
+                                    <div><label>Початок °</label><input type="number" x-model.number="selEl.startAngle" min="0" max="359"></div>
+                                    <div><label>Кінець °</label><input type="number" x-model.number="selEl.endAngle" min="0" max="359"></div>
+                                </div>
+                                <div class="pr"><label>Товщина</label><input type="number" x-model.number="selEl.strokeWidth" min="1" max="40"></div>
+                                <!-- state toggle -->
+                                <div class="pr-sep"></div>
+                                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                                    <span style="font-size:11px;color:#8b949e;flex:1">Значення:</span>
+                                    <button @click="alState=1"
+                                            :style="alState===1?'background:#238636;color:#fff;border-color:#238636':''"
+                                            style="padding:2px 12px;font-size:11px;border:1px solid #444;border-radius:4px;cursor:pointer;background:#161b22;color:#8b949e">1</button>
+                                    <button @click="alState=0"
+                                            :style="alState===0?'background:#484f58;color:#fff;border-color:#6e7681':''"
+                                            style="padding:2px 12px;font-size:11px;border:1px solid #444;border-radius:4px;cursor:pointer;background:#161b22;color:#8b949e">0</button>
+                                </div>
+                                <div class="pr">
+                                    <label>Колір</label>
+                                    <input type="color"
+                                           :value="alState===1 ? selEl.color1 : selEl.color0"
+                                           @change="alState===1 ? (selEl.color1=$event.target.value) : (selEl.color0=$event.target.value)">
+                                </div>
+                                <div class="pr-inline">
+                                    <input type="checkbox" id="aaDashedCk"
+                                           :checked="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0"
+                                           @change="alState===1 ? (selEl.dashed1=$event.target.checked) : (selEl.dashed0=$event.target.checked)">
+                                    <label for="aaDashedCk">Пунктир</label>
                                 </div>
                                 <template x-if="alState===1 ? !!selEl.dashed1 : !!selEl.dashed0">
                                     <div class="pr2">
@@ -2175,6 +2279,7 @@ function app() {
                     { type:"level_h",     icon:"⥬", label:"Рівень ↔" },
                     { type:"gauge",       icon:"⟳", label:"Прилад" },
                     { type:"active_line", icon:"⟿", label:"Активна лінія" },
+                    { type:"active_arc",  icon:"◔", label:"Активна дуга" },
                 ]
             },
             {
@@ -2229,6 +2334,10 @@ function app() {
             ellipse:     { w:120, h:120, fill:"transparent", strokeColor:"#58a6ff", strokeWidth:2, opacity:1 },
             line:        { w:160, h:80,  x1:0, y1:0, x2:100, y2:100, color:"#58a6ff", strokeWidth:2, dashed:false, dashLen:8, dashGap:4, opacity:1 },
             active_line: { w:200, h:60,  x1:0, y1:50, x2:100, y2:50, strokeWidth:4,
+                           point_id:0,
+                           color1:"#56d364", effect1:"flow_right", dashed1:false, dashLen1:12, dashGap1:6, speed1:1,
+                           color0:"#484f58", effect0:"static",     dashed0:false, dashLen0:8,  dashGap0:4, speed0:1, opacity0:0.4 },
+            active_arc:  { w:120, h:120, startAngle:0, endAngle:270, strokeWidth:4,
                            point_id:0,
                            color1:"#56d364", effect1:"flow_right", dashed1:false, dashLen1:12, dashGap1:6, speed1:1,
                            color0:"#484f58", effect0:"static",     dashed0:false, dashLen0:8,  dashGap0:4, speed0:1, opacity0:0.4 },
@@ -2717,6 +2826,36 @@ function app() {
             return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
                 <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                       stroke="${color}" stroke-width="${sw}" stroke-linecap="round" ${dash} style="${vis}"/>
+            </svg>`;
+        },
+        cActiveArcSVGHtml(el) {
+            const s      = this.alState;
+            const sw     = el.strokeWidth || 4;
+            const r      = 50 - sw / 2;
+            const rS     = r.toFixed(2);
+            const span   = ((el.endAngle||270) - (el.startAngle||0) + 360) % 360 || 360;
+            const color  = s ? (el.color1||'#56d364') : (el.color0||'#484f58');
+            const eff    = s ? (el.effect1||'static') : (el.effect0||'static');
+            const dLen   = s ? (el.dashLen1||12) : (el.dashLen0||8);
+            const dGap   = s ? (el.dashGap1||6)  : (el.dashGap0||4);
+            const dashed = s ? !!el.dashed1 : !!el.dashed0;
+            const opac   = s ? 1 : (el.opacity0??0.4);
+            const showDash = dashed || ['flow_right','flow_left'].includes(eff);
+            const dash   = showDash ? `stroke-dasharray="${dLen},${dGap}"` : '';
+            const vis    = eff === 'none' ? 'opacity:0' : `opacity:${opac}`;
+            let d;
+            if (span >= 360) {
+                const rn = (50+r).toFixed(2), ln = (50-r).toFixed(2);
+                d = `M ${rn} 50 A ${rS} ${rS} 0 1 1 ${ln} 50 A ${rS} ${rS} 0 1 1 ${rn} 50`;
+            } else {
+                const sa = ((el.startAngle||0) - 90) * Math.PI / 180;
+                const ea = ((el.endAngle||270)  - 90) * Math.PI / 180;
+                const x1 = (50 + r*Math.cos(sa)).toFixed(2), y1 = (50 + r*Math.sin(sa)).toFixed(2);
+                const x2 = (50 + r*Math.cos(ea)).toFixed(2), y2 = (50 + r*Math.sin(ea)).toFixed(2);
+                d = `M ${x1} ${y1} A ${rS} ${rS} 0 ${span>180?1:0} 1 ${x2} ${y2}`;
+            }
+            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" ${dash} style="${vis}"/>
             </svg>`;
         },
         cArrowSVGHtml(el) {
@@ -3346,6 +3485,7 @@ updateScale() {
             return { label:"Мітка", value:"Значення точки", nav_btn:"Навігація",
                      indicator:"Індикатор", rect:"Прямокутник",
                      group_box:"Група", ellipse:"Еліпс / Коло", line:"Лінія", arrow:"Стрілка", triangle:"Трикутник", arc:"Дуга",
+                     active_line:"Активна лінія", active_arc:"Активна дуга",
                      ibox_screen:"Підсистема", ibox_link:"Веб-лінк",
                      level_v:"Рівень ↕", level_h:"Рівень ↔", gauge:"Прилад",
                      ctrl_opmode:"Режим роботи", ctrl_signal:"Управляючий сигнал", ctrl_btn:"Кнопка управління",
