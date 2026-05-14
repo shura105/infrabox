@@ -83,6 +83,16 @@ subsystems:
       - infrabox-adm
     ports_exposed: []                       # доступ тільки через nginx (ui)
 
+# ── Зовнішні сервіси на вузлах (не частина infrabox) ─────────────────────────
+# Фіксуємо щоб враховувати при перевірці портів і ресурсів.
+
+external_services:
+  homeServ2:
+    - name: "portainer"
+      container: "portainer"
+      ports: [8000, 9000, 9443]
+      note: "Docker UI — встановлений окремо, infrabox не керує"
+
 # ── Docker-мережа ─────────────────────────────────────────────────────────────
 
 docker_network:
@@ -112,26 +122,40 @@ undeploy_order:
 # Важливо при міграції і деінсталяції: що видаляти, що зберігати.
 
 data:
-  - path:        "core/redis"               # відносно deploy_dir
+  # Docker named volume — не bind-path, керується через docker volume
+  - type:        "docker_volume"
+    name:        "core_redis-data"
     description: "Redis AOF дані (points, стан системи)"
     critical:    true                       # питати перед видаленням
+    backup_cmd:  "docker run --rm -v core_redis-data:/data -v $(pwd):/backup alpine tar czf /backup/redis-backup.tar.gz /data"
 
-  - path:        "core/mosquitto/mosquitto-real/data"
+  # Bind-mount директорії (відносно deploy_dir)
+  - type:        "bind"
+    path:        "core/mosquitto/mosquitto-real/data"
     description: "MQTT real broker persistence"
     critical:    false
 
-  - path:        "core/mosquitto/mosquitto-sim/data"
+  - type:        "bind"
+    path:        "core/mosquitto/mosquitto-sim/data"
     description: "MQTT sim broker persistence"
     critical:    false
 
-  - path:        "arch/archivator/data"
+  - type:        "bind"
+    path:        "arch/archivator/data"
     description: "Архів значень параметрів (SQLite томи)"
     critical:    true
 
-  - path:        "ui/data"
-    description: "Налаштування екранів UI (screens/*.json)"
+  - type:        "bind"
+    path:        "ui/data"
+    description: "Конфігурація UI: project.json, screens/*.json"
     critical:    true
 
-  - path:        "adm/data"
-    description: "Дані адмін-сервісу"
+  - type:        "bind"
+    path:        "adm/data"
+    description: "Дані адмін-сервісу: subsystems.json"
+    critical:    false
+
+  - type:        "bind"
+    path:        "log"
+    description: "Спільні логи всіх підсистем (core, arch, etc.)"
     critical:    false
