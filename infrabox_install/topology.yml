@@ -1,0 +1,137 @@
+# topology.yml — карта розгортання Infrabox
+# Джерело правди про те, що де запущено і як налаштовано.
+# Генерується майстром при першій установці, редагується вручну
+# або через майстер при змінах. Зберігати в безпечному місці.
+#
+# УВАГА: не зберігати SSH-ключі тут — тільки шляхи до них.
+
+version: "1"
+
+# ── Система ──────────────────────────────────────────────────────────────────
+
+system:
+  name:        "Infrabox"
+  description: "Система моніторингу та управління розумним будинком"
+  timezone:    "Europe/Kyiv"
+  repo:        "https://github.com/shura105/infrabox.git"
+  branch:      "feat/infrabox-ui"
+
+# ── Вузли (фізичні або віртуальні машини) ────────────────────────────────────
+
+nodes:
+  homeServ2:
+    host:        "homeServ2.local"          # або IP: 192.168.1.105
+    user:        "shura"
+    ssh_key:     "~/.ssh/id_ed25519"        # шлях на машині адміна
+    arch:        "arm/v7"
+    os:          "armbian/debian-12"
+    deploy_dir:  "/home/shura/infrabox"     # куди клоновано репо
+    role:        "primary"
+
+# ── Підсистеми ────────────────────────────────────────────────────────────────
+# Кожна підсистема = окремий docker compose (свій workdir у репо).
+# containers: перелік контейнерів, які запускає ця підсистема.
+
+subsystems:
+
+  core:
+    node:     "homeServ2"
+    workdir:  "core"                        # відносно deploy_dir
+    description: "Redis, MQTT-брокери, обробка точок, авторизація, симулятор, selfdiagnostic"
+    containers:
+      - infrabox-redis
+      - infrabox-mosquitto-real
+      - infrabox-mosquitto-sim
+      - infrabox-auth
+      - infrabox-core
+      - infrabox-simulator
+      - infrabox-selfdiagnostic
+    ports_exposed:
+      - { host: 1883, container: 1883, service: "mosquitto-real", proto: "mqtt" }
+      - { host: 1884, container: 1883, service: "mosquitto-sim",  proto: "mqtt" }
+    env:
+      JWT_SECRET:        "__CHANGE_ME__"    # обов'язково змінити при інсталяції
+      JWT_EXPIRE_HOURS:  "24"
+      DROP_ID:           "homeServ-1"       # ідентифікатор вузла в системі
+
+  ui:
+    node:     "homeServ2"
+    workdir:  "ui"
+    description: "Frontend (nginx+HTTPS), backend API, WebSocket"
+    containers:
+      - infrabox-web
+      - infrabox-backend
+    ports_exposed:
+      - { host: 80,  container: 80,  service: "web", proto: "http"  }
+      - { host: 443, container: 443, service: "web", proto: "https" }
+
+  arch:
+    node:     "homeServ2"
+    workdir:  "arch"
+    description: "Архіватор: запис історії, backend та UI для трендів"
+    containers:
+      - infrabox-arch
+      - infrabox-arch-backend
+      - infrabox-arch-ui
+    ports_exposed: []                       # доступ тільки через nginx (ui)
+
+  adm:
+    node:     "homeServ2"
+    workdir:  "adm"
+    description: "Адміністративний сервіс: контейнери, хост, конфігурація"
+    containers:
+      - infrabox-adm
+    ports_exposed: []                       # доступ тільки через nginx (ui)
+
+# ── Docker-мережа ─────────────────────────────────────────────────────────────
+
+docker_network:
+  name:   "infrabox-net"
+  driver: "bridge"
+  # Створюється вручну або скриптом перед першим docker compose up:
+  # docker network create infrabox-net
+
+# ── Порядок розгортання ───────────────────────────────────────────────────────
+# core має бути першим (Redis потрібен іншим підсистемам).
+
+deploy_order:
+  - core
+  - arch
+  - ui
+  - adm
+
+# ── Порядок видалення (зворотній до розгортання) ─────────────────────────────
+
+undeploy_order:
+  - adm
+  - ui
+  - arch
+  - core
+
+# ── Дані (volumes і директорії) ───────────────────────────────────────────────
+# Важливо при міграції і деінсталяції: що видаляти, що зберігати.
+
+data:
+  - path:        "core/redis"               # відносно deploy_dir
+    description: "Redis AOF дані (points, стан системи)"
+    critical:    true                       # питати перед видаленням
+
+  - path:        "core/mosquitto/mosquitto-real/data"
+    description: "MQTT real broker persistence"
+    critical:    false
+
+  - path:        "core/mosquitto/mosquitto-sim/data"
+    description: "MQTT sim broker persistence"
+    critical:    false
+
+  - path:        "arch/archivator/data"
+    description: "Архів значень параметрів (SQLite томи)"
+    critical:    true
+
+  - path:        "ui/data"
+    description: "Налаштування екранів UI (screens/*.json)"
+    critical:    true
+
+  - path:        "adm/data"
+    description: "Дані адмін-сервісу"
+    critical:    false
