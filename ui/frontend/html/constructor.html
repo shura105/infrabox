@@ -2829,11 +2829,14 @@ function app() {
             </svg>`;
         },
         cActiveArcSVGHtml(el) {
-            const s      = this.alState;
-            const sw     = el.strokeWidth || 4;
-            const r      = 50 - sw / 2;
-            const rS     = r.toFixed(2);
-            const span   = ((el.endAngle||270) - (el.startAngle||0) + 360) % 360 || 360;
+            const s    = this.alState;
+            const sw   = el.strokeWidth || 4;
+            const W    = Math.round(el.w * this.sc.width);
+            const H    = Math.round(el.h * this.sc.height);
+            const cx   = W / 2, cy = H / 2;
+            const rx   = cx - sw / 2, ry = cy - sw / 2;
+            const rxS  = rx.toFixed(2), ryS = ry.toFixed(2);
+            const span = ((el.endAngle||270) - (el.startAngle||0) + 360) % 360 || 360;
             const color  = s ? (el.color1||'#56d364') : (el.color0||'#484f58');
             const eff    = s ? (el.effect1||'static') : (el.effect0||'static');
             const dLen   = s ? (el.dashLen1||12) : (el.dashLen0||8);
@@ -2845,16 +2848,15 @@ function app() {
             const vis    = eff === 'none' ? 'opacity:0' : `opacity:${opac}`;
             let d;
             if (span >= 360) {
-                const rn = (50+r).toFixed(2), ln = (50-r).toFixed(2);
-                d = `M ${rn} 50 A ${rS} ${rS} 0 1 1 ${ln} 50 A ${rS} ${rS} 0 1 1 ${rn} 50`;
+                d = `M ${(cx+rx).toFixed(2)} ${cy} A ${rxS} ${ryS} 0 1 1 ${(cx-rx).toFixed(2)} ${cy} A ${rxS} ${ryS} 0 1 1 ${(cx+rx).toFixed(2)} ${cy}`;
             } else {
                 const sa = ((el.startAngle||0) - 90) * Math.PI / 180;
                 const ea = ((el.endAngle||270)  - 90) * Math.PI / 180;
-                const x1 = (50 + r*Math.cos(sa)).toFixed(2), y1 = (50 + r*Math.sin(sa)).toFixed(2);
-                const x2 = (50 + r*Math.cos(ea)).toFixed(2), y2 = (50 + r*Math.sin(ea)).toFixed(2);
-                d = `M ${x1} ${y1} A ${rS} ${rS} 0 ${span>180?1:0} 1 ${x2} ${y2}`;
+                const x1 = (cx + rx*Math.cos(sa)).toFixed(2), y1 = (cy + ry*Math.sin(sa)).toFixed(2);
+                const x2 = (cx + rx*Math.cos(ea)).toFixed(2), y2 = (cy + ry*Math.sin(ea)).toFixed(2);
+                d = `M ${x1} ${y1} A ${rxS} ${ryS} 0 ${span>180?1:0} 1 ${x2} ${y2}`;
             }
-            return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                 <path d="${d}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" ${dash} style="${vis}"/>
             </svg>`;
         },
