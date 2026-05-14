@@ -1167,6 +1167,10 @@
                                 </div>
                                 <div class="pr"><label>SVG / зображення</label>
                                     <div style="display:flex;gap:6px;align-items:center">
+                                        <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                            <img x-show="selEl.svgImage" :src="selEl.svgImage" style="max-width:100%;max-height:100%;object-fit:contain">
+                                            <span x-show="!selEl.svgImage" style="font-size:10px;color:#484f58">—</span>
+                                        </div>
                                         <button class="btn" style="flex:1" @click="$refs.iboxSvgFile.click()">📁 Завантажити</button>
                                         <button class="btn btn-red" x-show="selEl.svgImage" @click="selEl.svgImage=''">✕</button>
                                     </div>
@@ -1184,6 +1188,10 @@
                                 <div class="pr"><label>URL</label><input type="text" x-model="selEl.href" placeholder="https://..."></div>
                                 <div class="pr"><label>SVG / зображення</label>
                                     <div style="display:flex;gap:6px;align-items:center">
+                                        <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                            <img x-show="selEl.svgImage" :src="selEl.svgImage" style="max-width:100%;max-height:100%;object-fit:contain">
+                                            <span x-show="!selEl.svgImage" style="font-size:10px;color:#484f58">—</span>
+                                        </div>
                                         <button class="btn" style="flex:1" @click="$refs.iboxLinkFile.click()">📁 Завантажити</button>
                                         <button class="btn btn-red" x-show="selEl.svgImage" @click="selEl.svgImage=''">✕</button>
                                     </div>
@@ -1308,6 +1316,10 @@
                                             <div class="pr">
                                                 <label x-text="slot.label"></label>
                                                 <div style="display:flex;gap:4px;align-items:center">
+                                                    <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                                        <img x-show="selEl[slot.key]" :src="selEl[slot.key]" style="max-width:100%;max-height:100%;object-fit:contain">
+                                                        <span x-show="!selEl[slot.key]" style="font-size:10px;color:#484f58">—</span>
+                                                    </div>
                                                     <label class="btn" style="flex:1;text-align:center;cursor:pointer">
                                                         <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
                                                         <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
@@ -1387,6 +1399,10 @@
                                     <div class="pr">
                                         <label x-text="slot.label"></label>
                                         <div style="display:flex;gap:4px;align-items:center">
+                                            <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                                <img x-show="selEl[slot.key]" :src="selEl[slot.key]" style="max-width:100%;max-height:100%;object-fit:contain">
+                                                <span x-show="!selEl[slot.key]" style="font-size:10px;color:#484f58">—</span>
+                                            </div>
                                             <label class="btn" style="flex:1;text-align:center;cursor:pointer">
                                                 <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
                                                 <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
@@ -1464,6 +1480,10 @@
                                     <div class="pr">
                                         <label x-text="slot.label"></label>
                                         <div style="display:flex;gap:4px;align-items:center">
+                                            <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                                <img x-show="selEl[slot.key]" :src="selEl[slot.key]" style="max-width:100%;max-height:100%;object-fit:contain">
+                                                <span x-show="!selEl[slot.key]" style="font-size:10px;color:#484f58">—</span>
+                                            </div>
                                             <label class="btn" style="flex:1;text-align:center;cursor:pointer">
                                                 <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
                                                 <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
@@ -1538,6 +1558,10 @@
                                     <div class="pr">
                                         <label x-text="slot.label"></label>
                                         <div style="display:flex;gap:4px;align-items:center">
+                                            <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                                <img x-show="selEl[slot.key]" :src="selEl[slot.key]" style="max-width:100%;max-height:100%;object-fit:contain">
+                                                <span x-show="!selEl[slot.key]" style="font-size:10px;color:#484f58">—</span>
+                                            </div>
                                             <label class="btn" style="flex:1;text-align:center;cursor:pointer">
                                                 <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
                                                 <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
@@ -1881,6 +1905,10 @@
                                     <div class="pr">
                                         <label x-text="slot.label"></label>
                                         <div style="display:flex;gap:4px;align-items:center">
+                                            <div style="width:36px;height:36px;border:1px solid #30363d;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117;flex-shrink:0">
+                                                <img x-show="selEl[slot.key]" :src="selEl[slot.key]" style="max-width:100%;max-height:100%;object-fit:contain">
+                                                <span x-show="!selEl[slot.key]" style="font-size:10px;color:#484f58">—</span>
+                                            </div>
                                             <label class="btn" style="flex:1;text-align:center;cursor:pointer">
                                                 <span x-text="selEl[slot.key] ? '🖼 Замінити' : '📁 Обрати'"></span>
                                                 <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp"
