@@ -20,6 +20,7 @@
     "mqtt_watchdog": true,
     "mqtt_timeout_ms": 10000,
     "log_level": "INFO",
+    "arch_ram_budget_mb": 200,
     "log": {
       "max_bytes": 1048576,
       "backup_count": 3

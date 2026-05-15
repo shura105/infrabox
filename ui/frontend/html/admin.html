@@ -904,6 +904,22 @@
             <div id="archCurrentInfo" style="margin-top:12px;font-size:12px;color:#8b949e;line-height:1.8"></div>
         </div>
 
+        <!-- RAM бюджет архіватора -->
+        <div style="margin-top:18px">
+            <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">RAM для архіватора</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <div style="color:#c9d1d9;font-size:13px">Бюджет RAM (MB):</div>
+                <input type="number" id="archRamBudget" min="50" max="512" step="50"
+                    class="host-input" style="width:90px" placeholder="200">
+                <button class="btn btn-blue" onclick="applyArchRamBudget()">Застосувати</button>
+                <span id="archRamMsg" style="font-size:12px;color:#8b949e"></span>
+            </div>
+            <div id="archRamInfo" style="margin-top:8px;font-size:12px;color:#8b949e;line-height:1.6">
+                Дані архіву зберігаються в RAM і скидаються на диск кожні 10 хв або при заповненні 80% бюджету.
+                Апаратний максимум: 512 MB.
+            </div>
+        </div>
+
         <hr class="section-divider">
 
         <!-- список томів (розгортається) -->
@@ -3495,6 +3511,17 @@ async function loadArchives() {
         document.getElementById("archCurrentInfo").innerHTML = info;
     }
 
+    // RAM бюджет з sys_params
+    const rSys = await fetch("/adm/api/sys-params", { headers: h });
+    if (rSys.ok) {
+        const sys = await rSys.json();
+        const budget = sys?.system?.arch_ram_budget_mb ?? 200;
+        document.getElementById("archRamBudget").value = budget;
+        document.getElementById("archRamInfo").innerHTML =
+            `Дані архіву зберігаються в RAM і скидаються на диск кожні 10 хв або при заповненні 80% бюджету. ` +
+            `Поточний бюджет: <b>${budget} MB</b>. Апаратний максимум: 512 MB.`;
+    }
+
     if (rStatus.ok) {
         const st = await rStatus.json();
         const cv = st.current_volume || {};
@@ -3578,6 +3605,30 @@ async function applyArchDepth() {
             ? `Збережено. Видалено старих томів: ${j.pruned}`
             : "Збережено. Нічого для видалення.";
         if (_archVolOpen) await _loadArchVolList();
+    } else {
+        msg.style.color = "#f47067";
+        msg.textContent = "Помилка збереження";
+    }
+}
+
+async function applyArchRamBudget() {
+    const val = parseInt(document.getElementById("archRamBudget").value);
+    const msg = document.getElementById("archRamMsg");
+    if (!val || val < 50 || val > 512) {
+        msg.textContent = "Значення від 50 до 512 MB"; msg.style.color = "#f47067"; return;
+    }
+    msg.textContent = "…"; msg.style.color = "#8b949e";
+    const res = await fetch("/adm/api/sys-params/system", {
+        method: "PATCH",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ arch_ram_budget_mb: val })
+    });
+    if (res.ok) {
+        msg.style.color = "#56d364";
+        msg.textContent = `Збережено ${val} MB. Набуде чинності негайно.`;
+        document.getElementById("archRamInfo").innerHTML =
+            `Дані архіву зберігаються в RAM і скидаються на диск кожні 10 хв або при заповненні 80% бюджету. ` +
+            `Поточний бюджет: <b>${val} MB</b>. Апаратний максимум: 512 MB.`;
     } else {
         msg.style.color = "#f47067";
         msg.textContent = "Помилка збереження";

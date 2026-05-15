@@ -591,6 +591,22 @@ def get_sys_params():
         return json.load(f)
 
 
+@app.patch("/sys-params/system")
+def patch_sys_params_system(body: dict):
+    """Оновити окремі поля sys_params['system']. Повертає оновлений system."""
+    ALLOWED = {"arch_ram_budget_mb", "log_level", "system_tick_ms"}
+    unknown = set(body) - ALLOWED
+    if unknown:
+        raise HTTPException(400, f"Недозволені поля: {unknown}")
+
+    def m(data):
+        for k, v in body.items():
+            data["system"][k] = v
+        return data["system"]
+
+    return _rw_json(SYS_PARAMS_PATH, m)
+
+
 # ── Objects CRUD ───────────────────────────────────────────────────────────────
 class ObjectIn(BaseModel):
     id: str

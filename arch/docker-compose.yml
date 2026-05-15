@@ -23,7 +23,7 @@ services:
       - ./archivator/app/modules/volume.py:/app/modules/volume.py:ro
       - ./archivator/sync-start.sh:/app/sync-start.sh:ro
     tmpfs:
-      - /app/data:size=300m,mode=0755        # RAM: archivator пише сюди (4 дні × ~50MB)
+      - /app/data:size=512m,mode=0755        # апаратний максимум; м'який ліміт — arch_ram_budget_mb в sys_params
     entrypoint: ["/bin/sh", "/app/sync-start.sh"]
 
   arch-backend:
