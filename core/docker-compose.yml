@@ -3,7 +3,7 @@ services:
   redis:
     image: redis:7
     container_name: infrabox-redis
-    command: redis-server --appendonly yes --appendfsync everysec --logfile ""
+    command: redis-server --appendonly no --save 1800 1 --logfile ""
     restart: unless-stopped
     networks:
       - infrabox-net
