@@ -11,13 +11,18 @@ services:
       PYTHONUNBUFFERED: 1
       REDIS_HOST: infrabox-redis
       REDIS_PORT: 6379
+      ARCH_SYNC_INTERVAL: "600"   # секунд між записами на диск (10 хв)
     volumes:
       - ./archivator/config:/app/config
-      - ./archivator/data:/app/data
+      - ./archivator/data:/app/data-disk     # диск: постійне сховище
       - ../log:/app/log
       - ../core/service/config:/app/core_config:ro
       - ./archivator/app/modules/writer.py:/app/modules/writer.py:ro
       - ./archivator/app/modules/volume.py:/app/modules/volume.py:ro
+      - ./archivator/sync-start.sh:/app/sync-start.sh:ro
+    tmpfs:
+      - /app/data:size=200m,mode=0755        # RAM: archivator пише сюди
+    entrypoint: ["/bin/sh", "/app/sync-start.sh"]
 
   arch-backend:
     build: ./backend
