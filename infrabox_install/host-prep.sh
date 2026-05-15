@@ -80,9 +80,24 @@ else
     fail "Не вдалося визначити ОС (/etc/os-release відсутній)"
 fi
 
+# DOCKER_OS — база для apt-репозиторію Docker.
+# DietPi та інші Debian-похідні можуть мати ID=dietpi але ID_LIKE=debian.
+# Docker Hub підтримує лише debian/ubuntu — map через ID_LIKE якщо потрібно.
 case "$OS_ID" in
-    debian|ubuntu|armbian) ok "ОС: ${PRETTY_NAME:-$OS_ID $OS_VERSION}" ;;
-    *) warn "ОС '$OS_ID' не тестувалась — продовжую на власний ризик" ;;
+    debian|ubuntu)
+        DOCKER_OS="$OS_ID"
+        ok "ОС: ${PRETTY_NAME:-$OS_ID $OS_VERSION}" ;;
+    armbian)
+        DOCKER_OS="debian"
+        ok "ОС: ${PRETTY_NAME:-$OS_ID $OS_VERSION}" ;;
+    *)
+        # Перевірити ID_LIKE (напр. DietPi: ID=dietpi, ID_LIKE=debian)
+        ID_LIKE_VAL="${ID_LIKE:-}"
+        case "$ID_LIKE_VAL" in
+            *debian*) DOCKER_OS="debian"; ok "ОС: ${PRETTY_NAME:-$OS_ID} (debian-сумісна)" ;;
+            *ubuntu*) DOCKER_OS="ubuntu"; ok "ОС: ${PRETTY_NAME:-$OS_ID} (ubuntu-сумісна)" ;;
+            *)        DOCKER_OS="$OS_ID"; warn "ОС '$OS_ID' не тестувалась — продовжую на власний ризик" ;;
+        esac ;;
 esac
 
 # RAM
@@ -119,13 +134,13 @@ else
 
     # GPG ключ Docker
     sudo install -m 0755 -d /usr/share/keyrings
-    curl -fsSL "https://download.docker.com/linux/${OS_ID}/gpg" \
+    curl -fsSL "https://download.docker.com/linux/${DOCKER_OS}/gpg" \
         | sudo gpg --dearmor -o /usr/share/keyrings/docker.gpg
     sudo chmod a+r /usr/share/keyrings/docker.gpg
 
     # Репозиторій
     echo "deb [arch=${DOCKER_ARCH} signed-by=/usr/share/keyrings/docker.gpg] \
-https://download.docker.com/linux/${OS_ID} ${OS_VERSION} stable" \
+https://download.docker.com/linux/${DOCKER_OS} ${OS_VERSION} stable" \
         | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
     # Встановлення
@@ -257,6 +272,11 @@ if [ -f "$LOGROTATE_CONF" ]; then
     ok "Logrotate вже налаштований"
 else
     require_sudo
+    # DietPi та мінімальні дистрибутиви можуть не мати logrotate
+    if ! _cmd logrotate; then
+        info "Встановлення logrotate..."
+        sudo apt-get install -y -qq logrotate
+    fi
     sudo tee "$LOGROTATE_CONF" > /dev/null <<EOF
 ${LOG_DIR}/*.log {
     daily
