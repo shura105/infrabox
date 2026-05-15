@@ -12,6 +12,7 @@ services:
       REDIS_HOST: infrabox-redis
       REDIS_PORT: 6379
       ARCH_SYNC_INTERVAL: "600"   # секунд між записами на диск (10 хв)
+      LOG_LEVEL: "INFO"           # INFO=файл+консоль, WARNING=тільки консоль
     volumes:
       - ./archivator/config:/app/config
       - ./archivator/data:/app/data-disk     # диск: постійне сховище

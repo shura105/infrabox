@@ -36,26 +36,33 @@ def load_config():
 
 
 def setup_logger():
+    log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
+    log_level = getattr(logging, log_level_str, logging.INFO)
+
     logger = logging.getLogger("arch")
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
 
     console = logging.StreamHandler()
+    console.setLevel(log_level)
+    console.setFormatter(logger.handlers[0].formatter if logger.handlers else formatter)
     console.setFormatter(formatter)
     logger.addHandler(console)
 
-    os.makedirs("/app/log", exist_ok=True)
-    file_handler = RotatingFileHandler(
-        "/app/log/arch.log",
-        maxBytes=1048576,
-        backupCount=3
-    )
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    # Файловий лог тільки якщо INFO (на WARNING+ — не пишемо файл)
+    if log_level <= logging.INFO:
+        os.makedirs("/app/log", exist_ok=True)
+        file_handler = RotatingFileHandler(
+            "/app/log/arch.log",
+            maxBytes=1048576,
+            backupCount=3
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
     return logger
 

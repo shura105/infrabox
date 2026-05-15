@@ -185,12 +185,25 @@ else
 fi
 
 # Спільний лог-каталог (монтується у всі підсистеми)
+# Монтується як tmpfs — логи в RAM, диск не зношується
 LOG_DIR="${DEPLOY_DIR}/log"
-if [ -d "$LOG_DIR" ]; then
-    ok "log/ вже існує"
+mkdir -p "$LOG_DIR"
+
+FSTAB_ENTRY="tmpfs  ${LOG_DIR}  tmpfs  defaults,size=64m,noatime,mode=0755  0  0"
+
+if grep -qF "${LOG_DIR}" /etc/fstab 2>/dev/null; then
+    ok "log/ tmpfs вже в /etc/fstab"
+    # Переконатись що змонтовано
+    if ! mountpoint -q "$LOG_DIR" 2>/dev/null; then
+        require_sudo
+        sudo mount "$LOG_DIR" && ok "log/ tmpfs змонтовано" || warn "Не вдалось змонтувати — перезавантажте хост"
+    fi
 else
-    mkdir -p "$LOG_DIR"
-    ok "Створено: $LOG_DIR"
+    require_sudo
+    echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
+    sudo mount "$LOG_DIR" 2>/dev/null \
+        && ok "log/ → tmpfs 64MB (логи в RAM, без запису на диск)" \
+        || warn "Запис до /etc/fstab додано — набере чинності після перезавантаження"
 fi
 
 # SSL-директорія (потрібна до генерації сертифікатів)
