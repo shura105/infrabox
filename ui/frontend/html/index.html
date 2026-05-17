@@ -1112,8 +1112,8 @@ function app() {
         menuOpen:    false,
         menuPage:    'main',
         userMenuOpen: false,
-        deviceType:     parseInt(localStorage.getItem('ib-device-type') || '1'),
-        activeScreenType: localStorage.getItem('ib-screen-type') || 'pc',
+        deviceType:       parseInt(localStorage.getItem('ib-device-type') || '1'),
+        activeScreenType: window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'pc',
         screenTypeLabels: { pc: 'ПК', render: 'Рендеринг', mobile: 'Мобільні пристрої' },
 
         viewScale:   1,
@@ -1225,7 +1225,7 @@ function app() {
 
         setScreenType(type) {
             this.activeScreenType = type;
-            localStorage.setItem('ib-screen-type', type);
+            // не зберігаємо в localStorage — при наступному відкритті авто-детекція
             this.history = [];
             const matches = (this.project.screens || []).filter(s =>
                 (s.screenType || 'pc') === type && (s.deviceType || 1) === this.deviceType
