@@ -226,18 +226,39 @@ else
     fail "SSH недоступний: ${NODE_USER}@${NODE_HOST}  (ключ: $KEY_PATH)"
 fi
 
-# ── Крок 2: Git pull ──────────────────────────────────────────────────────────
-step "Git pull → origin/${SYS_BRANCH}"
+# ── Крок 2: Git sync (clone або pull + checkout) ──────────────────────────────
+step "Git sync → ${SYS_REPO}  branch: ${SYS_BRANCH}"
 
 if [ "$DRY_RUN" = "1" ]; then
-    info "[dry] cd ${NODE_DEPLOY_DIR} && git pull origin ${SYS_BRANCH}"
+    info "[dry] git clone/pull ${SYS_REPO} @ ${SYS_BRANCH} → ${NODE_DEPLOY_DIR}"
 else
-    GIT_OUT=$(_ssh "cd '${NODE_DEPLOY_DIR}' && git pull origin '${SYS_BRANCH}' 2>&1")
-    if echo "$GIT_OUT" | grep -q "Already up to date"; then
-        ok "Already up to date"
+    if ! _ssh_q "test -d '${NODE_DEPLOY_DIR}/.git'"; then
+        # ── перший запуск: клонуємо репо ──────────────────────────────────────
+        info "Репо не знайдено — виконуємо git clone..."
+        PARENT_DIR=$(dirname "${NODE_DEPLOY_DIR}")
+        CLONE_OUT=$(_ssh "mkdir -p '${PARENT_DIR}' && git clone --branch '${SYS_BRANCH}' '${SYS_REPO}' '${NODE_DEPLOY_DIR}' 2>&1") || {
+            echo "$CLONE_OUT" | tail -10 | sed 's/^/    /'
+            fail "git clone failed"
+        }
+        ok "git clone виконано (${SYS_BRANCH})"
     else
-        echo "$GIT_OUT" | head -10 | sed 's/^/    /'
-        ok "Git pull виконано"
+        # ── оновлення: переключаємо гілку (якщо треба) та тягнемо зміни ───────
+        GIT_OUT=$(_ssh "
+            cd '${NODE_DEPLOY_DIR}' || exit 1
+            git fetch origin 2>&1
+            CURRENT=\$(git rev-parse --abbrev-ref HEAD)
+            if [ \"\$CURRENT\" != '${SYS_BRANCH}' ]; then
+                echo \"Switching branch: \$CURRENT → ${SYS_BRANCH}\"
+                git checkout '${SYS_BRANCH}' 2>&1 || git checkout -b '${SYS_BRANCH}' --track 'origin/${SYS_BRANCH}' 2>&1
+            fi
+            git pull origin '${SYS_BRANCH}' 2>&1
+        ")
+        if echo "$GIT_OUT" | grep -q "Already up to date"; then
+            ok "Already up to date (${SYS_BRANCH})"
+        else
+            echo "$GIT_OUT" | head -10 | sed 's/^/    /'
+            ok "Git sync виконано (${SYS_BRANCH})"
+        fi
     fi
 fi
 

@@ -167,8 +167,8 @@ hdr "Система"
 ask "Назва системи"   "Infrabox"                              SYS_NAME
 ask "Опис"            "Smart home monitoring"                 SYS_DESC
 ask "Timezone"        "Europe/Kyiv"                           SYS_TZ
-ask "Git repo"        "https://github.com/shura105/infrabox.git" SYS_REPO
-ask "Git branch"      "feat/infrabox-ui"                      SYS_BRANCH
+ask "Git repo"        "https://github.com/YOUR_ORG/infrabox.git" SYS_REPO
+ask "Git branch"      "main"                                  SYS_BRANCH
 
 # ── SUBSYSTEMS ───────────────────────────────────────────────────────────────
 hdr "Підсистеми"
