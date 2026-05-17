@@ -70,7 +70,7 @@
   → Майстер прочитає host-report.json і поставить питання.
   → Більшість відповідей заповнені автоматично із звіту.
   → Обов'язково вказати:
-      Git repo    — URL вашого репозиторію (напр. https://github.com/ORG/infrabox.git)
+      Git repo    — URL вашого репозиторію (напр. https://github.com/shura105/infrabox.git)
       Git branch  — гілка для цієї інсталяції (напр. main, staging, prod)
       SSH-ключ    — шлях до приватного ключа для SSH на хост
       JWT_SECRET  — секрет для підпису токенів (обов'язково змінити!)
@@ -189,9 +189,9 @@ Git-налаштування (секція system):
   ┌─────────────┬──────────────────────────────────────────┬────────────┐
   │ Файл        │ repo                                     │ branch     │
   ├─────────────┼──────────────────────────────────────────┼────────────┤
-  │ prod.yml    │ https://github.com/ORG/infrabox.git      │ main       │
-  │ staging.yml │ https://github.com/ORG/infrabox.git      │ staging    │
-  │ dev.yml     │ https://github.com/ORG/infrabox.git      │ feat/xyz   │
+  │ prod.yml    │ https://github.com/shura105/infrabox.git      │ main       │
+  │ staging.yml │ https://github.com/shura105/infrabox.git      │ staging    │
+  │ dev.yml     │ https://github.com/shura105/infrabox.git      │ feat/xyz   │
   └─────────────┴──────────────────────────────────────────┴────────────┘
 
   Зміна гілки без переінсталяції:
