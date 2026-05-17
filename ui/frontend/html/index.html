@@ -445,13 +445,12 @@
                             <span class="sdrop-icon" style="font-size:13px">‹</span> Назад
                         </div>
                         <div class="sdrop-sep"></div>
-                        <template x-if="deviceTypes.length === 0">
-                            <div style="padding:10px 14px;font-size:12px;color:var(--text-dim)">Немає даних</div>
-                        </template>
-                        <template x-for="dt in deviceTypes" :key="dt">
-                            <div class="sdrop-item" @click="setDeviceType(dt)">
-                                <span class="sdrop-icon" :style="deviceType===dt?'color:var(--accent)':''" x-text="deviceType===dt?'●':'○'"></span>
-                                <span x-text="'Пристрій #'+dt"></span>
+                        <template x-for="[type, label] in Object.entries(screenTypeLabels)" :key="type">
+                            <div class="sdrop-item" @click="setScreenType(type)">
+                                <span class="sdrop-icon"
+                                    :style="activeScreenType===type ? 'color:var(--accent)' : 'color:var(--text-dim)'"
+                                    x-text="activeScreenType===type ? '●' : '○'"></span>
+                                <span x-text="label"></span>
                             </div>
                         </template>
                     </div>
@@ -466,11 +465,11 @@
                         <div class="sdrop-sep"></div>
                         <div class="sdrop-item" @click="menuPage='device'">
                             <span class="sdrop-icon">🖥</span> Тип екрана
-                            <span style="margin-left:auto;color:var(--accent);font-size:12px;font-weight:600" x-text="'#'+deviceType"></span>
+                            <span style="margin-left:auto;color:var(--accent);font-size:12px;font-weight:600" x-text="screenTypeLabels[activeScreenType] || activeScreenType"></span>
                             <span style="color:var(--text-dim);font-size:12px;margin-left:4px">›</span>
                         </div>
                         <a class="sdrop-item" href="/dashboard">
-                            <span class="sdrop-icon">📊</span> Всі параметри
+                            <span class="sdrop-icon">📊</span> Параметри системи
                         </a>
                     </div>
                 </template>
@@ -1113,7 +1112,9 @@ function app() {
         menuOpen:    false,
         menuPage:    'main',
         userMenuOpen: false,
-        deviceType:  parseInt(localStorage.getItem('ib-device-type') || '1'),
+        deviceType:     parseInt(localStorage.getItem('ib-device-type') || '1'),
+        activeScreenType: localStorage.getItem('ib-screen-type') || 'pc',
+        screenTypeLabels: { pc: 'ПК', render: 'Рендеринг', mobile: 'Мобільні пристрої' },
 
         viewScale:   1,
         lastUpdate:  '',
@@ -1178,18 +1179,20 @@ function app() {
         },
 
         _pickStartScreen() {
-            // First-load only: pick lowest-screenNum screen matching the
-            // current viewport (mobile vs desktop). After this, user navigates
-            // via buttons; nav code blocks cross-type so we won't drift.
-            const wantMobile = this._isMobile();
+            const wantType = this.activeScreenType;
             const dt = this.deviceType;
-            const matches = (this.project.screens || []).filter(s => {
-                const isMob = (s.screenType || 'pc') === 'mobile';
-                return wantMobile === isMob && (s.deviceType || 1) === dt;
-            });
-            if (!matches.length) return null;
-            matches.sort((a, b) => (a.screenNum || 0) - (b.screenNum || 0));
-            return matches[0].id;
+            const matches = (this.project.screens || []).filter(s =>
+                (s.screenType || 'pc') === wantType && (s.deviceType || 1) === dt
+            );
+            if (matches.length) {
+                matches.sort((a, b) => (a.screenNum || 0) - (b.screenNum || 0));
+                return matches[0].id;
+            }
+            // Fallback: будь-який екран цього типу
+            const any = (this.project.screens || []).filter(s => (s.screenType || 'pc') === wantType);
+            if (!any.length) return null;
+            any.sort((a, b) => (a.screenNum || 0) - (b.screenNum || 0));
+            return any[0].id;
         },
 
         _rootForDevice(dt) {
@@ -1216,6 +1219,23 @@ function app() {
             this.history = [];
             const startId = this._rootForDevice(dt);
             if (startId) this.loadScreen(startId);
+            this.menuOpen = false;
+            this.menuPage = 'main';
+        },
+
+        setScreenType(type) {
+            this.activeScreenType = type;
+            localStorage.setItem('ib-screen-type', type);
+            this.history = [];
+            const matches = (this.project.screens || []).filter(s =>
+                (s.screenType || 'pc') === type && (s.deviceType || 1) === this.deviceType
+            );
+            const pool = matches.length ? matches
+                : (this.project.screens || []).filter(s => (s.screenType || 'pc') === type);
+            if (pool.length) {
+                pool.sort((a, b) => (a.screenNum || 0) - (b.screenNum || 0));
+                this.loadScreen(pool[0].id);
+            }
             this.menuOpen = false;
             this.menuPage = 'main';
         },
