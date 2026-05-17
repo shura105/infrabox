@@ -211,7 +211,7 @@ read -r jwt_input || true
 JWT_SECRET="${jwt_input:-$DEFAULT_JWT}"
 
 ask "JWT expire (годин)"  "24"                  JWT_EXPIRE
-ask "DROP_ID"             "${NODE_ALIAS}-1"      DROP_ID
+ask "DROP_ID"             "${NODE_ALIAS}"        DROP_ID
 
 # ── SSL ──────────────────────────────────────────────────────────────────────
 hdr "SSL"
