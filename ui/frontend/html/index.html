@@ -410,11 +410,6 @@
                 <!-- головна сторінка меню -->
                 <template x-if="menuPage==='main'">
                     <div>
-                        <div class="sdrop-item" @click="menuPage='device'">
-                            <span class="sdrop-icon">🖥</span> Пристрій відображення
-                            <span style="margin-left:auto;color:var(--accent);font-size:12px;font-weight:600" x-text="'#'+deviceType"></span>
-                            <span style="color:var(--text-dim);font-size:12px;margin-left:4px">›</span>
-                        </div>
                         <div class="sdrop-item" @click="menuPage='settings'">
                             <span class="sdrop-icon">⚙</span> Налаштування
                             <span style="margin-left:auto;color:var(--text-dim);font-size:12px">›</span>
@@ -443,10 +438,10 @@
                     </div>
                 </template>
 
-                <!-- пристрій відображення -->
+                <!-- тип екрана -->
                 <template x-if="menuPage==='device'">
                     <div>
-                        <div class="sdrop-item" @click="menuPage='main'" style="color:var(--text-dim)">
+                        <div class="sdrop-item" @click="menuPage='settings'" style="color:var(--text-dim)">
                             <span class="sdrop-icon" style="font-size:13px">‹</span> Назад
                         </div>
                         <div class="sdrop-sep"></div>
@@ -469,6 +464,11 @@
                             <span class="sdrop-icon" style="font-size:13px">‹</span> Назад
                         </div>
                         <div class="sdrop-sep"></div>
+                        <div class="sdrop-item" @click="menuPage='device'">
+                            <span class="sdrop-icon">🖥</span> Тип екрана
+                            <span style="margin-left:auto;color:var(--accent);font-size:12px;font-weight:600" x-text="'#'+deviceType"></span>
+                            <span style="color:var(--text-dim);font-size:12px;margin-left:4px">›</span>
+                        </div>
                         <a class="sdrop-item" href="/dashboard">
                             <span class="sdrop-icon">📊</span> Всі параметри
                         </a>
