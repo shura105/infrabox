@@ -106,9 +106,10 @@ RAM_MB=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)
 [ "$RAM_MB" -lt 512 ] && warn "RAM ${RAM_MB}MB — arch-підсистема може не запуститись"
 ok "RAM: ${RAM_MB}MB"
 
-# Місце на диску
-DISK_FREE_GB=$(df -BG "${DEPLOY_DIR%/*/*}" 2>/dev/null || df -BG / | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
-DISK_FREE_GB=$(df -BG / | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
+# Місце на диску (на ФС, що міститиме deploy_dir; fallback — корінь)
+DISK_TARGET="$DEPLOY_DIR"; [ -d "$DISK_TARGET" ] || DISK_TARGET=$(dirname "$DISK_TARGET")
+DISK_FREE_GB=$(df -BG "$DISK_TARGET" 2>/dev/null | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
+[ -z "$DISK_FREE_GB" ] && DISK_FREE_GB=$(df -BG / | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
 [ "$DISK_FREE_GB" -lt 3 ] && fail "Недостатньо місця: ${DISK_FREE_GB}GB (мінімум 3GB)"
 [ "$DISK_FREE_GB" -lt 6 ] && warn "Місця мало: ${DISK_FREE_GB}GB (рекомендовано 6GB+)"
 ok "Диск вільно: ${DISK_FREE_GB}GB"
