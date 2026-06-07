@@ -224,6 +224,14 @@ class Writer:
                 if meta.get("type") in _BINARY_TYPES:
                     continue
 
+                # точки з періодичним архівуванням обслуговує _interval_archiver:
+                # він пише реальне значення (quality GOOD) або null (NODATA/UNCERT),
+                # тому штучний gap по тиші bus:data тут зайвий і дає хибні null
+                # (напр. disk_space: значення стабільне → core не шле bus:data,
+                #  але точка жива — quality лишається GOOD)
+                if meta.get("archive_interval", 0) > 0:
+                    continue
+
                 interval = meta.get("interval", 60)
                 threshold = max(interval * 3, 120)
 
@@ -272,7 +280,14 @@ class Writer:
                     data = r.hgetall(f"point:{point_id}")
                     if not data:
                         continue
-                    value = float(data.get("value", 0))
+                    # quality — надійний сигнал життя точки; Redis ts ненадійний
+                    # (застрягає коли значення стабільне і не проходить дедбенд).
+                    # GOOD → реальне значення; NODATA/UNCERT → null (розрив на графіку)
+                    quality = data.get("quality", "GOOD")
+                    if quality in ("NODATA", "UNCERT"):
+                        value = None
+                    else:
+                        value = float(data.get("value", 0))
                     # використовуємо поточний час — Redis ts може бути застарілим
                     # якщо значення рідко проходить дедбенд (напр. disk_space)
                     self.volume.write("values", {
