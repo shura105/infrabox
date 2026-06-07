@@ -114,10 +114,15 @@ add_node_interactive() {
         p_osid=$(_get "$rep" '.os.id')
         p_osver=$(_get "$rep" '.os.version')
         p_ram=$(_get "$rep" '.hardware.ram_mb')
-        p_docker=$(_get "$rep" '.software.docker')
-        p_ip=$(_get "$rep" '.network.interfaces[0].ip' | cut -d/ -f1)
+        p_docker=$(_get "$rep" '.readiness.docker_version')
+        p_ip=$(_get "$rep" '.network.primary_ip')
+        p_mdns=$(_get "$rep" '.network.mdns_name')
         d_alias="${p_host:-node}"
-        d_host="${p_fqdn:-${p_host}.local}"
+        # пріоритет: mdns (.local) → fqdn з крапкою → hostname.local → IP
+        if [ -n "$p_mdns" ]; then d_host="$p_mdns"
+        elif echo "$p_fqdn" | grep -q '\.'; then d_host="$p_fqdn"
+        elif [ -n "$p_host" ]; then d_host="${p_host}.local"
+        else d_host="$p_ip"; fi
         d_user="${p_user:-admin}"
         d_arch="$(_map_arch "$p_arch")"
         d_os="${p_osid:-linux}/${p_osver:-unknown}"
