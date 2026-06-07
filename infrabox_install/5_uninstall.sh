@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# uninstall.sh — чисте видалення Infrabox з вузлів (мультихост)
+# 5_uninstall.sh — чисте видалення Infrabox з вузлів (мультихост)
 #
 # Usage:
-#   bash uninstall.sh                    → інтерактивно (питає про critical дані)
-#   bash uninstall.sh --keep-data        → тільки зупинити контейнери
-#   bash uninstall.sh --full             → видалити все (з підтвердженням)
-#   bash uninstall.sh --full --force     → видалити все без питань
-#   bash uninstall.sh ui arch            → тільки вказані підсистеми
-#   bash uninstall.sh --topology file    → альтернативний topology файл
+#   bash 5_uninstall.sh                    → інтерактивно (питає про critical дані)
+#   bash 5_uninstall.sh --keep-data        → тільки зупинити контейнери
+#   bash 5_uninstall.sh --full             → видалити все (з підтвердженням)
+#   bash 5_uninstall.sh --full --force     → видалити все без питань
+#   bash 5_uninstall.sh ui arch            → тільки вказані підсистеми
+#   bash 5_uninstall.sh --topology file    → альтернативний topology файл
 #
 # Режими:
 #   default     — compose down + видалення некритичних даних + питання про critical

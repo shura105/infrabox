@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# deploy.sh — мультихостове розгортання Infrabox з topology.yml
+# 3_deploy.sh — мультихостове розгортання Infrabox з topology.yml
 #
 # Usage:
-#   bash deploy.sh                     → всі підсистеми (з deploy_order), на їхні вузли
-#   bash deploy.sh core ui             → тільки вказані, в порядку topology
-#   bash deploy.sh --dry-run           → показати план без дій
-#   bash deploy.sh --topology path.yml → альтернативний topology файл
+#   bash 3_deploy.sh                     → всі підсистеми (з deploy_order), на їхні вузли
+#   bash 3_deploy.sh core ui             → тільки вказані, в порядку topology
+#   bash 3_deploy.sh --dry-run           → показати план без дій
+#   bash 3_deploy.sh --topology path.yml → альтернативний topology файл
 #
 # Що робить:
 #   1. Парсить topology.yml (спільний _topo.py)
@@ -41,7 +41,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -f "$TOPOLOGY" ] || fail "Не знайдено: $TOPOLOGY\nЗапустіть спочатку: bash wizard.sh"
+[ -f "$TOPOLOGY" ] || fail "Не знайдено: $TOPOLOGY\nЗапустіть спочатку: bash 0_prepare.sh"
 command -v python3 &>/dev/null || fail "python3 не знайдено"
 [ -f "$SCRIPT_DIR/_topo.py" ] || fail "Не знайдено: $SCRIPT_DIR/_topo.py"
 
@@ -230,4 +230,4 @@ echo ""
 printf "  Підсистеми: %s\n" "$ACTIVE_SUBS"
 printf "  Вузли:      %s\n" "$ACTIVE_NODES"
 echo ""
-echo "Перевірити стан: bash status.sh"
+echo "Перевірити стан: bash 4_status.sh"

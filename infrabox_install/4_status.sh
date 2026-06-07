@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# status.sh — стан системи Infrabox (мультихост)
+# 4_status.sh — стан системи Infrabox (мультихост)
 #
 # Usage:
-#   bash status.sh                  → повний огляд усіх вузлів
-#   bash status.sh --topology file  → альтернативний topology файл
-#   bash status.sh --no-ports       → без перевірки портів (швидше)
+#   bash 4_status.sh                  → повний огляд усіх вузлів
+#   bash 4_status.sh --topology file  → альтернативний topology файл
+#   bash 4_status.sh --no-ports       → без перевірки портів (швидше)
 #
 # Вихід: 0 = все OK, 1 = є проблеми (для моніторингу/CI)
 

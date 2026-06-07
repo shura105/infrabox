@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox (v2)
+# 1_probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox (v2)
 #
 # Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux). Нічого не змінює — тільки читає.
 #
-#   bash probe.sh --role core,arch,ui,adm   → оцінка під задані ролі + host-report.json
-#   bash probe.sh --role arch --json        → тільки JSON у stdout
-#   bash probe.sh                            → базова оцінка без ролей
+#   bash 1_probe.sh --role core,arch,ui,adm   → оцінка під задані ролі + host-report.json
+#   bash 1_probe.sh --role arch --json        → тільки JSON у stdout
+#   bash 1_probe.sh                            → базова оцінка без ролей
 #
 # Вердикт по кожній ролі — ДОРАДЧИЙ (warn не блокує; fail лише на жорстких вимогах).
 
@@ -37,7 +37,7 @@ _trim() { echo "$1" | xargs; }
 
 # ── Лише Linux ─────────────────────────────────────────────────────────────────
 if [ "$(uname -s)" != "Linux" ]; then
-    echo "probe.sh v2 підтримує лише Linux-цілі (поточна: $(uname -s))" >&2
+    echo "1_probe.sh v2 підтримує лише Linux-цілі (поточна: $(uname -s))" >&2
     exit 1
 fi
 

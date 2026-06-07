@@ -1,265 +1,206 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                     INFRABOX — INSTALLER                                     ║
-║                     Інструкція з використання скриптів                       ║
+║                     Нумерований стек розгортання                             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Всі скрипти знаходяться в папці infrabox_install/.
-Запускаються з admin-машини (або безпосередньо на хості — де зазначено).
+Скрипти пронумеровані за порядком виконання (0 → 5). Номер показує вашу
+позицію в стеку процесів. Допоміжні інструменти — без номера.
+
 Вимоги на admin-машині: bash, ssh, python3.
+Цільові хости: лише Linux (x86_64 / arm — Debian/Ubuntu/DietPi/Armbian).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  СКРИПТИ — КОРОТКИЙ ОГЛЯД
+  СТЕК — ПОРЯДОК ВИКОНАННЯ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  gen-ssh-key.sh Генерація SSH-ключа для підключення до цільового хоста
-                 Запуск на ADMIN-МАШИНІ
-                 Створює ed25519-ключ у ~/.ssh/, виводить інструкції
+  0_prepare.sh    ФУНДАМЕНТ. Формує topology.yml — ДЖЕРЕЛО ІСТИНИ.
+                  Адмін приймає рішення: система (repo/branch/JWT),
+                  вузли (host/user/ssh), розподіл підсистем по вузлах.
+                  Запуск на ADMIN-МАШИНІ. Це ПЕРШИЙ крок.
 
-  probe.sh       Збирає звіт про хост → host-report.json
-                 Запуск НА ЦІЛЬОВОМУ ХОСТІ, нічого не змінює
-                 Підтримує Linux (arm/x86) і macOS
+  1_probe.sh      Оцінка хоста ПІД ЙОГО РОЛЬ (з плану). Дорадчий вердикт.
+                  bash 1_probe.sh --role core,arch,ui,adm
+                  Запуск НА ЦІЛЬОВОМУ ХОСТІ, нічого не змінює.
+                  Заповнює факти хоста (arch/os/носій) + перевіряє готовність.
 
-  wizard.sh      Інтерактивний майстер налаштування
-                 Читає host-report.json → генерує topology.yml
-                 Запуск на admin-машині
-                 Запитує: SSH-ключ, git-репозиторій, гілку, JWT_SECRET та ін.
+  2_host-prep.sh  Підготовка хоста: Docker, мережа infrabox-net, SSL,
+                  logrotate, tmpfs для логів.
+                  Запуск НА ЦІЛЬОВОМУ ХОСТІ (від sudo-користувача).
 
-  host-prep.sh   Підготовка хоста до розгортання
-                 Запуск НА ЦІЛЬОВОМУ ХОСТІ (від sudo-користувача)
-                 Встановлює Docker, створює мережу, SSL, logrotate,
-                 монтує /log як tmpfs для зменшення зносу SD-карти
+  3_deploy.sh     Розгортання підсистем на їхні вузли (за topology.yml).
+                  git clone/pull + docker compose up. Мультихост.
+                  Запуск на ADMIN-МАШИНІ (по SSH).
 
-  deploy.sh      Розгортання та оновлення підсистем
-                 Читає topology.yml → git clone/pull → docker compose up
-                 При першому запуску автоматично клонує репозиторій.
-                 При повторному — переключає гілку (якщо змінилась) і тягне зміни.
-                 Запуск на admin-машині (по SSH)
+  4_status.sh     Стан системи по всіх вузлах: контейнери, ресурси, git.
+                  Запуск на ADMIN-МАШИНІ (по SSH).
 
-  status.sh      Дашборд стану системи
-                 Контейнери, RAM, диск, load, git-стан, томи, порти
-                 Запуск на admin-машині (по SSH)
+  5_uninstall.sh  Видалення з вузлів: зупинка / інтерактивне / повне.
+                  Запуск на ADMIN-МАШИНІ (по SSH).
 
-  uninstall.sh   Видалення з хоста
-                 Три режими: зупинка / інтерактивне / повне видалення
-                 Запуск на admin-машині (по SSH)
+  ── Допоміжні (без номера) ──
+  gen-ssh-key.sh  Генерація SSH-ключа для доступу до вузлів.
+  _topo.py        Парсер topology.yml (спільний для 3/4/5). Не запускати вручну.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ДЖЕРЕЛО ІСТИНИ: topology.yml
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Один файл — джерело правди для всього стеку. Життєвий цикл:
+
+  0_prepare  → СТВОРЮЄ (рішення адміна: вузли + розподіл ролей)
+  1_probe    → ДОПОВНЮЄ факти хоста (arch/os) [планується]
+  3/4/5      → ЧИТАЮТЬ (через _topo.py)
+
+Чіткий поділ відповідальності:
+  • 0_prepare = РІШЕННЯ адміна (який хост, який користувач, яка роль)
+  • 1_probe   = ФАКТИ хоста   (архітектура, ОС, тип носія, готовність)
+
+Секції topology.yml:
+  system:         назва, repo, branch, timezone
+  nodes:          вузли: host, user, ssh_key, deploy_dir, arch, os, role
+  subsystems:     підсистеми: node (← на якому вузлі), workdir, containers, ports
+  deploy_order:   порядок розгортання (core першим)
+  undeploy_order: порядок зупинки (core останнім)
+  data:           volumes і bind-директорії (для backup і uninstall)
+
+УВАГА: містить JWT_SECRET і шляхи SSH-ключів — не комітити в публічний репо.
+
+Кілька середовищ: 0_prepare пише topology.yml; для інших — --topology:
+  bash 3_deploy.sh --topology prod.yml
+  bash 4_status.sh --topology staging.yml
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ПЕРША УСТАНОВКА — ПОРЯДОК ДІЙ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Крок 0. Згенерувати SSH-ключ (якщо ще немає)
-  -- виконати на ADMIN-МАШИНІ --
+Перед стеком (за потреби): SSH-ключ для доступу до вузлів
+  -- на ADMIN-МАШИНІ --
   bash gen-ssh-key.sh homeServ2
+  → створить ~/.ssh/infrabox_homeServ2, виведе як скопіювати .pub на хост.
 
-  → Створить ~/.ssh/infrabox_homeServ2 (приватний) та .pub (публічний).
-  → Виведе інструкції: як скопіювати публічний ключ на хост і що вказати в wizard.
+Крок 0. Закласти джерело істини
+  -- на ADMIN-МАШИНІ --
+  bash 0_prepare.sh
 
-Крок 1. Зібрати звіт про хост
-  -- виконати НА ЦІЛЬОВОМУ ХОСТІ --
-  bash probe.sh
+  → Інтерактивно: система, вузли, розподіл підсистем.
+  → Результат: topology.yml.
+  → Наприкінці виводить probe-команди для кожного вузла (з його роллю).
 
-  → Створюється host-report.json у поточній директорії.
-  → Скопіювати файл на admin-машину (в папку infrabox_install/):
-    scp user@host:/path/host-report.json infrabox_install/
+Крок 1. Оцінити кожен хост під його роль
+  -- НА КОЖНОМУ ЦІЛЬОВОМУ ХОСТІ (команди підкаже 0_prepare) --
+  ssh user@host 'bash -s -- --role core,ui,adm' < 1_probe.sh
 
-Крок 2. Запустити майстер налаштування
-  -- виконати на ADMIN-МАШИНІ --
-  cd infrabox_install
-  bash wizard.sh
+  → Дорадчий вердикт придатності (ok/warn/fail) + host-report.json.
+  → warn не блокує; fail лише на жорстких вимогах.
 
-  → Майстер прочитає host-report.json і поставить питання.
-  → Більшість відповідей заповнені автоматично із звіту.
-  → Обов'язково вказати:
-      Git repo    — URL вашого репозиторію (напр. https://github.com/shura105/infrabox.git)
-      Git branch  — гілка для цієї інсталяції (напр. main, staging, prod)
-      SSH-ключ    — шлях до приватного ключа для SSH на хост
-      JWT_SECRET  — секрет для підпису токенів (обов'язково змінити!)
-  → Результат: topology.yml у папці infrabox_install/.
+Крок 2. Підготувати кожен хост
+  -- НА КОЖНОМУ ЦІЛЬОВОМУ ХОСТІ --
+  bash 2_host-prep.sh
 
-Крок 3. Підготувати хост
-  -- виконати НА ЦІЛЬОВОМУ ХОСТІ --
-  bash host-prep.sh
+  Параметри: --deploy-dir /path | --hostname myhost.local | --skip-ssl
+  → Docker, група docker, infrabox-net, SSL, logrotate, tmpfs для логів.
+  → Після: можливо потрібен newgrp docker або re-login.
 
-  Або з параметрами:
-  bash host-prep.sh --deploy-dir /home/user/infrabox
-  bash host-prep.sh --hostname myserver.local
-  bash host-prep.sh --skip-ssl       (якщо SSL не потрібен)
+Крок 3. Розгорнути систему
+  -- на ADMIN-МАШИНІ --
+  bash 3_deploy.sh
 
-  → Встановить Docker (якщо відсутній).
-  → Додасть поточного користувача до групи docker.
-  → Створить директорію розгортання та Docker-мережу infrabox-net.
-  → Згенерує SSL-сертифікати (mkcert якщо доступний, інакше self-signed).
-  → Налаштує logrotate.
-  → Підмонтує /log як tmpfs (64 MB) для захисту SD-карти від зносу.
-  → УВАГА: після виконання може знадобитись newgrp docker або re-login.
+  → Клонує репо на кожен вузол (repo/branch з topology.yml).
+  → docker compose up для підсистем кожного вузла у порядку deploy_order.
 
-Крок 4. Розгорнути систему
-  -- виконати на ADMIN-МАШИНІ --
-  cd infrabox_install
-  bash deploy.sh
+  Окремі підсистеми / перевірка плану:
+  bash 3_deploy.sh core
+  bash 3_deploy.sh --dry-run
 
-  → Автоматично клонує репозиторій на хост (repo і branch з topology.yml).
-  → Виконує docker compose up для кожної підсистеми у порядку deploy_order.
-
-  Або тільки окремі підсистеми:
-  bash deploy.sh core
-  bash deploy.sh core ui
-  bash deploy.sh --dry-run        (показати план без дій)
-
-Крок 5. Перевірити стан
-  bash status.sh
+Крок 4. Перевірити стан
+  bash 4_status.sh
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ПОТОЧНА РОБОТА — ДОСТУПНІ ДІЇ
+  ПОТОЧНА РОБОТА
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Перевірити стан системи:
-  bash status.sh
-  bash status.sh --no-ports       (без перевірки TCP-портів, швидше)
-  bash status.sh --topology /path/other.yml
-
-  Повертає код виходу: 0 = все OK, 1 = є проблеми.
-  Зручно для моніторингу: bash status.sh || alert.sh
 
 Оновити код і перезапустити:
-  bash deploy.sh                  (git pull + compose up всіх підсистем)
-  bash deploy.sh ui               (тільки ui)
-  bash deploy.sh arch ui          (arch і ui, в порядку topology)
-  bash deploy.sh --dry-run        (показати що буде зроблено, без змін)
+  bash 3_deploy.sh                 (всі підсистеми на їхні вузли)
+  bash 3_deploy.sh ui              (тільки ui)
+  bash 3_deploy.sh --dry-run       (план без дій)
+  Якщо в topology.yml змінено branch — deploy переключить гілку на вузлі.
 
-  Якщо в topology.yml змінили branch — deploy.sh автоматично переключить гілку
-  на хості перед pull.
+Перевірити стан:
+  bash 4_status.sh                 (повертає 0=OK, 1=проблеми — для моніторингу)
+  bash 4_status.sh --no-ports      (швидше)
 
-Використати інший topology-файл:
-  bash deploy.sh --topology staging.yml
-  bash status.sh --topology staging.yml
+Зупинити (зі збереженням даних):
+  bash 5_uninstall.sh --keep-data --force
 
-Зупинити систему (з збереженням даних):
-  bash uninstall.sh --keep-data --force
-  bash uninstall.sh --keep-data --force core    (тільки core)
-
-Видалити підсистему:
-  bash uninstall.sh               (інтерактивно — питає що видаляти)
-  bash uninstall.sh --force       (без підтверджень, видаляє образи і volumes)
-  bash uninstall.sh --full        (повне видалення: контейнери + образи + volumes)
-  bash uninstall.sh ui adm        (тільки ui і adm)
+Видалити:
+  bash 5_uninstall.sh              (інтерактивно)
+  bash 5_uninstall.sh --full --force   (повне видалення)
+  bash 5_uninstall.sh ui adm       (тільки вказані)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ФАЙЛ ЗВІТУ: host-report.json
+  ОЦІНКА ХОСТА: 1_probe.sh --role
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Генерується командою: bash probe.sh (на цільовому хості)
-Альтернатива тільки JSON: bash probe.sh --json > host-report.json
+Роль-орієнтована: хост оцінюється під ту підсистему, яку на нього планують.
+Роль(і) — з плану (0_prepare їх підказує). Вердикт ДОРАДЧИЙ.
 
-Що містить:
-  hw.*          Апаратура: arch, CPU, RAM, диск, модель плати
-  os.*          ОС: ID, дистрибутив, версія, hostname
-  net.*         Мережа: IP-адреси, hostname, mDNS
-  docker.*      Docker: встановлений/ні, версія, compose
-  ports.*       Зайняті порти (перевіряє 80, 443, 1883, 1884, 6379, 8099-8102)
-  ssl.*         Наявність mkcert
-  git.*         Git: встановлений/ні
+Базові блоки (завжди):
+  hardware, os, network (primary_iface/ip, mdns_name)
+  storage   — тип носія (ssd/hdd/sd) ← вирішує придатність під arch
+  wireguard — kernel, wg-tools, UDP 51820, ip_forward
+  time      — NTP-синхронізація (для desync_guard)
+  readiness — docker running, інтернет, mDNS, firewall, пакетний менеджер
 
-Звіт не містить паролів чи ключів — безпечно передавати.
-Можна зберігати поруч із topology.yml для документування хоста.
+Вимоги по ролях:
+  core — RAM≥512, порти 1883/1884, mDNS (видимість .local)
+  arch — носій SSD/HDD (не SD!), вільне місце, RAM для tmpfs-буфера
+  ui   — порти 80/443
+  adm  — docker.sock, sudo (керування хостом)
 
-Повторний запуск: завжди перезаписує host-report.json.
-Актуалізувати перед wizard.sh якщо хост змінився (нові порти, оновлена ОС).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ФАЙЛ КОНФІГУРАЦІЇ: topology.yml
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Центральний файл конфігурації. Генерується wizard.sh, читається всіма іншими
-скриптами (deploy, status, uninstall).
-
-Секції:
-  system:         Назва, репозиторій, гілка, timezone
-  nodes:          Хости: адреса, SSH-користувач, ключ, deploy_dir, arch
-  subsystems:     Підсистеми: workdir, containers, ports_exposed
-  deploy_order:   Порядок розгортання (core першим — він запускає Redis)
-  undeploy_order: Порядок зупинки (core останнім)
-  data:           Volumes і директорії (для backup і uninstall)
-
-Git-налаштування (секція system):
-  repo:     URL репозиторію — може бути будь-який git-хостинг або self-hosted
-  branch:   гілка — кожна інсталяція може слідкувати за своєю гілкою
-
-  Приклад для кількох середовищ:
-  ┌─────────────┬──────────────────────────────────────────┬────────────┐
-  │ Файл        │ repo                                     │ branch     │
-  ├─────────────┼──────────────────────────────────────────┼────────────┤
-  │ prod.yml    │ https://github.com/shura105/infrabox.git      │ main       │
-  │ staging.yml │ https://github.com/shura105/infrabox.git      │ staging    │
-  │ dev.yml     │ https://github.com/shura105/infrabox.git      │ feat/xyz   │
-  └─────────────┴──────────────────────────────────────────┴────────────┘
-
-  Зміна гілки без переінсталяції:
-  1. Відредагувати branch у topology.yml
-  2. bash deploy.sh  → автоматично переключить гілку на хості і підтягне зміни
-
-Де зберігати:
-  - В папці infrabox_install/ поруч із скриптами (там і шукають за замовчуванням)
-  - Або вказувати через --topology /path/topology.yml
-  - УВАГА: містить шляхи SSH-ключів і JWT_SECRET — не комітити в публічний репо
+Спільне для всіх (вузли тунелю): WireGuard, NTP, docker, інтернет.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ПІДТРИМУВАНІ ПЛАТФОРМИ (ЦІЛЬОВИЙ ХОСТ)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Перевірено:    Armbian (Debian 12) / ARMv7 (Banana Pi M2 Berry)
-                 DietPi / ARM64 (NanoPi Fire 3, 8-ядерний Cortex-A53)
-  Сумісно:       Debian 11/12, Ubuntu 22/24, DietPi, Armbian / amd64, arm64, armhf
-  Мінімум RAM:   256 MB (512 MB рекомендовано для arch-підсистеми)
-  Мінімум диск:  3 GB (рекомендовано 6 GB+)
-  SD-карта:      підтримується — логи і архів у RAM (tmpfs), запис раз на 10 хв.
+  Лише Linux. Усі підсистеми (core/adm/ui/arch) — Linux:
+    core/adm — жорстко (host-метрики /proc, docker.sock, керування хостом)
+    ui/arch  — Linux-контейнери; UI доступний з будь-якої ОС через БРАУЗЕР
+               (нічого встановлювати на клієнтські Mac/Windows не треба)
 
-  host-prep.sh — тільки Linux. probe.sh і wizard.sh — Linux і macOS.
+  Перевірено:  Armbian (Debian 12) / ARMv7 — Banana Pi M2 Ultra (root на SATA SSD)
+  Сумісно:     Debian 11/12, Ubuntu 22/24, DietPi, Armbian / amd64, arm64, armhf
+  Мінімум RAM: 256 MB (512 MB рекомендовано для arch)
+  SD-карта:    логи і архів у RAM (tmpfs); для arch краще SSD/HDD-вузол
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ЗМІННІ СЕРЕДОВИЩА
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  TOPOLOGY_FILE=/path/topology.yml   Використовувати альтернативний topology
-                                     Діє для deploy.sh, status.sh, uninstall.sh
+  TOPOLOGY_FILE=/path/topology.yml   альтернативний topology
+                                     (3_deploy.sh, 4_status.sh, 5_uninstall.sh)
+  INFRABOX_DEPLOY_DIR=/path          перевизначити deploy_dir для 2_host-prep.sh
 
-  INFRABOX_DEPLOY_DIR=/path          Перевизначити deploy_dir для host-prep.sh
-
-  Приклад:
-  TOPOLOGY_FILE=~/prod.yml bash deploy.sh --dry-run
+  Приклад:  TOPOLOGY_FILE=~/prod.yml bash 3_deploy.sh --dry-run
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ТИПОВІ СЦЕНАРІЇ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Винесення архіватора на окремий вузол (SSD-машина):
+  1. bash 0_prepare.sh        → core/ui/adm на вузол A, arch на вузол B
+  2. 1_probe на B з --role arch  → підтвердить, що носій SSD/HDD
+  3. bash 2_host-prep.sh на A і B
+  4. bash 3_deploy.sh
+
 Деплой нової версії коду:
-  bash deploy.sh
+  bash 3_deploy.sh
 
-Перевірити стан після деплою:
-  bash status.sh
+Проблема з підсистемою:
+  bash 4_status.sh            → знайти проблемний контейнер/вузол
+  bash 3_deploy.sh core       → перерозгорнути тільки core
 
-Щось не працює — перевірити конкретну підсистему:
-  bash status.sh          → знайти проблемний контейнер
-  bash deploy.sh core     → перерозгорнути тільки core
-
-Розгортання другої інсталяції (новий хост, та сама кодова база):
-  1. bash probe.sh                  (на новому хості)
-  2. bash wizard.sh                 (вкажіть той самий repo, потрібну гілку)
-                                    → збережіть як site2.yml
-  3. bash host-prep.sh              (на новому хості)
-  4. bash deploy.sh --topology site2.yml
-                                    (автоматично клонує репо і запустить систему)
-
-Переїзд на новий хост:
-  1. bash probe.sh                  (на новому хості)
-  2. bash wizard.sh                 (оновіть host/user/ssh_key у topology.yml)
-  3. bash host-prep.sh              (на новому хості)
-  4. bash deploy.sh                 (клонує репо і запускає підсистеми)
-
-Тимчасово зупинити систему:
-  bash uninstall.sh --keep-data --force
+Тимчасова зупинка:
+  bash 5_uninstall.sh --keep-data --force
   ... обслуговування ...
-  bash deploy.sh
-
-Повне видалення (звільнити місце):
-  bash uninstall.sh --full --force
+  bash 3_deploy.sh

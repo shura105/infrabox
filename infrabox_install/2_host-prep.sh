@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# host-prep.sh — підготовка хоста до розгортання Infrabox
+# 2_host-prep.sh — підготовка хоста до розгортання Infrabox
 #
 # Запуск (від цільового користувача з правами sudo):
-#   bash host-prep.sh [--deploy-dir /path] [--hostname myhost.local] [--skip-ssl]
+#   bash 2_host-prep.sh [--deploy-dir /path] [--hostname myhost.local] [--skip-ssl]
 #
 # Що робить:
 #   1. Перевірка системних вимог
@@ -59,7 +59,7 @@ step "Крок 1 — Перевірка системних вимог"
 
 # Платформа
 PLATFORM=$(uname -s)
-[ "$PLATFORM" != "Linux" ] && fail "host-prep.sh підтримує тільки Linux (поточна: $PLATFORM)"
+[ "$PLATFORM" != "Linux" ] && fail "2_host-prep.sh підтримує тільки Linux (поточна: $PLATFORM)"
 
 # Архітектура
 ARCH=$(uname -m)
@@ -321,4 +321,4 @@ if [ "${NEED_RELOGIN:-0}" = "1" ]; then
     warn "Виконайте 'newgrp docker' або перелогіньтесь щоб docker-група набрала чинності"
 fi
 
-echo "Наступний крок: bash deploy.sh"
+echo "Наступний крок: bash 3_deploy.sh (на admin-машині)"

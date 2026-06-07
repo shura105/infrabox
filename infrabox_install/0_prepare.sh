@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# wizard.sh — майстер налаштування Infrabox (мультихост)
+# 0_prepare.sh — фундамент стеку Infrabox: формує ДЖЕРЕЛО ІСТИНИ (topology.yml)
 #
-# Usage:
-#   bash wizard.sh                          → host-report.json (якщо є) + інтерактив
-#   bash wizard.sh r1.json r2.json ...      → кілька probe-звітів, по вузлу на кожен
+#   bash 0_prepare.sh
 #
-# Гібрид: probe-звіт дає дефолти, користувач підтверджує/редагує + може
-# додати вузли вручну. Далі — розподіл підсистем (core/ui/arch/adm) по вузлах.
-# Результат: topology.yml.
+# Це ПЕРШИЙ крок. Тут адмін приймає рішення (що відомо ДО оцінки хостів):
+#   • система: repo, branch, назва, timezone, JWT
+#   • вузли:   alias, host/IP, SSH-користувач, ключ, deploy_dir
+#   • розподіл: яка підсистема (core/ui/arch/adm) на якому вузлі
 #
-# Requires: python3 (jq не обов'язковий).
+# Результат — topology.yml, джерело істини для всього стеку:
+#   1_probe (оцінка за роллю) → 2_host-prep → 3_deploy → 4_status / 5_uninstall
+#
+# Поля arch/os вузлів лишаються порожні — їх заповнить 1_probe (факти хоста).
+# Requires: python3 (для генерації JWT; не обов'язково).
 
 set -euo pipefail
 
@@ -23,45 +26,6 @@ fail() { echo -e "${R}✗ ПОМИЛКА:${N} $*" >&2; exit 1; }
 hdr()  { echo -e "\n${C}━━━ $* ━━━${N}"; }
 
 OUT="topology.yml"
-
-# ── Args: список probe-звітів ─────────────────────────────────────────────────
-REPORTS=()
-if [ $# -gt 0 ]; then
-    for a in "$@"; do
-        [ -f "$a" ] || fail "Не знайдено: $a"
-        REPORTS+=("$a")
-    done
-elif [ -f "host-report.json" ]; then
-    REPORTS+=("host-report.json")
-fi
-
-command -v python3 &>/dev/null || fail "Потрібен python3"
-command -v jq &>/dev/null && HAS_JQ=1 || HAS_JQ=0
-
-# ── JSON getter: _get <file> <path> ───────────────────────────────────────────
-_get() {
-    local file="$1" path="$2"
-    if [ "$HAS_JQ" = "1" ]; then
-        jq -r "${path} // empty" "$file" 2>/dev/null || true
-    else
-        python3 - "$path" "$file" 2>/dev/null <<'PY'
-import sys, json
-data = json.load(open(sys.argv[2]))
-raw  = sys.argv[1].lstrip('.').split('.')
-v = data
-try:
-    for k in raw:
-        if '[' in k:
-            name, rest = k.split('[', 1)
-            v = v[name][int(rest.rstrip(']'))]
-        else:
-            v = v[k]
-    print('' if v is None else str(v))
-except Exception:
-    print('')
-PY
-    fi
-}
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 ask() {
@@ -89,92 +53,32 @@ ask_yn() {
     esac
 }
 
-_map_arch() {
-    case "$1" in
-        x86_64)  echo "x86_64" ;;
-        armv7l)  echo "arm/v7" ;;
-        aarch64) echo "arm64"  ;;
-        *)       echo "${1:-unknown}" ;;
-    esac
-}
+# ── Паралельні масиви вузлів (bash 3.2-safe) ──────────────────────────────────
+ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=()
 
-# ── Паралельні масиви вузлів ──────────────────────────────────────────────────
-ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=(); ARCHS=(); OSES=()
-
-add_node_interactive() {
-    # add_node_interactive [report_file]
-    local rep="${1:-}"
-    local d_alias d_host d_user d_key d_dir d_arch d_os
-    if [ -n "$rep" ]; then
-        local p_host p_fqdn p_user p_arch p_osid p_osver p_ram p_docker p_ip
-        p_host=$(_get "$rep" '.network.hostname')
-        p_fqdn=$(_get "$rep" '.network.fqdn')
-        p_user=$(_get "$rep" '.user.name')
-        p_arch=$(_get "$rep" '.hardware.arch')
-        p_osid=$(_get "$rep" '.os.id')
-        p_osver=$(_get "$rep" '.os.version')
-        p_ram=$(_get "$rep" '.hardware.ram_mb')
-        p_docker=$(_get "$rep" '.readiness.docker_version')
-        p_ip=$(_get "$rep" '.network.primary_ip')
-        p_mdns=$(_get "$rep" '.network.mdns_name')
-        d_alias="${p_host:-node}"
-        # пріоритет: mdns (.local) → fqdn з крапкою → hostname.local → IP
-        if [ -n "$p_mdns" ]; then d_host="$p_mdns"
-        elif echo "$p_fqdn" | grep -q '\.'; then d_host="$p_fqdn"
-        elif [ -n "$p_host" ]; then d_host="${p_host}.local"
-        else d_host="$p_ip"; fi
-        d_user="${p_user:-admin}"
-        d_arch="$(_map_arch "$p_arch")"
-        d_os="${p_osid:-linux}/${p_osver:-unknown}"
-        echo ""
-        printf "  ${G}probe:${N} %s (%s) arch:%s os:%s ram:%sMB docker:%s\n" \
-            "${p_host:-?}" "${p_ip:-?}" "$d_arch" "${p_osid:-?}" "${p_ram:-?}" "${p_docker:-нема}"
-    else
-        d_alias="node$(( ${#ALIASES[@]} + 1 ))"
-        d_host=""; d_user="admin"; d_arch="unknown"; d_os="linux/unknown"
-    fi
-    d_key="~/.ssh/id_ed25519"
-    d_dir="/home/${d_user}/infrabox"
-
+add_node() {
+    local n=$(( ${#ALIASES[@]} + 1 ))
     local a_alias a_host a_user a_key a_dir
-    ask "Псевдонім вузла"        "$d_alias"  a_alias
-    ask "Host або IP"            "$d_host"   a_host
-    ask "SSH-користувач"         "$d_user"   a_user
-    ask "SSH-ключ (на адмінці)"  "$d_key"    a_key
-    ask "Deploy directory"       "/home/${a_user}/infrabox"  a_dir
-
+    echo ""
+    info "Вузол #${n}"
+    ask "Псевдонім вузла (ключ у topology)"  "node${n}"            a_alias
+    ask "Host або IP (краще .local-ім'я)"    ""                    a_host
+    ask "SSH-користувач"                     "admin"               a_user
+    ask "SSH-ключ (шлях на адмін-машині)"    "~/.ssh/id_ed25519"   a_key
+    ask "Deploy directory"                   "/home/${a_user}/infrabox"  a_dir
     ALIASES+=("$a_alias"); HOSTS+=("$a_host"); USERS+=("$a_user")
-    KEYS+=("$a_key"); DIRS+=("$a_dir"); ARCHS+=("$d_arch"); OSES+=("$d_os")
-    ok "Вузол додано: ${a_alias} (${a_host})"
+    KEYS+=("$a_key"); DIRS+=("$a_dir")
+    ok "Додано: ${a_alias} (${a_host})"
 }
 
 # ── Welcome ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${C}╔══════════════════════════════════════════════════════╗${N}"
-echo -e "${C}║          Infrabox  Installation  Wizard              ║${N}"
+echo -e "${C}║      Infrabox — 0. Підготовка (джерело істини)       ║${N}"
 echo -e "${C}╚══════════════════════════════════════════════════════╝${N}"
-
-# ── NODES ─────────────────────────────────────────────────────────────────────
-hdr "Вузли"
-
-for rep in "${REPORTS[@]}"; do
-    add_node_interactive "$rep"
-done
-
-if [ "${#ALIASES[@]}" -eq 0 ]; then
-    info "probe-звітів не передано — додайте вузол вручну."
-    add_node_interactive ""
-fi
-
-while true; do
-    echo ""
-    ask_yn "Додати ще один вузол (вручну)?" "n" MORE
-    [ "$MORE" = "1" ] || break
-    add_node_interactive ""
-done
-
 echo ""
-ok "Вузлів: ${#ALIASES[@]}  (${ALIASES[*]})"
+echo "  Крок 0 зі стеку. Тут формується topology.yml — джерело істини,"
+echo "  яке читають усі наступні кроки (probe, host-prep, deploy)."
 
 # ── SYSTEM ───────────────────────────────────────────────────────────────────
 hdr "Система"
@@ -190,20 +94,33 @@ DEFAULT_JWT=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/n
 printf "  ${B}JWT_SECRET${N} [авто: ${G}%.16s${N}…]: " "$DEFAULT_JWT"
 read -r jwt_input || true
 JWT_SECRET="${jwt_input:-$DEFAULT_JWT}"
-ask "JWT expire (годин)"  "24"                  JWT_EXPIRE
-ask "DROP_ID"             "${ALIASES[0]}"       DROP_ID
+ask "JWT expire (годин)"  "24"  JWT_EXPIRE
+
+# ── NODES ─────────────────────────────────────────────────────────────────────
+hdr "Вузли"
+echo "  Опишіть вузли (фізичні/віртуальні Linux-машини)."
+add_node
+while true; do
+    echo ""
+    ask_yn "Додати ще один вузол?" "n" MORE
+    [ "$MORE" = "1" ] || break
+    add_node
+done
+echo ""
+ok "Вузлів: ${#ALIASES[@]}  (${ALIASES[*]})"
+
+ask "DROP_ID (ідентифікатор у системі)"  "${ALIASES[0]}"  DROP_ID
 
 # ── PLACEMENT ────────────────────────────────────────────────────────────────
-hdr "Розміщення підсистем"
-echo "  Оберіть вузол для кожної підсистеми."
-echo ""
+hdr "Розподіл підсистем"
+echo "  Оберіть вузол для кожної підсистеми (core обов'язковий)."
 
 pick_node() {
-    # pick_node <sub> <allow_skip 0|1>  → друкує обраний alias (порожньо = пропустити)
-    local sub="$1" allow_skip="$2" i choice
+    # pick_node <sub-опис> <allow_skip 0|1>  → друкує обраний alias (порожньо = пропустити)
+    local desc="$1" allow_skip="$2" i choice
     {
         echo ""
-        echo "  Підсистема '${sub}':"
+        echo "  ${desc}:"
         for i in "${!ALIASES[@]}"; do
             printf "    %d) %s (%s)\n" $((i+1)) "${ALIASES[$i]}" "${HOSTS[$i]}"
         done
@@ -240,7 +157,6 @@ case "${ssl_pick:-1}" in
 esac
 SSL_HOST=""
 if [ "$SSL_MODE" != "skip" ]; then
-    # дефолт — host вузла з ui (або core)
     SSL_DEF=""
     for i in "${!ALIASES[@]}"; do
         [ "${ALIASES[$i]}" = "${PLACE_ui:-$PLACE_core}" ] && SSL_DEF="${HOSTS[$i]}"
@@ -252,8 +168,8 @@ fi
 hdr "Підсумок"
 echo ""
 for i in "${!ALIASES[@]}"; do
-    printf "  Вузол: ${G}%s${N}  %s@%s  %s  [%s]\n" \
-        "${ALIASES[$i]}" "${USERS[$i]}" "${HOSTS[$i]}" "${DIRS[$i]}" "${ARCHS[$i]}"
+    printf "  Вузол: ${G}%s${N}  %s@%s  %s\n" \
+        "${ALIASES[$i]}" "${USERS[$i]}" "${HOSTS[$i]}" "${DIRS[$i]}"
 done
 echo ""
 printf "  core → ${G}%s${N}\n" "$PLACE_core"
@@ -269,14 +185,14 @@ echo ""
 ask_yn "Записати topology.yml?" "y" DO_WRITE
 [ "$DO_WRITE" = "1" ] || { warn "Скасовано."; exit 0; }
 
-# ── GENERATE ──────────────────────────────────────────────────────────────────
+# ── GENERATE topology.yml ─────────────────────────────────────────────────────
 GEN_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 {
 cat <<TOPO
-# topology.yml — карта розгортання Infrabox
-# Згенеровано wizard.sh ${GEN_TS}
-# УВАГА: містить JWT_SECRET — зберігати в безпечному місці.
+# topology.yml — ДЖЕРЕЛО ІСТИНИ Infrabox
+# Згенеровано 0_prepare.sh ${GEN_TS}
+# arch/os вузлів заповнить 1_probe.sh. УВАГА: містить JWT_SECRET.
 
 version: "1"
 
@@ -297,8 +213,8 @@ cat <<TOPO
     host:        "${HOSTS[$i]}"
     user:        "${USERS[$i]}"
     ssh_key:     "${KEYS[$i]}"
-    arch:        "${ARCHS[$i]}"
-    os:          "${OSES[$i]}"
+    arch:        ""          # заповнить 1_probe.sh
+    os:          ""          # заповнить 1_probe.sh
     deploy_dir:  "${DIRS[$i]}"
     role:        "${ROLE}"
 TOPO
@@ -308,7 +224,6 @@ echo ""
 echo "subsystems:"
 } > "$OUT"
 
-# emit_sub <name> <node> <workdir> <desc>  + контейнери/порти за типом
 emit_sub() {
     local sub="$1" node="$2" workdir="$3" desc="$4"
     [ -z "$node" ] && return
@@ -356,7 +271,6 @@ TOPO
 TOPO
         ;;
     esac
-    # core отримує env (JWT/DROP_ID) — з розкриттям змінних
     if [ "$sub" = "core" ]; then
         cat <<TOPO
     env:
@@ -373,7 +287,6 @@ emit_sub arch "$PLACE_arch" "arch" "Архіватор: запис історі�
 emit_sub ui   "$PLACE_ui"   "ui"   "Frontend (nginx+HTTPS), backend API, WebSocket"
 emit_sub adm  "$PLACE_adm"  "adm"  "Адміністративний сервіс: контейнери, хост, конфігурація"
 
-# ── docker network + порядок ──────────────────────────────────────────────────
 {
 cat <<'TOPO'
 
@@ -395,7 +308,6 @@ echo "undeploy_order:"
 [ -n "$PLACE_arch" ] && echo "  - arch"
 echo "  - core"
 
-# ── data ──────────────────────────────────────────────────────────────────────
 cat <<'TOPO'
 
 data:
@@ -454,7 +366,6 @@ cat <<'TOPO'
     critical:    false
 TOPO
 
-# ── SSL ──────────────────────────────────────────────────────────────────────
 if [ "$SSL_MODE" != "skip" ]; then
 cat <<TOPO
 
@@ -469,16 +380,32 @@ fi
 echo ""
 } >> "$OUT"
 
-# ── Done ─────────────────────────────────────────────────────────────────────
+# ── Done + probe-команди для кожного вузла ────────────────────────────────────
+# роль вузла = підсистеми, призначені на нього
+node_roles() {
+    local alias="$1" roles=""
+    [ "$PLACE_core" = "$alias" ] && roles="${roles:+$roles,}core"
+    [ "$PLACE_arch" = "$alias" ] && roles="${roles:+$roles,}arch"
+    [ "$PLACE_ui"   = "$alias" ] && roles="${roles:+$roles,}ui"
+    [ "$PLACE_adm"  = "$alias" ] && roles="${roles:+$roles,}adm"
+    echo "$roles"
+}
+
 echo ""
 echo -e "${G}══════════════════════════════════════════${N}"
-echo -e "${G}  topology.yml записано ✓${N}"
+echo -e "${G}  topology.yml створено ✓  (джерело істини)${N}"
 echo -e "${G}══════════════════════════════════════════${N}"
 echo ""
 echo "  Файл: $(pwd)/${OUT}"
 echo ""
-echo "Наступні кроки:"
-echo "  1. На КОЖНОМУ вузлі: bash host-prep.sh"
-echo "  2. bash deploy.sh"
+echo -e "${C}Наступний крок — 1. Оцінка хостів (probe):${N}"
+echo "  Скопіюйте 1_probe.sh на кожен вузол і запустіть з його роллю:"
 echo ""
-warn "JWT_SECRET згенеровано — додайте його в env core при потребі: ${DEFAULT_JWT:0:16}…"
+for i in "${!ALIASES[@]}"; do
+    ROLES=$(node_roles "${ALIASES[$i]}")
+    [ -z "$ROLES" ] && continue
+    printf "  ${D}# %s${N}\n" "${ALIASES[$i]}"
+    printf "  ssh %s@%s 'bash -s -- --role %s' < 1_probe.sh\n\n" \
+        "${USERS[$i]}" "${HOSTS[$i]}" "$ROLES"
+done
+echo "Далі: 2_host-prep.sh (на кожному вузлі) → 3_deploy.sh"
