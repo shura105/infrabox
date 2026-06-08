@@ -41,7 +41,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -f "$TOPOLOGY" ] || fail "Не знайдено: $TOPOLOGY\nЗапустіть спочатку: bash 0_prepare.sh"
+[ -f "$TOPOLOGY" ] || fail "Не знайдено: $TOPOLOGY\nЗапустіть спочатку: bash 1_prepare.sh"
 command -v python3 &>/dev/null || fail "python3 не знайдено"
 [ -f "$SCRIPT_DIR/_topo.py" ] || fail "Не знайдено: $SCRIPT_DIR/_topo.py"
 

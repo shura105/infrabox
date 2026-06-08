@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# 1_probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox (v2)
+# 0_probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox
 #
-# Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux або macOS). Нічого не змінює — тільки читає.
+# ПЕРШИЙ крок. Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux або macOS). Тонкий автономний
+# збирач — нічого не змінює, тільки читає. Працює навіть за обмеженого доступу.
 #
-#   bash 1_probe.sh                           → інтерактивно: меню вибору ролей
-#   bash 1_probe.sh --role core,arch,ui,adm   → без меню (для підказки з 0_prepare)
-#   bash 1_probe.sh --role arch --json        → тільки JSON у stdout
+#   bash 0_probe.sh                           → інтерактивно: меню вибору ролей
+#   bash 0_probe.sh --role core,arch,ui,adm   → без меню (неінтерактивно)
+#   bash 0_probe.sh --role arch --json        → тільки JSON у stdout
+#
+# Результат — host-report.json (факти + наміри). Принесіть звіти на admin-машину
+# і запустіть 1_prepare.sh — воно збере topology.yml зі звітів.
 #
 # Вердикт по кожній ролі — ДОРАДЧИЙ (warn не блокує; fail лише на жорстких вимогах).
 # Платформа: core/adm — лише Linux; ui/arch — будь-яка ОС з Docker.
@@ -38,7 +42,7 @@ _trim() { echo "$1" | xargs; }
 
 # ── Інтерактивний вибір ролей (якщо не задано --role і не --json) ─────────────
 # Роль можна задати й параметром (--role) — для неінтерактивного запуску з
-# підказки 0_prepare. Без параметра скрипт питає сам.
+# неінтерактивного запуску. Без параметра скрипт питає сам.
 if [ -z "$ROLES" ] && [ "$JSON_ONLY" = "0" ]; then
     {
         echo ""
@@ -68,7 +72,7 @@ UNAME_S=$(uname -s)
 case "$UNAME_S" in
     Linux)  PLATFORM="linux"  ;;
     Darwin) PLATFORM="macos"  ;;
-    *) echo "1_probe.sh підтримує Linux і macOS (поточна: $UNAME_S)" >&2; exit 1 ;;
+    *) echo "0_probe.sh підтримує Linux і macOS (поточна: $UNAME_S)" >&2; exit 1 ;;
 esac
 
 # ── HARDWARE ───────────────────────────────────────────────────────────────────
@@ -457,4 +461,7 @@ else
     echo "$JSON" > "$OUTPUT_FILE"
     say ""
     say "${G}✓ Збережено: $(pwd)/${OUTPUT_FILE}${N}"
+    say ""
+    say "${C}Далі:${N} принесіть звіт на admin-машину (scp / флешка) і запустіть"
+    say "  ${D}bash 1_prepare.sh host-report.json${N}  (можна кілька звітів — по вузлу)"
 fi
