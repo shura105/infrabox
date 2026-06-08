@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # 1_probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox (v2)
 #
-# Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux). Нічого не змінює — тільки читає.
+# Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux або macOS). Нічого не змінює — тільки читає.
 #
-#   bash 1_probe.sh --role core,arch,ui,adm   → оцінка під задані ролі + host-report.json
+#   bash 1_probe.sh                           → інтерактивно: меню вибору ролей
+#   bash 1_probe.sh --role core,arch,ui,adm   → без меню (для підказки з 0_prepare)
 #   bash 1_probe.sh --role arch --json        → тільки JSON у stdout
-#   bash 1_probe.sh                            → базова оцінка без ролей
 #
 # Вердикт по кожній ролі — ДОРАДЧИЙ (warn не блокує; fail лише на жорстких вимогах).
+# Платформа: core/adm — лише Linux; ui/arch — будь-яка ОС з Docker.
 
 OUTPUT_FILE="host-report.json"
 JSON_ONLY=0
@@ -34,6 +35,33 @@ _cmd()  { command -v "$1" >/dev/null 2>&1; }
 _esc()  { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 _try()  { "$@" 2>/dev/null || true; }
 _trim() { echo "$1" | xargs; }
+
+# ── Інтерактивний вибір ролей (якщо не задано --role і не --json) ─────────────
+# Роль можна задати й параметром (--role) — для неінтерактивного запуску з
+# підказки 0_prepare. Без параметра скрипт питає сам.
+if [ -z "$ROLES" ] && [ "$JSON_ONLY" = "0" ]; then
+    {
+        echo ""
+        echo -e "${C}Які підсистеми плануються на цей хост?${N}"
+        echo "  1) core    (Redis, MQTT, auth, simulator, selfdiag)  — лише Linux"
+        echo "  2) adm     (адмін-сервіс: контейнери, хост)          — лише Linux"
+        echo "  3) ui      (web + backend API)                       — будь-яка ОС"
+        echo "  4) arch    (архіватор історії)                       — будь-яка ОС"
+        echo "  (кілька через пробіл: напр. «3 4» або «ui arch»; Enter — без ролей)"
+        printf "  Вибір: "
+    } >&2
+    read -r _sel || true
+    for tok in $_sel; do
+        case "$tok" in
+            1|core) ROLES="$ROLES core" ;;
+            2|adm)  ROLES="$ROLES adm"  ;;
+            3|ui)   ROLES="$ROLES ui"   ;;
+            4|arch) ROLES="$ROLES arch" ;;
+            *) echo "  ! пропущено невідоме: $tok" >&2 ;;
+        esac
+    done
+    ROLES=$(echo "$ROLES" | xargs)
+fi
 
 # ── Платформа ──────────────────────────────────────────────────────────────────
 UNAME_S=$(uname -s)
