@@ -163,13 +163,22 @@
   ПІДТРИМУВАНІ ПЛАТФОРМИ (ЦІЛЬОВИЙ ХОСТ)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Лише Linux. Усі підсистеми (core/adm/ui/arch) — Linux:
-    core/adm — жорстко (host-метрики /proc, docker.sock, керування хостом)
-    ui/arch  — Linux-контейнери; UI доступний з будь-якої ОС через БРАУЗЕР
-               (нічого встановлювати на клієнтські Mac/Windows не треба)
+  Платформа залежить від підсистеми (Docker дає незалежність для мережевих):
+
+    core — Linux (жорстко)   selfdiag міряє метрики РЕАЛЬНОГО хоста (/proc,/sys);
+                             на Docker Desktop це була б ВМ, не машина
+    adm  — Linux (жорстко)   pid:host + керування хостом (reboot/shutdown)
+    ui   — будь-яка з Docker  web+backend — мережеві контейнери
+    arch — будь-яка з Docker  writer+backend+arch-ui — мережеві + диск
+
+  1_probe видає platform-aware вердикт: core/adm на не-Linux → fail; ui/arch → ok.
+  Операторська машина (Mac/Linux) може нести ui (+ arch). core/adm — на Linux-вузлах,
+  на одному або різних. Зв'язок між вузлами — мережевий (LAN або WireGuard).
 
   Перевірено:  Armbian (Debian 12) / ARMv7 — Banana Pi M2 Ultra (root на SATA SSD)
-  Сумісно:     Debian 11/12, Ubuntu 22/24, DietPi, Armbian / amd64, arm64, armhf
+               macOS 15 / x86_64 — Mac mini (probe: ui/arch ok, core fail)
+  Сумісно:     Debian 11/12, Ubuntu 22/24, DietPi, Armbian (core/adm);
+               будь-яка ОС з Docker для ui/arch. Windows — планується (WSL/Git Bash).
   Мінімум RAM: 256 MB (512 MB рекомендовано для arch)
   SD-карта:    логи і архів у RAM (tmpfs); для arch краще SSD/HDD-вузол
 

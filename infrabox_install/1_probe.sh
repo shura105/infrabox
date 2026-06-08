@@ -35,118 +35,178 @@ _esc()  { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 _try()  { "$@" 2>/dev/null || true; }
 _trim() { echo "$1" | xargs; }
 
-# ── Лише Linux ─────────────────────────────────────────────────────────────────
-if [ "$(uname -s)" != "Linux" ]; then
-    echo "1_probe.sh v2 підтримує лише Linux-цілі (поточна: $(uname -s))" >&2
-    exit 1
-fi
+# ── Платформа ──────────────────────────────────────────────────────────────────
+UNAME_S=$(uname -s)
+case "$UNAME_S" in
+    Linux)  PLATFORM="linux"  ;;
+    Darwin) PLATFORM="macos"  ;;
+    *) echo "1_probe.sh підтримує Linux і macOS (поточна: $UNAME_S)" >&2; exit 1 ;;
+esac
 
 # ── HARDWARE ───────────────────────────────────────────────────────────────────
 hw_arch=$(_try uname -m)
-hw_cpu_count=$(_try nproc)
-hw_cpu_model=$(_trim "$(_try grep -m1 'model name\|Model name\|Processor' /proc/cpuinfo | cut -d: -f2)")
-hw_ram_mb=$(_try awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)
-hw_board=""
-for f in /proc/device-tree/model /sys/firmware/devicetree/base/model; do
-    [ -f "$f" ] && hw_board=$(_try cat "$f" | tr -d '\0') && break
-done
+if [ "$PLATFORM" = "linux" ]; then
+    hw_cpu_count=$(_try nproc)
+    hw_cpu_model=$(_trim "$(_try grep -m1 'model name\|Model name\|Processor' /proc/cpuinfo | cut -d: -f2)")
+    hw_ram_mb=$(_try awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)
+    hw_board=""
+    for f in /proc/device-tree/model /sys/firmware/devicetree/base/model; do
+        [ -f "$f" ] && hw_board=$(_try cat "$f" | tr -d '\0') && break
+    done
+else
+    hw_cpu_count=$(_try sysctl -n hw.ncpu)
+    hw_cpu_model=$(_try sysctl -n machdep.cpu.brand_string)
+    hw_ram_mb=$(_try sysctl -n hw.memsize | awk '{printf "%d", $1/1024/1024}')
+    hw_board=$(_try sysctl -n hw.model)
+fi
 
 # ── OS ─────────────────────────────────────────────────────────────────────────
-os_id="" os_version="" os_pretty="" os_like=""
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    os_id="${ID:-}"; os_version="${VERSION_ID:-}"; os_pretty="${PRETTY_NAME:-}"; os_like="${ID_LIKE:-}"
+os_id="" os_version="" os_pretty="" os_like="" os_systemd=""
+if [ "$PLATFORM" = "linux" ]; then
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        os_id="${ID:-}"; os_version="${VERSION_ID:-}"; os_pretty="${PRETTY_NAME:-}"; os_like="${ID_LIKE:-}"
+    fi
+    _cmd systemctl && os_systemd=$(_try systemctl --version | head -1 | awk '{print $2}')
+else
+    os_id="macos"; os_version=$(_try sw_vers -productVersion); os_pretty="macOS ${os_version}"
 fi
 os_kernel=$(_try uname -r)
 os_bits=$(_try getconf LONG_BIT)
-os_systemd=""
-_cmd systemctl && os_systemd=$(_try systemctl --version | head -1 | awk '{print $2}')
 
-# kernel major.minor як число (для WG ≥5.6)
+# kernel major.minor (для WG ≥5.6 на Linux)
 KVER_MAJ=$(echo "$os_kernel" | cut -d. -f1)
 KVER_MIN=$(echo "$os_kernel" | cut -d. -f2)
 kernel_ge_56=0
 if [ "${KVER_MAJ:-0}" -gt 5 ] 2>/dev/null; then kernel_ge_56=1
 elif [ "${KVER_MAJ:-0}" -eq 5 ] 2>/dev/null && [ "${KVER_MIN:-0}" -ge 6 ] 2>/dev/null; then kernel_ge_56=1; fi
 
-# ── NETWORK: primary iface (default route → fallback фізичний) ─────────────────
-primary_iface=$(_try ip route show default | awk '{for(i=1;i<=NF;i++)if($i=="dev")print $(i+1)}' | head -1)
-if [ -z "$primary_iface" ]; then
-    for ifc in $(_try ls /sys/class/net); do
-        case "$ifc" in lo|docker*|br-*|veth*|wg*|tun*|tap*|zram*) continue ;; esac
-        readlink -f "/sys/class/net/$ifc" 2>/dev/null | grep -q '/virtual/' && continue
-        ip -4 addr show "$ifc" 2>/dev/null | grep -q 'inet ' && primary_iface="$ifc" && break
-    done
+# ── NETWORK: primary iface (default route, без залежності від інтернету) ──────
+if [ "$PLATFORM" = "linux" ]; then
+    primary_iface=$(_try ip route show default | awk '{for(i=1;i<=NF;i++)if($i=="dev")print $(i+1)}' | head -1)
+    if [ -z "$primary_iface" ]; then
+        for ifc in $(_try ls /sys/class/net); do
+            case "$ifc" in lo|docker*|br-*|veth*|wg*|tun*|tap*|zram*) continue ;; esac
+            readlink -f "/sys/class/net/$ifc" 2>/dev/null | grep -q '/virtual/' && continue
+            ip -4 addr show "$ifc" 2>/dev/null | grep -q 'inet ' && primary_iface="$ifc" && break
+        done
+    fi
+    primary_ip=$(_try ip -4 addr show "$primary_iface" | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
+    net_gateway=$(_try ip route show default | awk '{print $3}' | head -1)
+else
+    primary_iface=$(_try route -n get default | awk '/interface:/{print $2}')
+    primary_ip=$(_try ifconfig "$primary_iface" | awk '/inet /{print $2}' | head -1)
+    net_gateway=$(_try route -n get default | awk '/gateway:/{print $2}')
 fi
-primary_ip=$(_try ip -4 addr show "$primary_iface" | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
-net_gateway=$(_try ip route show default | awk '{print $3}' | head -1)
-net_hostname=$(_try hostname)
-net_fqdn=$(_try hostname -f)
-# mDNS-ім'я: hostname.local якщо avahi активний
+net_hostname=$(_try hostname | sed 's/\.local$//')
+net_fqdn=$(_try hostname -f 2>/dev/null)
+
+# mDNS-ім'я
 mdns_active=0
-{ _cmd systemctl && [ "$(_try systemctl is-active avahi-daemon)" = "active" ]; } && mdns_active=1
+if [ "$PLATFORM" = "linux" ]; then
+    { _cmd systemctl && [ "$(_try systemctl is-active avahi-daemon)" = "active" ]; } && mdns_active=1
+else
+    mdns_active=1   # macOS Bonjour — завжди
+fi
 net_mdns_name=""
 [ "$mdns_active" = "1" ] && net_mdns_name="${net_hostname}.local"
 
 # всі IPv4-інтерфейси (з позначкою physical)
 net_ifaces_json="["; first=1
-for ifc in $(_try ls /sys/class/net); do
-    [ "$ifc" = "lo" ] && continue
-    ip4=$(_try ip -4 addr show "$ifc" | awk '/inet /{print $2}' | head -1)
-    [ -z "$ip4" ] && continue
-    phys=false
-    readlink -f "/sys/class/net/$ifc" 2>/dev/null | grep -q '/virtual/' || phys=true
-    [ "$first" = "1" ] && first=0 || net_ifaces_json+=","
-    net_ifaces_json+="{\"iface\":\"$(_esc "$ifc")\",\"ip\":\"$(_esc "$ip4")\",\"physical\":$phys}"
-done
+if [ "$PLATFORM" = "linux" ]; then
+    for ifc in $(_try ls /sys/class/net); do
+        [ "$ifc" = "lo" ] && continue
+        ip4=$(_try ip -4 addr show "$ifc" | awk '/inet /{print $2}' | head -1)
+        [ -z "$ip4" ] && continue
+        phys=false
+        readlink -f "/sys/class/net/$ifc" 2>/dev/null | grep -q '/virtual/' || phys=true
+        [ "$first" = "1" ] && first=0 || net_ifaces_json+=","
+        net_ifaces_json+="{\"iface\":\"$(_esc "$ifc")\",\"ip\":\"$(_esc "$ip4")\",\"physical\":$phys}"
+    done
+else
+    for ifc in $(_try ifconfig -l); do
+        case "$ifc" in lo*|bridge*|utun*|gif*|stf*|llw*|awdl*|ap*) continue ;; esac
+        ip4=$(_try ifconfig "$ifc" | awk '/inet /{print $2}' | head -1)
+        [ -z "$ip4" ] && continue
+        [ "$first" = "1" ] && first=0 || net_ifaces_json+=","
+        net_ifaces_json+="{\"iface\":\"$(_esc "$ifc")\",\"ip\":\"$(_esc "$ip4")\",\"physical\":true}"
+    done
+fi
 net_ifaces_json+="]"
 
 # ── STORAGE: тип носія root-пристрою ──────────────────────────────────────────
-root_src=$(_try findmnt -no SOURCE /)
-root_disk=$(_try lsblk -no PKNAME "$root_src" | head -1)
-[ -z "$root_disk" ] && root_disk=$(echo "$root_src" | sed 's|/dev/||; s|p\?[0-9]*$||')
-detect_storage_type() {
-    case "$1" in
-        mmcblk*) echo "sd" ;;          # SD-карта / eMMC
-        nvme*)   echo "ssd" ;;
-        "")      echo "unknown" ;;
-        *)
-            local rota; rota=$(_try lsblk -dno ROTA "/dev/$1" | tr -d ' ')
-            if [ "$rota" = "0" ]; then echo "ssd"; else echo "hdd"; fi ;;
-    esac
-}
-storage_type=$(detect_storage_type "$root_disk")
-storage_free_gb=$(_try df -BG / | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
-swap_mb=$(_try free -m | awk '/^Swap/{print $2}')
+if [ "$PLATFORM" = "linux" ]; then
+    root_src=$(_try findmnt -no SOURCE /)
+    root_disk=$(_try lsblk -no PKNAME "$root_src" | head -1)
+    [ -z "$root_disk" ] && root_disk=$(echo "$root_src" | sed 's|/dev/||; s|p\?[0-9]*$||')
+    detect_storage_type() {
+        case "$1" in
+            mmcblk*) echo "sd" ;;          # SD-карта / eMMC
+            nvme*)   echo "ssd" ;;
+            "")      echo "unknown" ;;
+            *) local rota; rota=$(_try lsblk -dno ROTA "/dev/$1" | tr -d ' ')
+               [ "$rota" = "0" ] && echo "ssd" || echo "hdd" ;;
+        esac
+    }
+    storage_type=$(detect_storage_type "$root_disk")
+    storage_free_gb=$(_try df -BG / | awk 'NR==2{v=$4; gsub("G","",v); print v+0}')
+    swap_mb=$(_try free -m | awk '/^Swap/{print $2}')
+else
+    root_disk=$(_try df / | awk 'NR==2{print $1}' | sed 's|/dev/||')
+    storage_type="ssd"   # сучасні Mac — внутрішній SSD/NVMe
+    storage_free_gb=$(_try df -g / | awk 'NR==2{print $4+0}')
+    swap_mb=$(_try sysctl -n vm.swapusage | awk '{gsub("M","",$3); print int($3)}')
+fi
 
 # ── WIREGUARD ──────────────────────────────────────────────────────────────────
-wg_module=0
-{ ls /sys/module/wireguard >/dev/null 2>&1 || _try modinfo wireguard >/dev/null; } && wg_module=1
 wg_tools=false; _cmd wg && wg_tools=true
 wg_quick=false; _cmd wg-quick && wg_quick=true
-# готовність: kernel≥5.6 (WG mainline, можливо builtin) АБО модуль; + інструменти
-wg_kernel_ok=0; { [ "$kernel_ge_56" = "1" ] || [ "$wg_module" = "1" ]; } && wg_kernel_ok=1
-wg_udp_free=true; _try ss -uln | grep -q ':51820 ' && wg_udp_free=false
-ip_forward=$(_try sysctl -n net.ipv4.ip_forward); [ -z "$ip_forward" ] && ip_forward=$(_try cat /proc/sys/net/ipv4/ip_forward)
+if [ "$PLATFORM" = "linux" ]; then
+    wg_module=0
+    { ls /sys/module/wireguard >/dev/null 2>&1 || _try modinfo wireguard >/dev/null; } && wg_module=1
+    wg_kernel_ok=0; { [ "$kernel_ge_56" = "1" ] || [ "$wg_module" = "1" ]; } && wg_kernel_ok=1
+    wg_udp_free=true; _try ss -uln | grep -q ':51820 ' && wg_udp_free=false
+    ip_forward=$(_try sysctl -n net.ipv4.ip_forward); [ -z "$ip_forward" ] && ip_forward=$(_try cat /proc/sys/net/ipv4/ip_forward)
+else
+    wg_module=0   # macOS — userspace (wireguard-go), kernel-модуля нема
+    wg_kernel_ok=0; [ "$wg_tools" = "true" ] && wg_kernel_ok=1   # готовність = wg-tools (userspace)
+    wg_udp_free=true; _try lsof -nP -iUDP:51820 2>/dev/null | grep -q . && wg_udp_free=false
+    ip_forward=$(_try sysctl -n net.inet.ip.forwarding)
+fi
 
 # ── TIME ───────────────────────────────────────────────────────────────────────
 ntp_synced=false
-[ "$(_try timedatectl show -p NTPSynchronized --value)" = "yes" ] && ntp_synced=true
-tz=$(_try timedatectl show -p Timezone --value)
+if [ "$PLATFORM" = "linux" ]; then
+    [ "$(_try timedatectl show -p NTPSynchronized --value)" = "yes" ] && ntp_synced=true
+    tz=$(_try timedatectl show -p Timezone --value)
+else
+    _try pgrep -x timed >/dev/null && ntp_synced=true   # timed працює → Apple NTP
+    tz=$(_try readlink /etc/localtime | sed 's|.*/zoneinfo/||')
+fi
 
 # ── READINESS ──────────────────────────────────────────────────────────────────
 docker_running=false
-[ "$(_try systemctl is-active docker)" = "active" ] && docker_running=true
+if [ "$PLATFORM" = "linux" ]; then
+    [ "$(_try systemctl is-active docker)" = "active" ] && docker_running=true
+else
+    _try docker info >/dev/null 2>&1 && docker_running=true   # Docker Desktop
+fi
 docker_ver=$(_try docker info --format '{{.ServerVersion}}'); [ -z "$docker_ver" ] && docker_ver=$(_try docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 docker_storage=$(_try docker info --format '{{.Driver}}')
 compose_ver=$(_try docker compose version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 internet=false
-_try timeout 5 curl -sI https://github.com >/dev/null 2>&1 && internet=true
-pkg_mgr=""; for m in apt-get apt dnf yum pacman apk; do _cmd "$m" && pkg_mgr="$m" && break; done
-firewall="none"
-if _cmd ufw && [ "$(_try ufw status | head -1)" = "Status: active" ]; then firewall="ufw"
-elif _cmd nft && [ -n "$(_try nft list ruleset)" ]; then firewall="nftables"
-elif _cmd iptables && [ -n "$(_try iptables -S 2>/dev/null | grep -v '^-P')" ]; then firewall="iptables"; fi
+_try curl -sI --max-time 5 https://github.com >/dev/null 2>&1 && internet=true
+if [ "$PLATFORM" = "linux" ]; then
+    pkg_mgr=""; for m in apt-get apt dnf yum pacman apk; do _cmd "$m" && pkg_mgr="$m" && break; done
+    firewall="none"
+    if _cmd ufw && [ "$(_try ufw status | head -1)" = "Status: active" ]; then firewall="ufw"
+    elif _cmd nft && [ -n "$(_try nft list ruleset)" ]; then firewall="nftables"
+    elif _cmd iptables && [ -n "$(_try iptables -S 2>/dev/null | grep -v '^-P')" ]; then firewall="iptables"; fi
+else
+    pkg_mgr=""; _cmd brew && pkg_mgr="brew"
+    firewall="none"
+    _try /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null | grep -qi enabled && firewall="appfw"
+fi
 
 # ── SOFTWARE ───────────────────────────────────────────────────────────────────
 sw_python=$(_try python3 --version | awk '{print $2}')
@@ -167,7 +227,11 @@ usr_in_docker=false; _try id -nG | grep -qw docker && usr_in_docker=true
 # ── PORTS (TCP) ────────────────────────────────────────────────────────────────
 check_port() {
     local port="$1" busy=""
-    if _cmd ss; then busy=$(_try ss -tlnp "sport = :$port" | awk 'NR>1{print $NF}' | head -1); fi
+    if [ "$PLATFORM" = "linux" ]; then
+        _cmd ss && busy=$(_try ss -tlnp "sport = :$port" | awk 'NR>1{print $NF}' | head -1)
+    else
+        busy=$(_try lsof -nP -iTCP:"$port" -sTCP:LISTEN | awk 'NR>1{print $1}' | head -1)
+    fi
     [ -n "$busy" ] && echo "false" || echo "true"
 }
 P80=$(check_port 80); P443=$(check_port 443)
@@ -193,11 +257,11 @@ add_check() {
 # спільні для всіх вузлів тунелю
 check_common() {
     if [ "$wg_kernel_ok" = "1" ] && [ "$wg_tools" = "true" ]; then
-        add_check "wireguard" "ok" "kernel + wg-tools готові"
-    elif [ "$wg_kernel_ok" = "1" ]; then
-        add_check "wireguard" "warn" "kernel OK, але wg-tools не встановлено"
+        add_check "wireguard" "ok" "готовий (wg-tools + ядро/userspace)"
+    elif [ "$wg_tools" = "true" ]; then
+        add_check "wireguard" "warn" "wg-tools є, ядро/модуль не підтверджено"
     else
-        add_check "wireguard" "warn" "kernel<5.6 і модуль відсутній — потрібен WG"
+        add_check "wireguard" "warn" "wg-tools не встановлено — потрібен WG"
     fi
     [ "$ntp_synced" = "true" ] && add_check "ntp" "ok" "час синхронізовано" \
                                || add_check "ntp" "warn" "час НЕ синхронізовано (desync_guard)"
@@ -209,14 +273,16 @@ check_common() {
 
 check_core() {
     reset_checks
+    [ "$PLATFORM" != "linux" ] && add_check "platform" "fail" \
+        "core потребує Linux — selfdiag міряє метрики хоста (/proc,/sys); на Docker Desktop це ВМ"
     [ "${hw_ram_mb:-0}" -ge 512 ] 2>/dev/null && add_check "ram" "ok" "${hw_ram_mb}MB" \
                                               || add_check "ram" "warn" "${hw_ram_mb}MB (<512)"
     [ "$P1883" = "true" ] && add_check "port_1883" "ok" "MQTT real вільний" \
                           || add_check "port_1883" "warn" "1883 зайнятий"
     [ "$P1884" = "true" ] && add_check "port_1884" "ok" "MQTT sim вільний" \
                           || add_check "port_1884" "warn" "1884 зайнятий"
-    [ "$mdns_active" = "1" ] && add_check "mdns" "ok" "avahi активний (.local)" \
-                             || add_check "mdns" "warn" "avahi неактивний — вузли не знайдуть core по .local"
+    [ "$mdns_active" = "1" ] && add_check "mdns" "ok" "mDNS активний (.local)" \
+                             || add_check "mdns" "warn" "mDNS неактивний — вузли не знайдуть core по .local"
     check_common
 }
 
@@ -243,6 +309,8 @@ check_ui() {
 
 check_adm() {
     reset_checks
+    [ "$PLATFORM" != "linux" ] && add_check "platform" "fail" \
+        "adm потребує Linux — pid:host і керування хостом (reboot/shutdown) на Docker Desktop недоступні"
     if [ -S /var/run/docker.sock ]; then add_check "docker_sock" "ok" "/var/run/docker.sock доступний"
     else add_check "docker_sock" "fail" "немає docker.sock — adm не керуватиме контейнерами"; fi
     [ "$usr_sudo" = "nopasswd" ] && add_check "sudo" "ok" "sudo nopasswd (reboot/shutdown)" \
