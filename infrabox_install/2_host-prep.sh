@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # 2_host-prep.sh — підготовка хоста до розгортання Infrabox підсистем.
 #
-#   bash 2_host-prep.sh [--deploy-dir /path] [--hostname name.local] [--skip-ssl]
+#   bash 2_host-prep.sh          (без ключів — скрипт питає все в процесі)
 #
 # Модель: скрипт ТРИМАЄ вимоги до хоста, ПЕРЕВІРЯЄ наявність кожної, за технічної
 # можливості ВСТАНОВЛЮЄ, а якщо встановити не може — додає ЗАДАЧУ АДМІНУ з описом
-# (а не падає). Наприкінці — або «готово», або список задач для ручного виконання.
+# (а не падає). Параметри (deploy_dir, SSL) питає інтерактивно з поясненнями.
+# Наприкінці — або «готово», або список задач для ручного виконання.
 #
 # Двоплатформний: Linux (apt-встановлення) і macOS (Docker Desktop — делегування).
 # Ідемпотентний. Linux-специфічне (docker-група, tmpfs, logrotate) на macOS пропускається.
@@ -32,20 +33,29 @@ $2
 "
 }
 
-# ── Параметри ─────────────────────────────────────────────────────────────────
-DEPLOY_DIR="${INFRABOX_DEPLOY_DIR:-${HOME}/infrabox}"
-HOSTNAME_ARG=""
-SKIP_SSL=0
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --deploy-dir)  DEPLOY_DIR="$2";   shift 2 ;;
-        --hostname)    HOSTNAME_ARG="$2"; shift 2 ;;
-        --skip-ssl)    SKIP_SSL=1;        shift   ;;
-        *) err "Невідомий аргумент: $1"; exit 1 ;;
+# ── Інтерактивні запити (скрипт питає сам, без ключів запуску) ────────────────
+ask() {
+    # ask "Питання (з поясненням)" "дефолт" VAR
+    local prompt="$1" default="$2" varname="$3" result=""
+    if [ -n "$default" ]; then printf "  ${B}%s${N} [${default}]: " "$prompt"
+    else printf "  ${B}%s${N}: " "$prompt"; fi
+    read -r result || true
+    printf -v "$varname" '%s' "${result:-$default}"
+}
+ask_yn() {
+    local prompt="$1" default="${2:-y}" varname="$3" opts ans=""
+    [ "$default" = "y" ] && opts="Y/n" || opts="y/N"
+    printf "  ${B}%s${N} [%s]: " "$prompt" "$opts"
+    read -r ans || true
+    ans="${ans:-$default}"
+    case "$(echo "$ans" | tr '[:upper:]' '[:lower:]')" in
+        y|yes|т|так) printf -v "$varname" '%s' "1" ;;
+        *)            printf -v "$varname" '%s' "0" ;;
     esac
-done
+}
+
 DEPLOY_USER="${USER:-$(id -un)}"
-SSL_DIR="${DEPLOY_DIR}/ui/frontend/ssl"
+# DEPLOY_DIR / SSL_DIR / SKIP_SSL / HOSTNAME_ARG — питаються в процесі нижче
 
 # ── Утиліти ───────────────────────────────────────────────────────────────────
 _cmd()      { command -v "$1" >/dev/null 2>&1; }
@@ -90,6 +100,14 @@ if [ "$PLATFORM" = "linux" ]; then
         ok "ОС: ${PRETTY_NAME:-$OS_ID}"
     fi
 fi
+
+# ── Параметри розгортання (інтерактивно) ─────────────────────────────────────
+step "Параметри"
+echo "  deploy_dir — локальна тека цього вузла, куди 3_deploy склонує репозиторій."
+echo "  (Не SMB-маунт іншого вузла — саме локальний шлях цієї машини.)"
+ask "Куди розгортати (deploy_dir)" "${INFRABOX_DEPLOY_DIR:-${HOME}/infrabox}" DEPLOY_DIR
+SSL_DIR="${DEPLOY_DIR}/ui/frontend/ssl"
+ok "deploy_dir: ${DEPLOY_DIR}"
 
 # ── Ресурси (інформативно; критичний брак → задача адміну) ────────────────────
 step "Ресурси"
@@ -213,41 +231,46 @@ fi
 # ── SSL-сертифікати ────────────────────────────────────────────────────────────
 step "SSL-сертифікати"
 mkdir -p "$SSL_DIR"
-if [ "$SKIP_SSL" = "1" ]; then
-    warn "SSL пропущено (--skip-ssl)"
-elif [ -f "${SSL_DIR}/infrabox.crt" ] && [ -f "${SSL_DIR}/infrabox.key" ]; then
+if [ -f "${SSL_DIR}/infrabox.crt" ] && [ -f "${SSL_DIR}/infrabox.key" ]; then
     ok "SSL-сертифікати вже є"
 else
-    CERT_HOST="${HOSTNAME_ARG:-$(hostname 2>/dev/null | sed 's/\.local$//')}"
-    CERT_FQDN="${CERT_HOST}.local"
-    if [ "$PLATFORM" = "linux" ]; then
-        CERT_IP=$(ip -4 addr show 2>/dev/null | grep -v '127\.' | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
+    echo "  SSL потрібен для HTTPS-доступу до UI (web слухає 443)."
+    echo "  Без нього UI працюватиме лише по HTTP — згенерувати можна й пізніше."
+    ask_yn "Згенерувати SSL-сертифікат зараз?" "y" GEN_SSL
+    if [ "$GEN_SSL" = "0" ]; then
+        warn "SSL пропущено — згенеруєте пізніше (UI поки без HTTPS)"
     else
-        CERT_IP=$(ifconfig 2>/dev/null | grep 'inet ' | grep -v '127\.' | awk '{print $2}' | head -1)
-    fi
-    if _cmd mkcert; then
-        info "Генерація через mkcert..."
-        mkcert -install >/dev/null 2>&1 || true
-        mkcert -cert-file "${SSL_DIR}/infrabox.crt" -key-file "${SSL_DIR}/infrabox.key" \
-            "$CERT_HOST" "$CERT_FQDN" localhost 127.0.0.1 ${CERT_IP:+$CERT_IP} >/dev/null 2>&1 \
-            && ok "mkcert сертифікат згенеровано (${CERT_HOST})" \
-            || add_todo "mkcert не зміг згенерувати сертифікат" "  Згенеруйте вручну або запустіть з --skip-ssl."
-        CA_ROOT=$(mkcert -CAROOT 2>/dev/null)
-        [ -n "$CA_ROOT" ] && [ -f "${CA_ROOT}/rootCA.pem" ] && cp "${CA_ROOT}/rootCA.pem" "${SSL_DIR}/rootCA.pem" 2>/dev/null || true
-    elif _cmd openssl; then
-        info "mkcert відсутній — self-signed через openssl..."
-        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-            -keyout "${SSL_DIR}/infrabox.key" -out "${SSL_DIR}/infrabox.crt" \
-            -subj "/C=UA/O=Infrabox/CN=${CERT_HOST}" \
-            -addext "subjectAltName=DNS:${CERT_HOST},DNS:${CERT_FQDN},DNS:localhost,IP:127.0.0.1${CERT_IP:+,IP:$CERT_IP}" >/dev/null 2>&1 \
-            && ok "Self-signed сертифікат згенеровано (10 років)" \
-            || add_todo "openssl не зміг згенерувати сертифікат" "  Згенеруйте вручну або --skip-ssl."
-    else
-        add_todo "Немає інструмента для SSL (mkcert/openssl)" \
-"  Встановіть mkcert (рекомендовано) або openssl, або запустіть з --skip-ssl.
+        ask "Ім'я хоста для сертифіката" "$(hostname 2>/dev/null | sed 's/\.local$//')" CERT_HOST
+        CERT_FQDN="${CERT_HOST}.local"
+        if [ "$PLATFORM" = "linux" ]; then
+            CERT_IP=$(ip -4 addr show 2>/dev/null | grep -v '127\.' | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
+        else
+            CERT_IP=$(ifconfig 2>/dev/null | grep 'inet ' | grep -v '127\.' | awk '{print $2}' | head -1)
+        fi
+        if _cmd mkcert; then
+            info "Генерація через mkcert..."
+            mkcert -install >/dev/null 2>&1 || true
+            mkcert -cert-file "${SSL_DIR}/infrabox.crt" -key-file "${SSL_DIR}/infrabox.key" \
+                "$CERT_HOST" "$CERT_FQDN" localhost 127.0.0.1 ${CERT_IP:+$CERT_IP} >/dev/null 2>&1 \
+                && ok "mkcert сертифікат згенеровано (${CERT_HOST})" \
+                || add_todo "mkcert не зміг згенерувати сертифікат" "  Згенеруйте вручну або пропустіть SSL при повторі."
+            CA_ROOT=$(mkcert -CAROOT 2>/dev/null)
+            [ -n "$CA_ROOT" ] && [ -f "${CA_ROOT}/rootCA.pem" ] && cp "${CA_ROOT}/rootCA.pem" "${SSL_DIR}/rootCA.pem" 2>/dev/null || true
+        elif _cmd openssl; then
+            info "mkcert відсутній — self-signed через openssl..."
+            openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout "${SSL_DIR}/infrabox.key" -out "${SSL_DIR}/infrabox.crt" \
+                -subj "/C=UA/O=Infrabox/CN=${CERT_HOST}" \
+                -addext "subjectAltName=DNS:${CERT_HOST},DNS:${CERT_FQDN},DNS:localhost,IP:127.0.0.1${CERT_IP:+,IP:$CERT_IP}" >/dev/null 2>&1 \
+                && ok "Self-signed сертифікат згенеровано (10 років)" \
+                || add_todo "openssl не зміг згенерувати сертифікат" "  Згенеруйте вручну або пропустіть SSL при повторі."
+        else
+            add_todo "Немає інструмента для SSL (mkcert/openssl)" \
+"  Встановіть mkcert (рекомендовано) або openssl, потім повторіть.
      Linux: apt install openssl   macOS: brew install mkcert"
+        fi
+        [ -f "${SSL_DIR}/infrabox.key" ] && chmod 600 "${SSL_DIR}/infrabox.key" 2>/dev/null || true
     fi
-    [ -f "${SSL_DIR}/infrabox.key" ] && chmod 600 "${SSL_DIR}/infrabox.key" 2>/dev/null || true
 fi
 
 # ── Linux-специфічне: docker-група, logrotate ─────────────────────────────────
@@ -295,7 +318,7 @@ if [ "$TODO_N" -eq 0 ]; then
     echo "  deploy_dir: $DEPLOY_DIR"
     [ "${DOCKER_OK:-0}" = "1" ] && echo "  Docker:     $(docker info --format '{{.ServerVersion}}' 2>/dev/null)"
     echo "  Мережа:     infrabox-net"
-    [ "$SKIP_SSL" = "0" ] && echo "  SSL:        ${SSL_DIR}/infrabox.crt"
+    [ -f "${SSL_DIR}/infrabox.crt" ] && echo "  SSL:        ${SSL_DIR}/infrabox.crt"
     echo ""
     [ "${NEED_RELOGIN:-0}" = "1" ] && warn "Виконайте 'newgrp docker' або перелогіньтесь (docker-група)"
     echo "Наступний крок: bash 3_deploy.sh (на admin-машині)"
