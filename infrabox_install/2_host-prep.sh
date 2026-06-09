@@ -140,7 +140,10 @@ elif _cmd docker; then
         docker info >/dev/null 2>&1 && { ok "Docker запущено"; DOCKER_OK=1; } \
             || add_todo "Docker встановлений, але не стартує" "  Перевірте: sudo systemctl status docker"
     else
-        add_todo "Docker Desktop не запущено" "  Відкрийте Docker Desktop і дочекайтесь статусу «running», потім повторіть."
+        add_todo "Docker engine не запущено" \
+"  Запустіть рушій і повторіть:
+     • Docker Desktop — відкрийте застосунок, дочекайтесь «running»; АБО
+     • Colima        — colima start"
     fi
 else
     # Docker відсутній
@@ -168,11 +171,12 @@ else
             add_todo "Немає sudo для встановлення Docker" "  Надайте sudo-доступ або встановіть Docker вручну."
         fi
     else
-        add_todo "Docker Desktop не встановлено" \
-"  macOS не дозволяє встановити Docker зі скрипта (GUI-застосунок).
-     1) Завантажте Docker Desktop: https://www.docker.com/products/docker-desktop/
-     2) Встановіть і запустіть, дочекайтесь статусу «running».
-     3) Повторіть: bash 2_host-prep.sh"
+        add_todo "Docker engine не встановлено" \
+"  macOS потребує VM для Docker — оберіть один шлях, потім повторіть:
+     • Colima (легкий, CLI, рекомендовано):
+         brew install colima docker docker-compose && colima start
+     • Docker Desktop (GUI):
+         https://www.docker.com/products/docker-desktop/ → встановити → запустити"
     fi
 fi
 
