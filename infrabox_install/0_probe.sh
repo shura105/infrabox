@@ -235,6 +235,30 @@ check_port() {
 P80=$(check_port 80); P443=$(check_port 443)
 P1883=$(check_port 1883); P1884=$(check_port 1884); P6379=$(check_port 6379)
 
+# ── INFRABOX: наявні підсистеми на вузлі ──────────────────────────────────────
+# Дивимось які infrabox-* контейнери вже є і мапимо їх у підсистеми (core/ui/arch/adm).
+# Дає змогу 1_prepare відтворити ІСНУЮЧУ схему, а адмін лише вносить зміни.
+infra_ctrs_json="["; infra_subs=""; _ic_first=1
+if [ "$docker_running" = "true" ]; then
+    _ic_names=$(_try docker ps -a --format '{{.Names}}|{{.Status}}' | grep -iE '^infrabox-')
+    while IFS='|' read -r _cn _cs; do
+        [ -z "$_cn" ] && continue
+        _cst="stopped"; echo "$_cs" | grep -qiE '^Up' && _cst="running"
+        [ "$_ic_first" = "1" ] && _ic_first=0 || infra_ctrs_json+=","
+        infra_ctrs_json+="{\"name\":\"$(_esc "$_cn")\",\"status\":\"$(_esc "$_cst")\"}"
+    done <<EOF
+$_ic_names
+EOF
+    _has() { echo "$_ic_names" | grep -qiE "$1"; }
+    _has '^infrabox-(redis|core|auth|mosquitto|simulator|selfdiagnostic)\|' && infra_subs="${infra_subs}core "
+    { _has '^infrabox-web\|' || _has '^infrabox-backend\|'; } && infra_subs="${infra_subs}ui "
+    _has '^infrabox-arch'  && infra_subs="${infra_subs}arch "
+    _has '^infrabox-adm\|' && infra_subs="${infra_subs}adm "
+fi
+infra_ctrs_json+="]"
+infra_subs=$(echo "$infra_subs" | xargs)
+infra_subs_json=$(echo "$infra_subs" | tr ' ' '\n' | grep -v '^$' | sed 's/.*/"&"/' | paste -sd, -)
+
 # ── Зведення фактів (людський вивід) ──────────────────────────────────────────
 _yn() { [ "$1" = "true" ] && echo "так" || echo "ні"; }
 say ""
@@ -247,6 +271,7 @@ say "  Docker:    $([ "$docker_running" = true ] && echo "running ${docker_ver}"
 say "  WireGuard: wg-tools $(_yn "$wg_tools"), ip_forward ${ip_forward:-0}, UDP51820 вільний $(_yn "$wg_udp_free")"
 say "  Час/мережа: NTP $(_yn "$ntp_synced"), інтернет $(_yn "$internet"), firewall ${firewall}, pkg ${pkg_mgr:-—}"
 say "  Порти вільні: 80=$(_yn $P80) 443=$(_yn $P443) 1883=$(_yn $P1883) 1884=$(_yn $P1884) 6379=$(_yn $P6379)"
+say "  Infrabox:  ${infra_subs:-не виявлено}"
 
 # ── JSON ───────────────────────────────────────────────────────────────────────
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -320,6 +345,10 @@ JSON=$(cat <<ENDJSON
   },
   "ports": {
     "80": $P80, "443": $P443, "1883": $P1883, "1884": $P1884, "6379": $P6379
+  },
+  "infrabox": {
+    "subsystems": [${infra_subs_json}],
+    "containers": ${infra_ctrs_json}
   }
 }
 ENDJSON

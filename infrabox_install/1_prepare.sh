@@ -61,6 +61,18 @@ except Exception:
 PY
     fi
 }
+# виявлені підсистеми вузла (що вже встановлено) — з .infrabox.subsystems
+_get_isubs() {
+    local file="$1"
+    if [ "$HAS_JQ" = "1" ]; then
+        jq -r '(.infrabox.subsystems // []) | join(" ")' "$file" 2>/dev/null || true
+    else
+        python3 - "$file" 2>/dev/null <<'PY2'
+import sys, json
+print(' '.join(json.load(open(sys.argv[1])).get('infrabox', {}).get('subsystems', [])))
+PY2
+    fi
+}
 # ── Prompts ───────────────────────────────────────────────────────────────────
 ask() {
     local prompt="$1" default="$2" varname="$3" result=""
@@ -95,7 +107,7 @@ _map_arch() {
 
 # ── Паралельні масиви вузлів (bash 3.2-safe) ──────────────────────────────────
 # NPLAT — платформа (linux/macos), NSTOR — тип носія: для підказки придатності.
-ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=(); ARCHS=(); OSES=(); NPLAT=(); NSTOR=()
+ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=(); ARCHS=(); OSES=(); NPLAT=(); NSTOR=(); NSUBS=()
 
 add_node_from_report() {
     local rep="$1"
@@ -107,6 +119,7 @@ add_node_from_report() {
     p_osid=$(_get  "$rep" '.os.id')
     p_osver=$(_get "$rep" '.os.version')
     p_stor=$(_get  "$rep" '.storage.type')
+    p_isubs=$(_get_isubs "$rep")          # уже встановлені підсистеми на вузлі
     [ "$p_osid" = "macos" ] && p_plat="macos" || p_plat="linux"
 
     local d_host="$p_mdns"
@@ -114,8 +127,8 @@ add_node_from_report() {
 
     echo ""
     info "Звіт: ${rep}"
-    printf "  ${G}%s${N}  %s  [%s]  arch:%s  носій:%s\n" \
-        "${p_host:-?}" "${p_ip:-?}" "$p_plat" "$p_arch" "${p_stor:-?}"
+    printf "  ${G}%s${N}  %s  [%s]  arch:%s  носій:%s  Infrabox:[%s]\n" \
+        "${p_host:-?}" "${p_ip:-?}" "$p_plat" "$p_arch" "${p_stor:-?}" "${p_isubs:-—}"
 
     local a_alias a_host a_user a_key a_dir
     ask "Псевдонім вузла"        "${p_host:-node}"  a_alias
@@ -126,8 +139,8 @@ add_node_from_report() {
 
     ALIASES+=("$a_alias"); HOSTS+=("$a_host"); USERS+=("$a_user")
     KEYS+=("$a_key"); DIRS+=("$a_dir"); ARCHS+=("$p_arch"); OSES+=("${p_osid}/${p_osver}")
-    NPLAT+=("$p_plat"); NSTOR+=("${p_stor:-unknown}")
-    ok "Вузол: ${a_alias} (${a_host})  [${p_plat}, носій ${p_stor:-?}]"
+    NPLAT+=("$p_plat"); NSTOR+=("${p_stor:-unknown}"); NSUBS+=("$p_isubs")
+    ok "Вузол: ${a_alias} (${a_host})  [${p_plat}, носій ${p_stor:-?}]  Infrabox: ${p_isubs:-немає}"
 }
 
 # ── Welcome ───────────────────────────────────────────────────────────────────
@@ -163,9 +176,9 @@ JWT_SECRET="${jwt_input:-$DEFAULT_JWT}"
 ask "JWT expire (годин)"  "24"             JWT_EXPIRE
 ask "DROP_ID"             "${ALIASES[0]}"  DROP_ID
 
-# ── PLACEMENT (рішення адміна; підказка придатності за фактами probe) ─────────
+# ── PLACEMENT (дефолт = ВИЯВЛЕНА схема; підказка придатності за фактами) ───────
 hdr "Розподіл підсистем"
-echo "  Оберіть вузол для кожної підсистеми. Біля кожного — придатність за фактами:"
+echo "  Дефолт = що ВЖЕ встановлено (виявлено probe). Enter — лишити, або змінити."
 echo "  core/adm потребують Linux; arch краще на SSD/HDD; ui — будь-де."
 
 # чи вузол $2 придатний під роль $1 (для дефолту)
@@ -175,10 +188,13 @@ _fit_ok() {
         *) return 0 ;;
     esac
 }
+# чи на вузлі $2 вже встановлено підсистему $1
+_has_sub() { echo " ${NSUBS[$2]} " | grep -q " $1 "; }
 
 pick_node() {
     # pick_node <tag core|ui|arch|adm> <label> <allow_skip 0|1>  → друкує alias
-    local tag="$1" label="$2" allow_skip="$3" i choice def_idx="" fit
+    local tag="$1" label="$2" allow_skip="$3" i choice fit inst
+    local def_inst="" def_fit=""
     {
         echo ""
         echo "  ${label}:"
@@ -194,12 +210,15 @@ pick_node() {
                     esac ;;
                 *) fit="✓" ;;
             esac
-            printf "    %d) %-26s %s\n" $((i+1)) "${ALIASES[$i]} (${HOSTS[$i]})" "$fit"
-            [ -z "$def_idx" ] && _fit_ok "$tag" "$i" && def_idx=$((i+1))
+            inst=""; _has_sub "$tag" "$i" && inst="  ● встановлено"
+            printf "    %d) %-26s %s%s\n" $((i+1)) "${ALIASES[$i]} (${HOSTS[$i]})" "$fit" "$inst"
+            # дефолт: спершу вузол із вже встановленою підсистемою, інакше перший придатний
+            _has_sub "$tag" "$i" && [ -z "$def_inst" ] && def_inst=$((i+1))
+            [ -z "$def_fit" ] && _fit_ok "$tag" "$i" && def_fit=$((i+1))
         done
         [ "$allow_skip" = "1" ] && echo "    0) не встановлювати"
     } >&2
-    local prompt_def="${def_idx:-1}"
+    local prompt_def="${def_inst:-${def_fit:-1}}"
     while true; do
         printf "  Вибір [%s]: " "$prompt_def" >&2
         read -r choice || true
