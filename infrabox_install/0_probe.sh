@@ -1,31 +1,24 @@
 #!/usr/bin/env bash
-# 0_probe.sh — роль-орієнтована оцінка цільового хоста для Infrabox
+# 0_probe.sh — збір даних про цільовий хост для Infrabox
 #
 # ПЕРШИЙ крок. Запуск НА ЦІЛЬОВОМУ ХОСТІ (Linux або macOS). Тонкий автономний
-# збирач — нічого не змінює, тільки читає. Працює навіть за обмеженого доступу.
+# збирач: нічого не змінює, тільки ЗБИРАЄ ФАКТИ про машину. Працює навіть за
+# обмеженого доступу. Ролей не питає — що куди ставити, вирішує 1_prepare (адмін).
 #
-#   bash 0_probe.sh                           → інтерактивно: меню вибору ролей
-#   bash 0_probe.sh --role core,arch,ui,adm   → без меню (неінтерактивно)
-#   bash 0_probe.sh --role arch --json        → тільки JSON у stdout
+#   bash 0_probe.sh          → зведення фактів + host-report-<hostname>.json
+#   bash 0_probe.sh --json   → тільки JSON у stdout
 #
-# Результат — host-report.json (факти + наміри). Принесіть звіти на admin-машину
-# і запустіть 1_prepare.sh — воно збере topology.yml зі звітів.
-#
-# Вердикт по кожній ролі — ДОРАДЧИЙ (warn не блокує; fail лише на жорстких вимогах).
-# Платформа: core/adm — лише Linux; ui/arch — будь-яка ОС з Docker.
+# Збирає: платформа, hardware, os, network, storage (тип носія), wireguard,
+# час (NTP), готовність (docker/інтернет/firewall), software, user, порти.
+# Принесіть host-report-*.json усіх вузлів в одну теку на admin-машині → 1_prepare.
 
-OUTPUT_FILE="host-report.json"
 JSON_ONLY=0
-ROLES=""
-
 while [ $# -gt 0 ]; do
     case "$1" in
-        --role)  ROLES="$2"; shift 2 ;;
         --json)  JSON_ONLY=1; shift ;;
         *) echo "Невідомий аргумент: $1" >&2; exit 1 ;;
     esac
 done
-ROLES=$(echo "$ROLES" | tr ',' ' ')
 
 # ── Кольори (людський вивід → stderr) ─────────────────────────────────────────
 G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; C='\033[0;36m'; D='\033[2m'; N='\033[0m'
@@ -39,33 +32,6 @@ _cmd()  { command -v "$1" >/dev/null 2>&1; }
 _esc()  { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 _try()  { "$@" 2>/dev/null || true; }
 _trim() { echo "$1" | xargs; }
-
-# ── Інтерактивний вибір ролей (якщо не задано --role і не --json) ─────────────
-# Роль можна задати й параметром (--role) — для неінтерактивного запуску з
-# неінтерактивного запуску. Без параметра скрипт питає сам.
-if [ -z "$ROLES" ] && [ "$JSON_ONLY" = "0" ]; then
-    {
-        echo ""
-        echo -e "${C}Які підсистеми плануються на цей хост?${N}"
-        echo "  1) core    (Redis, MQTT, auth, simulator, selfdiag)  — лише Linux"
-        echo "  2) adm     (адмін-сервіс: контейнери, хост)          — лише Linux"
-        echo "  3) ui      (web + backend API)                       — будь-яка ОС"
-        echo "  4) arch    (архіватор історії)                       — будь-яка ОС"
-        echo "  (кілька через пробіл: напр. «3 4» або «ui arch»; Enter — без ролей)"
-        printf "  Вибір: "
-    } >&2
-    read -r _sel || true
-    for tok in $_sel; do
-        case "$tok" in
-            1|core) ROLES="$ROLES core" ;;
-            2|adm)  ROLES="$ROLES adm"  ;;
-            3|ui)   ROLES="$ROLES ui"   ;;
-            4|arch) ROLES="$ROLES arch" ;;
-            *) echo "  ! пропущено невідоме: $tok" >&2 ;;
-        esac
-    done
-    ROLES=$(echo "$ROLES" | xargs)
-fi
 
 # ── Платформа ──────────────────────────────────────────────────────────────────
 UNAME_S=$(uname -s)
@@ -269,112 +235,18 @@ check_port() {
 P80=$(check_port 80); P443=$(check_port 443)
 P1883=$(check_port 1883); P1884=$(check_port 1884); P6379=$(check_port 6379)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# РОЛЬ-ПЕРЕВІРКИ
-# ══════════════════════════════════════════════════════════════════════════════
-CHECKS_JSON=""; CHECKS_HUMAN=""; VERDICT="ok"
-reset_checks() { CHECKS_JSON=""; CHECKS_HUMAN=""; VERDICT="ok"; }
-add_check() {
-    # add_check <name> <status ok|warn|fail> <detail>
-    local c="{\"name\":\"$1\",\"status\":\"$2\",\"detail\":\"$(_esc "$3")\"}"
-    CHECKS_JSON="${CHECKS_JSON:+$CHECKS_JSON,}$c"
-    # людський рядок паралельно (newline-safe; JSON по комі парсити не можна)
-    CHECKS_HUMAN="${CHECKS_HUMAN}$2|$1|$3
-"
-    [ "$2" = "fail" ] && VERDICT="fail"
-    [ "$2" = "warn" ] && [ "$VERDICT" != "fail" ] && VERDICT="warn"
-    return 0   # ЗАВЖДИ success — інакше `&& add_check ok || add_check warn` задвоює виклик
-}
-
-# спільні для всіх вузлів тунелю
-check_common() {
-    if [ "$wg_kernel_ok" = "1" ] && [ "$wg_tools" = "true" ]; then
-        add_check "wireguard" "ok" "готовий (wg-tools + ядро/userspace)"
-    elif [ "$wg_tools" = "true" ]; then
-        add_check "wireguard" "warn" "wg-tools є, ядро/модуль не підтверджено"
-    else
-        add_check "wireguard" "warn" "wg-tools не встановлено — потрібен WG"
-    fi
-    [ "$ntp_synced" = "true" ] && add_check "ntp" "ok" "час синхронізовано" \
-                               || add_check "ntp" "warn" "час НЕ синхронізовано (desync_guard)"
-    [ "$docker_running" = "true" ] && add_check "docker" "ok" "daemon active ($docker_ver)" \
-                                   || add_check "docker" "warn" "docker не запущено (host-prep встановить)"
-    [ "$internet" = "true" ] && add_check "internet" "ok" "github досяжний" \
-                             || add_check "internet" "warn" "немає доступу до github (clone/pull/apt)"
-}
-
-check_core() {
-    reset_checks
-    [ "$PLATFORM" != "linux" ] && add_check "platform" "fail" \
-        "core потребує Linux — selfdiag міряє метрики хоста (/proc,/sys); на Docker Desktop це ВМ"
-    [ "${hw_ram_mb:-0}" -ge 512 ] 2>/dev/null && add_check "ram" "ok" "${hw_ram_mb}MB" \
-                                              || add_check "ram" "warn" "${hw_ram_mb}MB (<512)"
-    [ "$P1883" = "true" ] && add_check "port_1883" "ok" "MQTT real вільний" \
-                          || add_check "port_1883" "warn" "1883 зайнятий"
-    [ "$P1884" = "true" ] && add_check "port_1884" "ok" "MQTT sim вільний" \
-                          || add_check "port_1884" "warn" "1884 зайнятий"
-    [ "$mdns_active" = "1" ] && add_check "mdns" "ok" "mDNS активний (.local)" \
-                             || add_check "mdns" "warn" "mDNS неактивний — вузли не знайдуть core по .local"
-    check_common
-}
-
-check_arch() {
-    reset_checks
-    case "$storage_type" in
-        ssd|hdd) add_check "storage" "ok" "${storage_type} (${storage_free_gb}GB) — придатний для архіву" ;;
-        sd|emmc) add_check "storage" "warn" "SD/eMMC — інтенсивний запис зношує; рекомендовано SSD/HDD" ;;
-        *)       add_check "storage" "warn" "тип носія невідомий" ;;
-    esac
-    [ "${storage_free_gb:-0}" -ge 5 ] 2>/dev/null && add_check "disk_free" "ok" "${storage_free_gb}GB" \
-                                                  || add_check "disk_free" "warn" "${storage_free_gb}GB (<5)"
-    [ "${hw_ram_mb:-0}" -ge 512 ] 2>/dev/null && add_check "ram" "ok" "${hw_ram_mb}MB (tmpfs-буфер)" \
-                                              || add_check "ram" "warn" "${hw_ram_mb}MB (<512, tmpfs-буфер)"
-    check_common
-}
-
-check_ui() {
-    reset_checks
-    [ "$P80" = "true" ]  && add_check "port_80" "ok" "HTTP вільний"   || add_check "port_80" "warn" "80 зайнятий"
-    [ "$P443" = "true" ] && add_check "port_443" "ok" "HTTPS вільний" || add_check "port_443" "warn" "443 зайнятий"
-    check_common
-}
-
-check_adm() {
-    reset_checks
-    [ "$PLATFORM" != "linux" ] && add_check "platform" "fail" \
-        "adm потребує Linux — pid:host і керування хостом (reboot/shutdown) на Docker Desktop недоступні"
-    if [ -S /var/run/docker.sock ]; then add_check "docker_sock" "ok" "/var/run/docker.sock доступний"
-    else add_check "docker_sock" "fail" "немає docker.sock — adm не керуватиме контейнерами"; fi
-    [ "$usr_sudo" = "nopasswd" ] && add_check "sudo" "ok" "sudo nopasswd (reboot/shutdown)" \
-                                 || add_check "sudo" "warn" "sudo обмежений — керування хостом може не працювати"
-    check_common
-}
-
-# ── Збірка roles JSON + людський вивід ────────────────────────────────────────
-ROLES_JSON=""
+# ── Зведення фактів (людський вивід) ──────────────────────────────────────────
+_yn() { [ "$1" = "true" ] && echo "так" || echo "ні"; }
 say ""
-say "${C}━━━ Оцінка хоста: ${net_hostname} (${primary_ip:-?}) ━━━${N}"
-say "  ${D}${os_pretty:-$os_id} | ${hw_arch} | ${hw_ram_mb}MB | носій: ${storage_type} ${storage_free_gb}GB${N}"
-
-for role in $ROLES; do
-    case "$role" in
-        core) check_core ;; arch) check_arch ;; ui) check_ui ;; adm) check_adm ;;
-        *) say "  ${Y}!${N} невідома роль: $role"; continue ;;
-    esac
-    ROLES_JSON="${ROLES_JSON:+$ROLES_JSON,}\"$role\":{\"verdict\":\"$VERDICT\",\"checks\":[$CHECKS_JSON]}"
-    # людський вивід вердикту
-    case "$VERDICT" in
-        ok)   say "\n  ${G}● ${role}: придатний${N}" ;;
-        warn) say "\n  ${Y}● ${role}: придатний із застереженнями${N}" ;;
-        fail) say "\n  ${R}● ${role}: НЕ придатний${N}" ;;
-    esac
-    while IFS='|' read -r st nm dt; do
-        [ -z "$st" ] && continue
-        case "$st" in ok) ok "$nm: $dt";; warn) wn "$nm: $dt";; fail) er "$nm: $dt";; esac
-    done <<EOF
-$CHECKS_HUMAN
-EOF
-done
+say "${C}━━━ Вузол: ${net_hostname} (${primary_ip:-?}) ━━━${N}"
+say "  ОС:        ${os_pretty:-$os_id}  [${PLATFORM}]"
+say "  Apparat:   arch ${hw_arch}, CPU ${hw_cpu_count}, RAM ${hw_ram_mb}MB${hw_board:+, $hw_board}"
+say "  Носій:     ${storage_type}, вільно ${storage_free_gb}GB, swap ${swap_mb}MB"
+say "  Мережа:    ${primary_iface} ${primary_ip}, gw ${net_gateway:-—}, mDNS ${net_mdns_name:-—}"
+say "  Docker:    $([ "$docker_running" = true ] && echo "running ${docker_ver}" || echo "не запущено"), compose ${compose_ver:-—}"
+say "  WireGuard: wg-tools $(_yn "$wg_tools"), ip_forward ${ip_forward:-0}, UDP51820 вільний $(_yn "$wg_udp_free")"
+say "  Час/мережа: NTP $(_yn "$ntp_synced"), інтернет $(_yn "$internet"), firewall ${firewall}, pkg ${pkg_mgr:-—}"
+say "  Порти вільні: 80=$(_yn $P80) 443=$(_yn $P443) 1883=$(_yn $P1883) 1884=$(_yn $P1884) 6379=$(_yn $P6379)"
 
 # ── JSON ───────────────────────────────────────────────────────────────────────
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -382,7 +254,6 @@ JSON=$(cat <<ENDJSON
 {
   "probe_version": "2",
   "timestamp": "$TIMESTAMP",
-  "requested_roles": [$(echo "$ROLES" | tr ' ' '\n' | grep -v '^$' | sed 's/.*/"&"/' | paste -sd, -)],
   "hardware": {
     "arch": "$(_esc "${hw_arch}")",
     "cpu_count": ${hw_cpu_count:-0},
@@ -449,8 +320,7 @@ JSON=$(cat <<ENDJSON
   },
   "ports": {
     "80": $P80, "443": $P443, "1883": $P1883, "1884": $P1884, "6379": $P6379
-  },
-  "roles": {${ROLES_JSON}}
+  }
 }
 ENDJSON
 )

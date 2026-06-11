@@ -4,12 +4,13 @@
 #   bash 1_prepare.sh        (без ключів — сам збирає host-report*.json з теки)
 #
 # ДРУГИЙ крок. На вхід — host-report-<host>.json кожного вузла (з 0_probe). Скрипт:
-#   • бере ФАКТИ зі звітів: hostname, IP/.local, arch, os
-#   • бере РОЗПОДІЛ ролей зі звітів: requested_roles (що планували на вузол)
-#   • питає РІШЕННЯ адміна: SSH-користувач/ключ, deploy_dir, repo/branch/JWT, SSL
+#   • бере ФАКТИ зі звітів: hostname, IP/.local, arch, os, тип носія
+#   • РОЗПОДІЛ ролей — рішення АДМІНА (підказка придатності за фактами:
+#     core/adm лише Linux; arch краще SSD/HDD; ui будь-де)
+#   • питає інші РІШЕННЯ адміна: SSH-користувач/ключ, deploy_dir, repo/branch/JWT, SSL
 #   → topology.yml — джерело істини для 2_host-prep → 3_deploy → 4_status / 5_uninstall
 #
-# Без аргументів шукає host-report*.json у поточній директорії.
+# Сам збирає host-report*.json з поточної теки (без ключів).
 # Requires: python3 або jq (читання звітів).
 
 set -euo pipefail
@@ -60,18 +61,6 @@ except Exception:
 PY
     fi
 }
-_get_roles() {
-    local file="$1"
-    if [ "$HAS_JQ" = "1" ]; then
-        jq -r '(.requested_roles // []) | join(" ")' "$file" 2>/dev/null || true
-    else
-        python3 - "$file" 2>/dev/null <<'PY'
-import sys, json
-print(' '.join(json.load(open(sys.argv[1])).get('requested_roles', [])))
-PY
-    fi
-}
-
 # ── Prompts ───────────────────────────────────────────────────────────────────
 ask() {
     local prompt="$1" default="$2" varname="$3" result=""
@@ -105,26 +94,28 @@ _map_arch() {
 }
 
 # ── Паралельні масиви вузлів (bash 3.2-safe) ──────────────────────────────────
-ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=(); ARCHS=(); OSES=(); NROLES=()
+# NPLAT — платформа (linux/macos), NSTOR — тип носія: для підказки придатності.
+ALIASES=(); HOSTS=(); USERS=(); KEYS=(); DIRS=(); ARCHS=(); OSES=(); NPLAT=(); NSTOR=()
 
 add_node_from_report() {
     local rep="$1"
-    local p_host p_mdns p_ip p_arch p_osid p_osver p_roles
+    local p_host p_mdns p_ip p_arch p_osid p_osver p_stor p_plat
     p_host=$(_get "$rep" '.network.hostname')
     p_mdns=$(_get "$rep" '.network.mdns_name')
     p_ip=$(_get   "$rep" '.network.primary_ip')
     p_arch=$(_map_arch "$(_get "$rep" '.hardware.arch')")
     p_osid=$(_get  "$rep" '.os.id')
     p_osver=$(_get "$rep" '.os.version')
-    p_roles=$(_get_roles "$rep")
+    p_stor=$(_get  "$rep" '.storage.type')
+    [ "$p_osid" = "macos" ] && p_plat="macos" || p_plat="linux"
 
     local d_host="$p_mdns"
     [ -z "$d_host" ] && d_host="${p_ip:-${p_host}.local}"
 
     echo ""
     info "Звіт: ${rep}"
-    printf "  ${G}%s${N}  %s  arch:%s  os:%s/%s  ролі:[%s]\n" \
-        "${p_host:-?}" "${p_ip:-?}" "$p_arch" "${p_osid:-?}" "${p_osver:-?}" "${p_roles:-—}"
+    printf "  ${G}%s${N}  %s  [%s]  arch:%s  носій:%s\n" \
+        "${p_host:-?}" "${p_ip:-?}" "$p_plat" "$p_arch" "${p_stor:-?}"
 
     local a_alias a_host a_user a_key a_dir
     ask "Псевдонім вузла"        "${p_host:-node}"  a_alias
@@ -135,8 +126,8 @@ add_node_from_report() {
 
     ALIASES+=("$a_alias"); HOSTS+=("$a_host"); USERS+=("$a_user")
     KEYS+=("$a_key"); DIRS+=("$a_dir"); ARCHS+=("$p_arch"); OSES+=("${p_osid}/${p_osver}")
-    NROLES+=("$p_roles")
-    ok "Вузол: ${a_alias} (${a_host})  ролі: ${p_roles:-—}"
+    NPLAT+=("$p_plat"); NSTOR+=("${p_stor:-unknown}")
+    ok "Вузол: ${a_alias} (${a_host})  [${p_plat}, носій ${p_stor:-?}]"
 }
 
 # ── Welcome ───────────────────────────────────────────────────────────────────
@@ -145,8 +136,8 @@ echo -e "${C}╔═════════════════════�
 echo -e "${C}║      Infrabox — 1. Підготовка (джерело істини)       ║${N}"
 echo -e "${C}╚══════════════════════════════════════════════════════╝${N}"
 echo ""
-echo "  Формуємо topology.yml зі звітів 0_probe (факти + наміри),"
-echo "  доповнюючи рішеннями адміна (SSH, deploy_dir, repo/branch)."
+echo "  Формуємо topology.yml зі звітів 0_probe (факти про вузли),"
+echo "  додаючи рішення адміна: розподіл ролей, SSH, deploy_dir, repo/branch."
 
 # ── NODES (зі звітів) ─────────────────────────────────────────────────────────
 hdr "Вузли (зі звітів 0_probe)"
@@ -172,36 +163,43 @@ JWT_SECRET="${jwt_input:-$DEFAULT_JWT}"
 ask "JWT expire (годин)"  "24"             JWT_EXPIRE
 ask "DROP_ID"             "${ALIASES[0]}"  DROP_ID
 
-# ── PLACEMENT (дефолти з requested_roles) ─────────────────────────────────────
+# ── PLACEMENT (рішення адміна; підказка придатності за фактами probe) ─────────
 hdr "Розподіл підсистем"
-echo "  Запропоновано зі звітів (requested_roles). Enter — прийняти, або змінити."
+echo "  Оберіть вузол для кожної підсистеми. Біля кожного — придатність за фактами:"
+echo "  core/adm потребують Linux; arch краще на SSD/HDD; ui — будь-де."
 
-# дефолтний розподіл з NROLES
-def_core=""; def_ui=""; def_arch=""; def_adm=""
-for i in "${!ALIASES[@]}"; do
-    for r in ${NROLES[$i]}; do
-        case "$r" in
-            core) def_core="${ALIASES[$i]}" ;;
-            ui)   def_ui="${ALIASES[$i]}"   ;;
-            arch) def_arch="${ALIASES[$i]}" ;;
-            adm)  def_adm="${ALIASES[$i]}"  ;;
-        esac
-    done
-done
+# чи вузол $2 придатний під роль $1 (для дефолту)
+_fit_ok() {
+    case "$1" in
+        core|adm) [ "${NPLAT[$2]}" = "linux" ] ;;
+        *) return 0 ;;
+    esac
+}
 
 pick_node() {
-    # pick_node <опис> <allow_skip 0|1> <default_alias>  → друкує обраний alias
-    local desc="$1" allow_skip="$2" def="$3" i choice def_idx=""
+    # pick_node <tag core|ui|arch|adm> <label> <allow_skip 0|1>  → друкує alias
+    local tag="$1" label="$2" allow_skip="$3" i choice def_idx="" fit
     {
         echo ""
-        echo "  ${desc}:"
+        echo "  ${label}:"
         for i in "${!ALIASES[@]}"; do
-            printf "    %d) %s (%s)\n" $((i+1)) "${ALIASES[$i]}" "${HOSTS[$i]}"
-            [ "${ALIASES[$i]}" = "$def" ] && def_idx=$((i+1))
+            case "$tag" in
+                core|adm)
+                    [ "${NPLAT[$i]}" = "linux" ] && fit="✓ Linux" || fit="✗ не Linux — непридатно" ;;
+                arch)
+                    case "${NSTOR[$i]}" in
+                        ssd|hdd) fit="✓ ${NSTOR[$i]}" ;;
+                        sd|emmc) fit="⚠ ${NSTOR[$i]} (знос)" ;;
+                        *)       fit="носій ${NSTOR[$i]}" ;;
+                    esac ;;
+                *) fit="✓" ;;
+            esac
+            printf "    %d) %-26s %s\n" $((i+1)) "${ALIASES[$i]} (${HOSTS[$i]})" "$fit"
+            [ -z "$def_idx" ] && _fit_ok "$tag" "$i" && def_idx=$((i+1))
         done
         [ "$allow_skip" = "1" ] && echo "    0) не встановлювати"
     } >&2
-    local prompt_def="${def_idx:-1}"; [ -z "$def" ] && [ "$allow_skip" = "1" ] && prompt_def="0"
+    local prompt_def="${def_idx:-1}"
     while true; do
         printf "  Вибір [%s]: " "$prompt_def" >&2
         read -r choice || true
@@ -214,10 +212,10 @@ pick_node() {
     done
 }
 
-PLACE_core=$(pick_node "core (Redis, MQTT, auth, simulator, selfdiag)" 0 "$def_core")
-PLACE_ui=$(pick_node   "ui (web + backend API)" 1 "$def_ui")
-PLACE_arch=$(pick_node "arch (архіватор історії)" 1 "$def_arch")
-PLACE_adm=$(pick_node  "adm (адмін-сервіс)" 1 "$def_adm")
+PLACE_core=$(pick_node core "core (Redis, MQTT, auth, simulator, selfdiag)" 0)
+PLACE_ui=$(pick_node   ui   "ui (web + backend API)" 1)
+PLACE_arch=$(pick_node arch "arch (архіватор історії)" 1)
+PLACE_adm=$(pick_node  adm  "adm (адмін-сервіс)" 1)
 [ -z "$PLACE_core" ] && fail "core обов'язковий"
 
 # ── SSL ──────────────────────────────────────────────────────────────────────
