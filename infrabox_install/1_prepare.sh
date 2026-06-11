@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # 1_prepare.sh — формує ДЖЕРЕЛО ІСТИНИ (topology.yml) зі звітів 0_probe.
 #
-#   bash 1_prepare.sh [host-report.json ...]
+#   bash 1_prepare.sh        (без ключів — сам збирає host-report*.json з теки)
 #
-# ДРУГИЙ крок. На вхід — host-report.json кожного вузла (з 0_probe). Скрипт:
+# ДРУГИЙ крок. На вхід — host-report-<host>.json кожного вузла (з 0_probe). Скрипт:
 #   • бере ФАКТИ зі звітів: hostname, IP/.local, arch, os
 #   • бере РОЗПОДІЛ ролей зі звітів: requested_roles (що планували на вузол)
 #   • питає РІШЕННЯ адміна: SSH-користувач/ключ, deploy_dir, repo/branch/JWT, SSL
@@ -25,14 +25,15 @@ hdr()  { echo -e "\n${C}━━━ $* ━━━${N}"; }
 
 OUT="topology.yml"
 
-# ── Звіти на вхід ─────────────────────────────────────────────────────────────
+# ── Звіти на вхід (самі з папки запуску, без ключів) ──────────────────────────
+# 0_probe зберігає host-report-<hostname>.json — збираємо всі такі в цій теці.
 REPORTS=()
-if [ $# -gt 0 ]; then
-    for a in "$@"; do [ -f "$a" ] || fail "Не знайдено: $a"; REPORTS+=("$a"); done
-else
-    for f in host-report*.json; do [ -f "$f" ] && REPORTS+=("$f"); done
+for f in host-report*.json; do [ -f "$f" ] && REPORTS+=("$f"); done
+if [ "${#REPORTS[@]}" -eq 0 ]; then
+    fail "У цій теці немає host-report*.json.
+  Запустіть 0_probe.sh на кожному вузлі та складіть звіти (host-report-<host>.json)
+  сюди: $(pwd)"
 fi
-[ "${#REPORTS[@]}" -eq 0 ] && fail "Немає host-report.json.\nСпершу запустіть 0_probe.sh на вузлах і принесіть звіти."
 
 command -v python3 &>/dev/null || command -v jq &>/dev/null || fail "Потрібен python3 або jq"
 command -v jq &>/dev/null && HAS_JQ=1 || HAS_JQ=0

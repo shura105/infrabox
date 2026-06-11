@@ -458,10 +458,13 @@ ENDJSON
 if [ "$JSON_ONLY" = "1" ]; then
     echo "$JSON"
 else
+    # ім'я з hostname — щоб звіти різних вузлів не конфліктували в одній папці
+    SAFE_HOST=$(printf '%s' "$net_hostname" | tr -cd '[:alnum:]_.-')
+    OUTPUT_FILE="host-report-${SAFE_HOST:-host}.json"
     echo "$JSON" > "$OUTPUT_FILE"
     say ""
     say "${G}✓ Збережено: $(pwd)/${OUTPUT_FILE}${N}"
     say ""
-    say "${C}Далі:${N} принесіть звіт на admin-машину (scp / флешка) і запустіть"
-    say "  ${D}bash 1_prepare.sh host-report.json${N}  (можна кілька звітів — по вузлу)"
+    say "${C}Далі:${N} зберіть звіти всіх вузлів в одну теку на admin-машині"
+    say "  (scp / флешка), потім запустіть ${D}bash 1_prepare.sh${N} — воно само їх знайде."
 fi
