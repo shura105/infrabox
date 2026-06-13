@@ -1,21 +1,25 @@
+import hashlib
 import json
 import os
 import re
 
-from fastapi import APIRouter, HTTPException, Depends
+import httpx
+from fastapi import APIRouter, HTTPException, Depends, Request
 from .auth_guard import require_admin
 from .redis_client import redis_client
 
-# ── Єдине джерело істини — Redis на core ──────────────────────────────────────
-# Екрани і проєкт зберігаються в Redis (а не у файлах /app/data), щоб кілька
-# ui-екземплярів на різних вузлах бачили ОДНІ Й ТІ САМІ дані.
-#   ui:project            STRING  JSON проєкту (список екранів)
-#   ui:screen:<path>      STRING  JSON екрана (вміст, разом із bgImage)
-#   ui:screens            SET     перелік шляхів екранів
-PROJECT_KEY = "ui:project"
-SCREENS_SET = "ui:screens"
-def _skey(path):
-    return f"ui:screen:{path}"
+# ── Централізоване сховище екранів — ФАЙЛИ на core (майстер) ───────────────────
+# Екрани статичні → лежать файлами на диску core, НЕ в RAM. Redis тримає лише
+# checksum кожного екрана (ui:rev:*), а не вміст. ui-екземпляр на іншому вузлі
+# (репліка) при зверненні звіряє локальний checksum із центральним і, якщо
+# застарів, підтягує свіжий файл з core. Запис іде в центр (на репліці — forward).
+#
+#   CORE_URL порожній  → цей вузол МАЙСТЕР (core): працює з локальними файлами
+#   CORE_URL заданий    → РЕПЛІКА: читає кеш (оновлює з core за version), пише через core
+DATA_DIR     = "/app/data/screens"
+PROJECT_FILE = "/app/data/project.json"
+CORE_URL     = os.environ.get("CORE_URL", "").rstrip("/")
+IS_MASTER    = not CORE_URL
 
 router = APIRouter()
 
@@ -26,50 +30,87 @@ def _validate_path(path: str) -> None:
             raise HTTPException(status_code=400, detail=f"Invalid path segment: '{seg}'")
 
 
-def _r():
+def _screen_file(path):
+    return os.path.join(DATA_DIR, path, "screen.json")
+
+
+def _md5_file(p):
+    try:
+        with open(p, "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _md5_bytes(b):
+    return hashlib.md5(b).hexdigest()
+
+
+# ── Redis: лише checksum (version), не вміст ──────────────────────────────────
+async def _rev_get(key):
     r = redis_client.redis
     if r is None:
-        raise HTTPException(status_code=503, detail="Redis unavailable")
-    return r
+        return ""
+    v = await r.get(f"ui:rev:{key}")
+    return (v.decode() if isinstance(v, bytes) else v) or ""
 
 
-async def _get_json(key, default=None):
-    raw = await _r().get(key)
-    return default if raw is None else json.loads(raw)
-
-
-async def _put_json(key, data):
-    await _r().set(key, json.dumps(data, ensure_ascii=False))
-
-
-# ── Міграція файли → Redis (одноразово, якщо Redis порожній) ──────────────────
-async def migrate_files_to_redis():
-    """Завантажує наявні project.json / screens/*/screen.json у Redis при першому
-    старті (коли ui:project ще не існує). Зберігає дані старих інсталяцій."""
+async def _rev_set(key, md5):
     r = redis_client.redis
-    if r is None or await r.exists(PROJECT_KEY):
+    if r is not None:
+        await r.set(f"ui:rev:{key}", md5)
+
+
+# ── Репліка: підтягнути свіжий файл з центру, якщо локальний застарів ─────────
+async def _ensure_fresh(rev_key, local_file, pub_url):
+    if IS_MASTER:
         return
-    data_dir = "/app/data"
-    pf = os.path.join(data_dir, "project.json")
-    sd = os.path.join(data_dir, "screens")
-    migrated = 0
+    if _md5_file(local_file) == await _rev_get(rev_key):
+        return  # локальна версія актуальна
     try:
-        if os.path.exists(pf):
-            with open(pf, encoding="utf-8") as f:
-                await _put_json(PROJECT_KEY, json.load(f))
-            migrated += 1
-        if os.path.isdir(sd):
-            for root, _dirs, files in os.walk(sd):
-                if "screen.json" in files:
-                    path = os.path.relpath(root, sd)
-                    with open(os.path.join(root, "screen.json"), encoding="utf-8") as f:
-                        await _put_json(_skey(path), json.load(f))
-                    await r.sadd(SCREENS_SET, path)
-                    migrated += 1
-        if migrated:
-            print(f"📦 Екрани мігровано у Redis: {migrated} об'єктів")
+        async with httpx.AsyncClient(verify=False, timeout=10) as c:
+            resp = await c.get(f"{CORE_URL}{pub_url}")
+        if resp.status_code == 200:
+            os.makedirs(os.path.dirname(local_file), exist_ok=True)
+            with open(local_file, "wb") as f:
+                f.write(resp.content)
     except Exception as e:
-        print("⚠️  Помилка міграції екранів у Redis:", e)
+        print(f"⚠️  Не вдалося підтягнути {pub_url} з core: {e}")
+
+
+async def _forward(method, api_path, data, request):
+    """Репліка проксує запис у центр (core) з тим самим токеном адміна."""
+    auth = request.headers.get("authorization", "")
+    async with httpx.AsyncClient(verify=False, timeout=15) as c:
+        return await c.request(method, f"{CORE_URL}{api_path}",
+                               json=data, headers={"Authorization": auth})
+
+
+# ── Майстер: ініціалізація checksum з файлів при старті ───────────────────────
+async def init_screen_revs():
+    """На майстрі: прибрати старий повний вміст із Redis (якщо лишився) і виставити
+    ui:rev:* за наявними файлами, щоб репліки могли звіряти версію."""
+    if not IS_MASTER:
+        return
+    r = redis_client.redis
+    if r is None:
+        return
+    try:
+        # прибрати застарілі ключі з повним вмістом (з попередньої версії)
+        for pat in ("ui:project", "ui:screens", "ui:screen:*"):
+            keys = await r.keys(pat)
+            if keys:
+                await r.delete(*keys)
+        if os.path.exists(PROJECT_FILE):
+            await _rev_set("project", _md5_file(PROJECT_FILE))
+        if os.path.isdir(DATA_DIR):
+            for root, _dirs, files in os.walk(DATA_DIR):
+                if "screen.json" in files:
+                    rel = os.path.relpath(root, DATA_DIR)
+                    await _rev_set(f"screen:{rel}", _md5_file(os.path.join(root, "screen.json")))
+        print("📐 Checksum екранів виставлено в Redis (ui:rev:*)")
+    except Exception as e:
+        print("⚠️  init_screen_revs:", e)
 
 
 # ── scheduler sync (multi_timer → Redis для серверного виконання) ─────────────
@@ -105,12 +146,120 @@ async def _sync_scheduler(screen_path: str, elements: list):
     await pipe.execute()
 
 
+# ── project ───────────────────────────────────────────────────────────────────
+def _read_project():
+    if not os.path.exists(PROJECT_FILE):
+        return {"screens": []}
+    with open(PROJECT_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.get("/api/pub/project")
+async def pub_get_project():
+    await _ensure_fresh("project", PROJECT_FILE, "/api/pub/project")
+    return _read_project()
+
+
+@router.get("/api/project")
+async def get_project(_: dict = Depends(require_admin)):
+    await _ensure_fresh("project", PROJECT_FILE, "/api/pub/project")
+    return _read_project()
+
+
+@router.put("/api/project")
+async def put_project(data: dict, request: Request, _: dict = Depends(require_admin)):
+    if not IS_MASTER:
+        resp = await _forward("PUT", "/api/project", data, request)
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "core відхилив запис project")
+        return {"ok": True}
+    os.makedirs(os.path.dirname(PROJECT_FILE), exist_ok=True)
+    raw = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    with open(PROJECT_FILE, "wb") as f:
+        f.write(raw)
+    await _rev_set("project", _md5_bytes(raw))
+    return {"ok": True}
+
+
+# ── screens ───────────────────────────────────────────────────────────────────
+def _read_screen(path):
+    sf = _screen_file(path)
+    if not os.path.exists(sf):
+        raise HTTPException(status_code=404, detail="Screen not found")
+    with open(sf, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.get("/api/pub/screens/{screen_path:path}")
+async def pub_get_screen(screen_path: str):
+    _validate_path(screen_path)
+    await _ensure_fresh(f"screen:{screen_path}", _screen_file(screen_path),
+                        f"/api/pub/screens/{screen_path}")
+    return _read_screen(screen_path)
+
+
+@router.get("/api/screens/{screen_path:path}")
+async def get_screen(screen_path: str, _: dict = Depends(require_admin)):
+    _validate_path(screen_path)
+    await _ensure_fresh(f"screen:{screen_path}", _screen_file(screen_path),
+                        f"/api/pub/screens/{screen_path}")
+    return _read_screen(screen_path)
+
+
+@router.put("/api/screens/{screen_path:path}")
+async def put_screen(screen_path: str, data: dict, request: Request, _: dict = Depends(require_admin)):
+    _validate_path(screen_path)
+    if not IS_MASTER:
+        resp = await _forward("PUT", f"/api/screens/{screen_path}", data, request)
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "core відхилив запис екрана")
+        return {"ok": True}
+    sf = _screen_file(screen_path)
+    os.makedirs(os.path.dirname(sf), exist_ok=True)
+    raw = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    with open(sf, "wb") as f:
+        f.write(raw)
+    await _rev_set(f"screen:{screen_path}", _md5_bytes(raw))
+    await _sync_scheduler(screen_path, data.get("elements", []))
+    return {"ok": True}
+
+
+@router.delete("/api/screens/{screen_path:path}")
+async def delete_screen(screen_path: str, request: Request, _: dict = Depends(require_admin)):
+    _validate_path(screen_path)
+    if not IS_MASTER:
+        resp = await _forward("DELETE", f"/api/screens/{screen_path}", None, request)
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "core відхилив видалення екрана")
+        return {"ok": True}
+    import shutil
+    screen_dir = os.path.join(DATA_DIR, screen_path)
+    if not os.path.exists(screen_dir):
+        raise HTTPException(status_code=404, detail="Screen not found")
+    shutil.rmtree(screen_dir)
+    parent = os.path.dirname(screen_dir)
+    if parent != DATA_DIR and os.path.isdir(parent) and not os.listdir(parent):
+        os.rmdir(parent)
+    r = redis_client.redis
+    if r is not None:
+        await r.delete(f"ui:rev:screen:{screen_path}")
+    await _sync_scheduler(screen_path, [])
+    return {"ok": True}
+
+
 # ── runtime schedule editor ──────────────────────────────────────────────────
 @router.patch("/api/scheduler/{el_id}")
-async def patch_scheduler(el_id: str, data: dict, _: dict = Depends(require_admin)):
+async def patch_scheduler(el_id: str, data: dict, request: Request, _: dict = Depends(require_admin)):
     new_schedule = data.get("schedule", [])
     screen_path  = data.get("screen", "")
-    r = _r()
+    if not IS_MASTER:
+        resp = await _forward("PATCH", f"/api/scheduler/{el_id}", data, request)
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "core відхилив зміну розкладу")
+        return {"ok": True}
+    r = redis_client.redis
+    if r is None:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
     key = f"scheduler:{el_id}"
     if await r.hgetall(key):
         await r.hset(key, "schedule", json.dumps(new_schedule, ensure_ascii=False))
@@ -120,72 +269,17 @@ async def patch_scheduler(el_id: str, data: dict, _: dict = Depends(require_admi
             "point_id":  "0",
             "screen":    screen_path,
         })
-    # persist у screen (Redis), щоб зміна пережила перезапуск scheduler
     if screen_path:
         _validate_path(screen_path)
-        sd = await _get_json(_skey(screen_path))
-        if sd:
+        sf = _screen_file(screen_path)
+        if os.path.exists(sf):
+            sd = _read_screen(screen_path)
             for el in sd.get("elements", []):
                 if el.get("id") == el_id:
                     el["schedule"] = new_schedule
                     break
-            await _put_json(_skey(screen_path), sd)
-    return {"ok": True}
-
-
-# ── public read-only (no auth) ────────────────────────────────────────────────
-@router.get("/api/pub/project")
-async def pub_get_project():
-    return await _get_json(PROJECT_KEY, {"screens": []})
-
-
-@router.get("/api/pub/screens/{screen_path:path}")
-async def pub_get_screen(screen_path: str):
-    _validate_path(screen_path)
-    d = await _get_json(_skey(screen_path))
-    if d is None:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    return d
-
-
-# ── project ───────────────────────────────────────────────────────────────────
-@router.get("/api/project")
-async def get_project(_: dict = Depends(require_admin)):
-    return await _get_json(PROJECT_KEY, {"screens": []})
-
-
-@router.put("/api/project")
-async def put_project(data: dict, _: dict = Depends(require_admin)):
-    await _put_json(PROJECT_KEY, data)
-    return {"ok": True}
-
-
-# ── screens ───────────────────────────────────────────────────────────────────
-@router.get("/api/screens/{screen_path:path}")
-async def get_screen(screen_path: str, _: dict = Depends(require_admin)):
-    _validate_path(screen_path)
-    d = await _get_json(_skey(screen_path))
-    if d is None:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    return d
-
-
-@router.put("/api/screens/{screen_path:path}")
-async def put_screen(screen_path: str, data: dict, _: dict = Depends(require_admin)):
-    _validate_path(screen_path)
-    await _put_json(_skey(screen_path), data)
-    await _r().sadd(SCREENS_SET, screen_path)
-    # bgImage зберігається всередині data (фронт читає sc.bgImage) — окремий файл не потрібен
-    await _sync_scheduler(screen_path, data.get("elements", []))
-    return {"ok": True}
-
-
-@router.delete("/api/screens/{screen_path:path}")
-async def delete_screen(screen_path: str, _: dict = Depends(require_admin)):
-    _validate_path(screen_path)
-    r = _r()
-    if not await r.delete(_skey(screen_path)):
-        raise HTTPException(status_code=404, detail="Screen not found")
-    await r.srem(SCREENS_SET, screen_path)
-    await _sync_scheduler(screen_path, [])
+            raw = json.dumps(sd, indent=2, ensure_ascii=False).encode("utf-8")
+            with open(sf, "wb") as f:
+                f.write(raw)
+            await _rev_set(f"screen:{screen_path}", _md5_bytes(raw))
     return {"ok": True}

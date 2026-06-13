@@ -40,9 +40,9 @@ async def startup():
         await redis_client.connect()
         print("✅ Redis connected")
 
-        # екрани/проєкт — єдине джерело в Redis; мігруємо з файлів при першому старті
-        from app.screens import migrate_files_to_redis
-        await migrate_files_to_redis()
+        # екрани — файли на core; у Redis лише checksum (ui:rev:*) для звірки версій
+        from app.screens import init_screen_revs
+        await init_screen_revs()
 
         data = await redis_client.get_all_points()
         print(f"📊 Points loaded: {len(data)}")
