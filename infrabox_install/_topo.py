@@ -324,6 +324,19 @@ def cmd_nodes_for(d, args):
         print(n)
 
 
+def cmd_core_host(d, args):
+    """Host вузла, де розгорнуто core (для service discovery: адреса Redis/MQTT/auth)."""
+    core = d["subsystems"].get("core")
+    if not core:
+        return
+    nodes = core.get("nodes", [])
+    if not nodes:
+        return
+    node = d["nodes"].get(nodes[0])
+    if node:
+        print(node.get("host", ""))
+
+
 def cmd_subs_on(d, args):
     """Підсистеми, призначені на вузол, у порядку deploy_order."""
     if not args:
@@ -381,6 +394,7 @@ COMMANDS = {
     "order": cmd_order,
     "nodes-for": cmd_nodes_for,
     "subs-on": cmd_subs_on,
+    "core-host": cmd_core_host,
     "ports": cmd_ports,
     "data-binds": cmd_data_binds,
     "data-vols": cmd_data_vols,

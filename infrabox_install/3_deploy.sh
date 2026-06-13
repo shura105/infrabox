@@ -17,7 +17,7 @@
 set -euo pipefail
 
 # ── Кольори ───────────────────────────────────────────────────────────────────
-R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; N='\033[0m'
+R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; D='\033[2m'; N='\033[0m'
 ok()   { echo -e "${G}✓${N} $*"; }
 info() { echo -e "${B}→${N} $*"; }
 warn() { echo -e "${Y}!${N} $*"; }
@@ -70,6 +70,12 @@ fi
 # ── Задіяні вузли (для обраних підсистем, у порядку появи) ────────────────────
 ACTIVE_NODES="$(TOPO nodes-for $ACTIVE_SUBS | tr '\n' ' ')"
 [ -z "$(echo "$ACTIVE_NODES" | tr -d ' ')" ] && fail "Не визначено вузлів для: $ACTIVE_SUBS"
+
+# ── Service discovery: адреса core (з map) для підсистем на ІНШИХ вузлах ───────
+# core ставиться першим; його host береться з topology. Підсистема на тому ж
+# вузлі що core → docker-DNS (infrabox-redis). На іншому → LAN/WG-host core.
+CORE_HOST="$(TOPO core-host)"
+CORE_NODE="$(TOPO nodes-for core | head -1)"
 
 # ── SSH-хелпери (працюють з поточним вузлом NODE_*/CUR_KEY) ───────────────────
 use_node() {
@@ -173,14 +179,22 @@ for NODE in $ACTIVE_NODES; do
         git_sync
     fi
 
+    # — Адреса core для цього вузла: docker-DNS локально, host core — здалеку —
+    if [ "$NODE" = "$CORE_NODE" ] || [ -z "$CORE_HOST" ]; then
+        ENV_REDIS="infrabox-redis"; ENV_MQTT_R="infrabox-mosquitto-real"; ENV_MQTT_S="infrabox-mosquitto-sim"; ENV_CORE_URL=""
+    else
+        ENV_REDIS="$CORE_HOST"; ENV_MQTT_R="$CORE_HOST"; ENV_MQTT_S="$CORE_HOST"; ENV_CORE_URL="https://${CORE_HOST}"
+    fi
+
     # — Compose up для підсистем цього вузла —
     for SUB in $SUBS_HERE; do
         eval "$(TOPO sub "$SUB")"   # SUB_WORKDIR (вузол — поточний NODE з циклу)
         COMPOSE_DIR="${NODE_DEPLOY_DIR}/${SUB_WORKDIR}"
 
-        printf "\n  ${B}[%s]${N}  %s\n" "$SUB" "$COMPOSE_DIR"
+        printf "\n  ${B}[%s]${N}  %s  ${D}(REDIS_HOST=%s)${N}\n" "$SUB" "$COMPOSE_DIR" "$ENV_REDIS"
 
         if [ "$DRY_RUN" = "1" ]; then
+            info "[dry] .env REDIS_HOST=${ENV_REDIS}${ENV_CORE_URL:+ CORE_URL=$ENV_CORE_URL}"
             info "[dry] cd ${COMPOSE_DIR} && docker compose up -d --remove-orphans"
             continue
         fi
@@ -189,6 +203,15 @@ for NODE in $ACTIVE_NODES; do
             warn "Пропускаємо ${SUB}: docker-compose.yml не знайдено у ${COMPOSE_DIR}"
             continue
         fi
+
+        # service discovery: прокидаємо адресу core у .env (compose читає його автоматично)
+        _ssh "cat > '${COMPOSE_DIR}/.env' <<EOF
+REDIS_HOST=${ENV_REDIS}
+REDIS_PORT=6379
+MQTT_HOST_REAL=${ENV_MQTT_R}
+MQTT_HOST_SIM=${ENV_MQTT_S}
+CORE_URL=${ENV_CORE_URL}
+EOF" || warn "  не вдалося записати .env у ${COMPOSE_DIR}"
 
         COMPOSE_OUT=$(_ssh "cd '${COMPOSE_DIR}' && docker compose up -d --remove-orphans 2>&1") || {
             echo "$COMPOSE_OUT" | tail -20 | sed 's/^/    /'

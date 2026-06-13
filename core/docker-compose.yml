@@ -7,6 +7,11 @@ services:
     restart: unless-stopped
     networks:
       - infrabox-net
+    ports:
+      # expose на LAN/WG — щоб ui/arch/adm на ІНШИХ вузлах дістали Redis ядра.
+      # БЕЗПЕКА: у відкритій LAN додати requirepass; у моделі MikroTik трафік
+      # між об'єктами йде через WG-тунель. На одновузловій інсталяції не заважає.
+      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:

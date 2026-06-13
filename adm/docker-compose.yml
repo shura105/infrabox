@@ -9,8 +9,8 @@ services:
       - infrabox-net
     environment:
       HOSTNAME: infrabox-adm
-      REDIS_HOST: infrabox-redis
-      REDIS_PORT: 6379
+      REDIS_HOST: ${REDIS_HOST:-infrabox-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
       TZ: Europe/Kyiv
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

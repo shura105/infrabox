@@ -7,8 +7,11 @@ services:
     networks:
       - infrabox-net
     environment:
-      REDIS_HOST: infrabox-redis
-      REDIS_PORT: 6379
+      # адресу core прокидає 3_deploy у .env (docker compose читає його автоматично):
+      #   на core-вузлі — infrabox-redis (docker-DNS); на іншому — host core (LAN/WG)
+      REDIS_HOST: ${REDIS_HOST:-infrabox-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      CORE_URL:   ${CORE_URL:-}          # порожній = майстер екранів; заданий = репліка
     volumes:
       - ./backend:/app
       - ./data:/app/data
