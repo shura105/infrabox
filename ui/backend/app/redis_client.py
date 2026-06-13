@@ -1,3 +1,4 @@
+import os
 import redis.asyncio as redis
 
 
@@ -7,9 +8,10 @@ class RedisClient:
         self._pubsub = None
 
     async def connect(self):
+        # host/port з env — щоб ui-екземпляр на іншому вузлі дістав Redis ядра по LAN
         self.redis = redis.Redis(
-            host="infrabox-redis",
-            port=6379,
+            host=os.environ.get("REDIS_HOST", "infrabox-redis"),
+            port=int(os.environ.get("REDIS_PORT", 6379)),
             decode_responses=False
         )
 

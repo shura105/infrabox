@@ -1,61 +1,21 @@
-import base64
 import json
 import os
 import re
-import shutil
 
 from fastapi import APIRouter, HTTPException, Depends
 from .auth_guard import require_admin
 from .redis_client import redis_client
 
-
-async def _sync_scheduler(screen_path: str, elements: list):
-    """Sync multi_timer schedules to Redis for server-side (core) execution.
-
-    Called on every screen save and on screen delete (elements=[]).
-    Keys written:
-      scheduler:{el_id}  → HASH  point_id, schedule (JSON), screen
-      scheduler_screen:{screen_path}  → SET of el_ids for this screen
-    """
-    r = redis_client.redis
-    if r is None:
-        return
-
-    idx_key = f"scheduler_screen:{screen_path}"
-
-    # remove old entries for this screen
-    old_ids = await r.smembers(idx_key)
-    if old_ids:
-        pipe = r.pipeline()
-        for raw in old_ids:
-            eid = raw.decode() if isinstance(raw, bytes) else raw
-            pipe.delete(f"scheduler:{eid}")
-        pipe.delete(idx_key)
-        await pipe.execute()
-
-    # build new entries
-    new_timers = [
-        el for el in elements
-        if el.get("type") == "multi_timer"
-        and int(el.get("point_id") or 0) > 0
-        and el.get("schedule")
-    ]
-    if not new_timers:
-        return
-
-    pipe = r.pipeline()
-    for el in new_timers:
-        el_id = el["id"]
-        pipe.hset(f"scheduler:{el_id}", mapping={
-            "point_id": str(int(el["point_id"])),
-            "schedule":  json.dumps(el["schedule"]),
-            "screen":    screen_path,
-        })
-        pipe.sadd(idx_key, el_id)
-    await pipe.execute()
-
-DATA_DIR     = "/app/data/screens"
-PROJECT_FILE = "/app/data/project.json"
+# ── Єдине джерело істини — Redis на core ──────────────────────────────────────
+# Екрани і проєкт зберігаються в Redis (а не у файлах /app/data), щоб кілька
+# ui-екземплярів на різних вузлах бачили ОДНІ Й ТІ САМІ дані.
+#   ui:project            STRING  JSON проєкту (список екранів)
+#   ui:screen:<path>      STRING  JSON екрана (вміст, разом із bgImage)
+#   ui:screens            SET     перелік шляхів екранів
+PROJECT_KEY = "ui:project"
+SCREENS_SET = "ui:screens"
+def _skey(path):
+    return f"ui:screen:{path}"
 
 router = APIRouter()
 
@@ -66,120 +26,156 @@ def _validate_path(path: str) -> None:
             raise HTTPException(status_code=400, detail=f"Invalid path segment: '{seg}'")
 
 
-# ── runtime schedule editor ──────────────────────────────────────────────────
-
-@router.patch("/api/scheduler/{el_id}")
-async def patch_scheduler(el_id: str, data: dict, _: dict = Depends(require_admin)):
-    """Update a multi_timer schedule at runtime.
-    Writes to Redis (scheduler picks up within 60 s) and persists to screen.json.
-    Body: { "schedule": [...], "screen": "<screen_path>" }
-    """
-    new_schedule = data.get("schedule", [])
-    screen_path  = data.get("screen", "")
-
+def _r():
     r = redis_client.redis
     if r is None:
         raise HTTPException(status_code=503, detail="Redis unavailable")
+    return r
 
-    # update Redis entry if it exists
+
+async def _get_json(key, default=None):
+    raw = await _r().get(key)
+    return default if raw is None else json.loads(raw)
+
+
+async def _put_json(key, data):
+    await _r().set(key, json.dumps(data, ensure_ascii=False))
+
+
+# ── Міграція файли → Redis (одноразово, якщо Redis порожній) ──────────────────
+async def migrate_files_to_redis():
+    """Завантажує наявні project.json / screens/*/screen.json у Redis при першому
+    старті (коли ui:project ще не існує). Зберігає дані старих інсталяцій."""
+    r = redis_client.redis
+    if r is None or await r.exists(PROJECT_KEY):
+        return
+    data_dir = "/app/data"
+    pf = os.path.join(data_dir, "project.json")
+    sd = os.path.join(data_dir, "screens")
+    migrated = 0
+    try:
+        if os.path.exists(pf):
+            with open(pf, encoding="utf-8") as f:
+                await _put_json(PROJECT_KEY, json.load(f))
+            migrated += 1
+        if os.path.isdir(sd):
+            for root, _dirs, files in os.walk(sd):
+                if "screen.json" in files:
+                    path = os.path.relpath(root, sd)
+                    with open(os.path.join(root, "screen.json"), encoding="utf-8") as f:
+                        await _put_json(_skey(path), json.load(f))
+                    await r.sadd(SCREENS_SET, path)
+                    migrated += 1
+        if migrated:
+            print(f"📦 Екрани мігровано у Redis: {migrated} об'єктів")
+    except Exception as e:
+        print("⚠️  Помилка міграції екранів у Redis:", e)
+
+
+# ── scheduler sync (multi_timer → Redis для серверного виконання) ─────────────
+async def _sync_scheduler(screen_path: str, elements: list):
+    r = redis_client.redis
+    if r is None:
+        return
+    idx_key = f"scheduler_screen:{screen_path}"
+    old_ids = await r.smembers(idx_key)
+    if old_ids:
+        pipe = r.pipeline()
+        for raw in old_ids:
+            eid = raw.decode() if isinstance(raw, bytes) else raw
+            pipe.delete(f"scheduler:{eid}")
+        pipe.delete(idx_key)
+        await pipe.execute()
+    new_timers = [
+        el for el in elements
+        if el.get("type") == "multi_timer"
+        and int(el.get("point_id") or 0) > 0
+        and el.get("schedule")
+    ]
+    if not new_timers:
+        return
+    pipe = r.pipeline()
+    for el in new_timers:
+        pipe.hset(f"scheduler:{el['id']}", mapping={
+            "point_id": str(int(el["point_id"])),
+            "schedule":  json.dumps(el["schedule"]),
+            "screen":    screen_path,
+        })
+        pipe.sadd(idx_key, el["id"])
+    await pipe.execute()
+
+
+# ── runtime schedule editor ──────────────────────────────────────────────────
+@router.patch("/api/scheduler/{el_id}")
+async def patch_scheduler(el_id: str, data: dict, _: dict = Depends(require_admin)):
+    new_schedule = data.get("schedule", [])
+    screen_path  = data.get("screen", "")
+    r = _r()
     key = f"scheduler:{el_id}"
-    existing = await r.hgetall(key)
-    if existing:
+    if await r.hgetall(key):
         await r.hset(key, "schedule", json.dumps(new_schedule, ensure_ascii=False))
     else:
-        # element not registered (no point_id bound) — create minimal entry
         await r.hset(key, mapping={
             "schedule":  json.dumps(new_schedule, ensure_ascii=False),
             "point_id":  "0",
             "screen":    screen_path,
         })
-
-    # persist to screen.json so change survives Redis restart
+    # persist у screen (Redis), щоб зміна пережила перезапуск scheduler
     if screen_path:
         _validate_path(screen_path)
-        screen_file = os.path.join(DATA_DIR, screen_path, "screen.json")
-        if os.path.exists(screen_file):
-            with open(screen_file, encoding="utf-8") as f:
-                screen_data = json.load(f)
-            for el in screen_data.get("elements", []):
+        sd = await _get_json(_skey(screen_path))
+        if sd:
+            for el in sd.get("elements", []):
                 if el.get("id") == el_id:
                     el["schedule"] = new_schedule
                     break
-            tmp = screen_file + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(screen_data, f, indent=2, ensure_ascii=False)
-            os.replace(tmp, screen_file)
-
+            await _put_json(_skey(screen_path), sd)
     return {"ok": True}
 
 
 # ── public read-only (no auth) ────────────────────────────────────────────────
-
 @router.get("/api/pub/project")
 async def pub_get_project():
-    if not os.path.exists(PROJECT_FILE):
-        return {"screens": []}
-    with open(PROJECT_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    return await _get_json(PROJECT_KEY, {"screens": []})
 
 
 @router.get("/api/pub/screens/{screen_path:path}")
 async def pub_get_screen(screen_path: str):
     _validate_path(screen_path)
-    path = os.path.join(DATA_DIR, screen_path, "screen.json")
-    if not os.path.exists(path):
+    d = await _get_json(_skey(screen_path))
+    if d is None:
         raise HTTPException(status_code=404, detail="Screen not found")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return d
 
 
 # ── project ───────────────────────────────────────────────────────────────────
-
 @router.get("/api/project")
 async def get_project(_: dict = Depends(require_admin)):
-    if not os.path.exists(PROJECT_FILE):
-        return {"screens": []}
-    with open(PROJECT_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    return await _get_json(PROJECT_KEY, {"screens": []})
 
 
 @router.put("/api/project")
 async def put_project(data: dict, _: dict = Depends(require_admin)):
-    os.makedirs(os.path.dirname(PROJECT_FILE), exist_ok=True)
-    with open(PROJECT_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    await _put_json(PROJECT_KEY, data)
     return {"ok": True}
 
 
 # ── screens ───────────────────────────────────────────────────────────────────
-
 @router.get("/api/screens/{screen_path:path}")
 async def get_screen(screen_path: str, _: dict = Depends(require_admin)):
     _validate_path(screen_path)
-    path = os.path.join(DATA_DIR, screen_path, "screen.json")
-    if not os.path.exists(path):
+    d = await _get_json(_skey(screen_path))
+    if d is None:
         raise HTTPException(status_code=404, detail="Screen not found")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return d
 
 
 @router.put("/api/screens/{screen_path:path}")
 async def put_screen(screen_path: str, data: dict, _: dict = Depends(require_admin)):
     _validate_path(screen_path)
-    screen_dir = os.path.join(DATA_DIR, screen_path)
-    os.makedirs(screen_dir, exist_ok=True)
-    bg_dir = os.path.join(screen_dir, "background")
-    os.makedirs(bg_dir, exist_ok=True)
-    # якщо bgImage — SVG у base64, зберігаємо як background/bg.svg
-    bg_image = data.get("screen", {}).get("bgImage", "")
-    prefix = "data:image/svg+xml;base64,"
-    if bg_image.startswith(prefix):
-        svg_bytes = base64.b64decode(bg_image[len(prefix):])
-        with open(os.path.join(bg_dir, "bg.svg"), "wb") as f:
-            f.write(svg_bytes)
-    with open(os.path.join(screen_dir, "screen.json"), "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    # sync multi_timer schedules to Redis for server-side execution
+    await _put_json(_skey(screen_path), data)
+    await _r().sadd(SCREENS_SET, screen_path)
+    # bgImage зберігається всередині data (фронт читає sc.bgImage) — окремий файл не потрібен
     await _sync_scheduler(screen_path, data.get("elements", []))
     return {"ok": True}
 
@@ -187,14 +183,9 @@ async def put_screen(screen_path: str, data: dict, _: dict = Depends(require_adm
 @router.delete("/api/screens/{screen_path:path}")
 async def delete_screen(screen_path: str, _: dict = Depends(require_admin)):
     _validate_path(screen_path)
-    screen_dir = os.path.join(DATA_DIR, screen_path)
-    if not os.path.exists(screen_dir):
+    r = _r()
+    if not await r.delete(_skey(screen_path)):
         raise HTTPException(status_code=404, detail="Screen not found")
-    shutil.rmtree(screen_dir)
-    # прибираємо порожню батьківську папку (namespace кореневого екрана)
-    parent = os.path.dirname(screen_dir)
-    if parent != DATA_DIR and os.path.isdir(parent) and not os.listdir(parent):
-        os.rmdir(parent)
-    # cleanup scheduler entries for deleted screen
+    await r.srem(SCREENS_SET, screen_path)
     await _sync_scheduler(screen_path, [])
     return {"ok": True}
