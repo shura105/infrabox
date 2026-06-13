@@ -231,10 +231,45 @@ pick_node() {
     done
 }
 
-PLACE_core=$(pick_node core "core (Redis, MQTT, auth, simulator, selfdiag)" 0)
-PLACE_ui=$(pick_node   ui   "ui (web + backend API)" 1)
-PLACE_arch=$(pick_node arch "arch (архіватор історії)" 1)
-PLACE_adm=$(pick_node  adm  "adm (адмін-сервіс)" 1)
+# multi-select: підсистема на КІЛЬКОХ вузлах (ui/arch). Дефолт = вже встановлені.
+pick_nodes() {
+    local tag="$1" label="$2" i fit inst sel result="" def=""
+    {
+        echo ""
+        echo "  ${label}"
+        echo "  (кілька через пробіл, напр. «1 2»; Enter — дефолт; 0 — не встановлювати):"
+        for i in "${!ALIASES[@]}"; do
+            case "$tag" in
+                arch)
+                    case "${NSTOR[$i]}" in
+                        ssd|hdd) fit="✓ ${NSTOR[$i]}" ;;
+                        sd|emmc) fit="⚠ ${NSTOR[$i]} (знос)" ;;
+                        *)       fit="носій ${NSTOR[$i]}" ;;
+                    esac ;;
+                *) fit="✓" ;;
+            esac
+            inst=""; _has_sub "$tag" "$i" && { inst="  ● встановлено"; def="$def $((i+1))"; }
+            printf "    %d) %-26s %s%s\n" $((i+1)) "${ALIASES[$i]} (${HOSTS[$i]})" "$fit" "$inst"
+        done
+        echo "    0) не встановлювати"
+    } >&2
+    def=$(echo "$def" | xargs)
+    printf "  Вибір [%s]: " "${def:-0}" >&2
+    read -r sel || true
+    sel="${sel:-${def:-0}}"
+    for tok in $sel; do
+        [ "$tok" = "0" ] && continue
+        if [ "$tok" -ge 1 ] 2>/dev/null && [ "$tok" -le "${#ALIASES[@]}" ]; then
+            result="$result ${ALIASES[$((tok-1))]}"
+        fi
+    done
+    echo "$result" | xargs
+}
+
+PLACE_core=$(pick_node  core "core (Redis, MQTT, auth, simulator, selfdiag)" 0)
+PLACE_ui=$(pick_nodes   ui   "ui (web + backend API) — можна кілька машин")
+PLACE_arch=$(pick_nodes arch "arch (архіватор історії) — можна кілька машин")
+PLACE_adm=$(pick_node   adm  "adm (адмін-сервіс)" 1)
 [ -z "$PLACE_core" ] && fail "core обов'язковий"
 
 # ── SSL ──────────────────────────────────────────────────────────────────────
@@ -248,8 +283,9 @@ esac
 SSL_HOST=""
 if [ "$SSL_MODE" != "skip" ]; then
     SSL_DEF=""
+    SSL_TARGET="${PLACE_ui%% *}"; [ -z "$SSL_TARGET" ] && SSL_TARGET="$PLACE_core"
     for i in "${!ALIASES[@]}"; do
-        [ "${ALIASES[$i]}" = "${PLACE_ui:-$PLACE_core}" ] && SSL_DEF="${HOSTS[$i]}"
+        [ "${ALIASES[$i]}" = "$SSL_TARGET" ] && SSL_DEF="${HOSTS[$i]}"
     done
     ask "Hostname для сертифіката" "${SSL_DEF}" SSL_HOST
 fi
@@ -308,13 +344,16 @@ echo "subsystems:"
 } > "$OUT"
 
 emit_sub() {
-    local sub="$1" node="$2" workdir="$3" desc="$4"
-    [ -z "$node" ] && return
+    local sub="$1" nodes="$2" workdir="$3" desc="$4"
+    [ -z "$nodes" ] && return
+    # nodes — пробіл-розділений список вузлів → YAML [a, b]
+    local nlist
+    nlist=$(echo "$nodes" | xargs | tr ' ' ',' | sed 's/,/, /g')
     {
     cat <<TOPO
 
   ${sub}:
-    node:     "${node}"
+    nodes:    [${nlist}]
     workdir:  "${workdir}"
     description: "${desc}"
     containers:

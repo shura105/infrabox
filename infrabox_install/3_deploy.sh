@@ -175,7 +175,7 @@ for NODE in $ACTIVE_NODES; do
 
     # — Compose up для підсистем цього вузла —
     for SUB in $SUBS_HERE; do
-        eval "$(TOPO sub "$SUB")"   # SUB_NODE, SUB_WORKDIR
+        eval "$(TOPO sub "$SUB")"   # SUB_WORKDIR (вузол — поточний NODE з циклу)
         COMPOSE_DIR="${NODE_DEPLOY_DIR}/${SUB_WORKDIR}"
 
         printf "\n  ${B}[%s]${N}  %s\n" "$SUB" "$COMPOSE_DIR"

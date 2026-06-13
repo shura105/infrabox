@@ -14,7 +14,8 @@
 #   node <alias>          → eval: NODE_ALIAS NODE_HOST NODE_USER NODE_KEY
 #                                 NODE_DEPLOY_DIR NODE_ARCH NODE_OS NODE_ROLE
 #   subs                  → список subsystem id (по рядку, у порядку deploy_order)
-#   sub <id>              → eval: SUB_NODE SUB_WORKDIR
+#   sub <id>              → eval: SUB_NODES (пробіл-список) SUB_WORKDIR
+#   sub-nodes <id>        → вузли підсистеми (по рядку; підсистема може бути на 1+)
 #   sub-containers <id>   → контейнери підсистеми (по рядку)
 #   order deploy|undeploy → порядок (по рядку)
 #   nodes-for <id...>     → унікальні вузли для набору підсистем (у порядку появи)
@@ -153,7 +154,11 @@ def parse(path):
             if ctx0 == "nodes" and ctx1:
                 data["nodes"][ctx1][k] = val
             elif ctx0 == "subsystems" and ctx1:
-                data["subsystems"][ctx1][k] = val
+                if k in ("node", "nodes"):
+                    # node: a  АБО  nodes: [a, b] → нормалізуємо у список nodes
+                    data["subsystems"][ctx1]["nodes"] = _parse_node_list(vs)
+                else:
+                    data["subsystems"][ctx1][k] = val
             elif ctx0 == "data" and cur_data is not None:
                 cur_data[k] = _coerce(val)
             continue
@@ -189,6 +194,16 @@ def _parse_inline_map(s):
         k, _, v = part.partition(":")
         out[k.strip()] = _unquote(v)
     return out
+
+
+def _parse_node_list(s):
+    """node: a  →  ['a'];   nodes: [a, b]  →  ['a','b']  (підсистема на 1+ вузлах)."""
+    s = s.strip()
+    if s.startswith("["):
+        s = s.strip("[]")
+        return [x.strip().strip("\"'") for x in s.split(",") if x.strip()]
+    v = _unquote(s)
+    return [v] if v else []
 
 
 # ── Вивід ──────────────────────────────────────────────────────────────────────
@@ -262,8 +277,18 @@ def cmd_sub(d, args):
     s = d["subsystems"].get(sid)
     if s is None:
         _err(f"sub: підсистему {sid!r} не знайдено")
-    print(f"SUB_NODE={_q(s.get('node', ''))}")
+    nodes = s.get("nodes", [])
+    print(f"SUB_NODES={_q(' '.join(nodes))}")
     print(f"SUB_WORKDIR={_q(s.get('workdir', sid))}")
+
+
+def cmd_sub_nodes(d, args):
+    """Вузли, на яких розгортається підсистема (по рядку)."""
+    if not args:
+        _err("sub-nodes: потрібен id")
+    s = d["subsystems"].get(args[0], {})
+    for n in s.get("nodes", []):
+        print(n)
 
 
 def cmd_sub_containers(d, args):
@@ -292,9 +317,9 @@ def cmd_nodes_for(d, args):
         s = d["subsystems"].get(sid)
         if not s:
             continue
-        node = s.get("node", "")
-        if node and node not in seen:
-            seen.append(node)
+        for node in s.get("nodes", []):
+            if node and node not in seen:
+                seen.append(node)
     for n in seen:
         print(n)
 
@@ -305,7 +330,7 @@ def cmd_subs_on(d, args):
         _err("subs-on: потрібен alias")
     alias = args[0]
     for sid in _ordered_subs(d):
-        if d["subsystems"][sid].get("node", "") == alias:
+        if alias in d["subsystems"][sid].get("nodes", []):
             print(sid)
 
 
@@ -316,7 +341,7 @@ def cmd_ports(d, args):
     alias = args[0]
     seen = []
     for sid, s in d["subsystems"].items():
-        if s.get("node", "") != alias:
+        if alias not in s.get("nodes", []):
             continue
         for p in s.get("ports_exposed", []):
             host_port = p.get("host", "")
@@ -351,6 +376,7 @@ COMMANDS = {
     "node": cmd_node,
     "subs": cmd_subs,
     "sub": cmd_sub,
+    "sub-nodes": cmd_sub_nodes,
     "sub-containers": cmd_sub_containers,
     "order": cmd_order,
     "nodes-for": cmd_nodes_for,

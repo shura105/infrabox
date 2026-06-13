@@ -121,31 +121,33 @@ fi
 step "Docker compose down"
 
 for SUB in $ACTIVE_SUBS; do
-    eval "$(TOPO sub "$SUB")"   # SUB_NODE, SUB_WORKDIR
-    use_node "$SUB_NODE"
-    COMPOSE_DIR="${NODE_DEPLOY_DIR}/${SUB_WORKDIR}"
+    eval "$(TOPO sub "$SUB")"   # SUB_WORKDIR (вузли підсистеми — через sub-nodes)
+    for SNODE in $(TOPO sub-nodes "$SUB"); do
+        use_node "$SNODE"
+        COMPOSE_DIR="${NODE_DEPLOY_DIR}/${SUB_WORKDIR}"
 
-    printf "\n  ${B}[%s]${N}  %s  (%s)\n" "$SUB" "$COMPOSE_DIR" "$NODE_ALIAS"
+        printf "\n  ${B}[%s]${N}  %s  (%s)\n" "$SUB" "$COMPOSE_DIR" "$NODE_ALIAS"
 
-    if ! _ssh_q "exit 0"; then
-        warn "  SSH недоступний: ${NODE_USER}@${NODE_HOST} — пропускаємо"
-        continue
-    fi
+        if ! _ssh_q "exit 0"; then
+            warn "  SSH недоступний: ${NODE_USER}@${NODE_HOST} — пропускаємо"
+            continue
+        fi
 
-    HAS_COMPOSE=$(_ssh_q \
-        "test -f '${COMPOSE_DIR}/docker-compose.yml' || test -f '${COMPOSE_DIR}/compose.yml' && echo yes || echo no")
-    if [ "${HAS_COMPOSE:-no}" != "yes" ]; then
-        warn "  Пропускаємо: compose-файл не знайдено у ${COMPOSE_DIR}"
-        continue
-    fi
+        HAS_COMPOSE=$(_ssh_q \
+            "test -f '${COMPOSE_DIR}/docker-compose.yml' || test -f '${COMPOSE_DIR}/compose.yml' && echo yes || echo no")
+        if [ "${HAS_COMPOSE:-no}" != "yes" ]; then
+            warn "  Пропускаємо: compose-файл не знайдено у ${COMPOSE_DIR}"
+            continue
+        fi
 
-    DOWN_OUT=$(_ssh "cd '${COMPOSE_DIR}' && docker compose down 2>&1") || true
-    if echo "$DOWN_OUT" | grep -qi "error\b"; then
-        echo "$DOWN_OUT" | grep -i error | sed 's/^/    /'
-        warn "  compose down завершився з помилками (продовжуємо)"
-    else
-        ok "  ${SUB}: down ✓"
-    fi
+        DOWN_OUT=$(_ssh "cd '${COMPOSE_DIR}' && docker compose down 2>&1") || true
+        if echo "$DOWN_OUT" | grep -qi "error\b"; then
+            echo "$DOWN_OUT" | grep -i error | sed 's/^/    /'
+            warn "  compose down завершився з помилками (продовжуємо)"
+        else
+            ok "  ${SUB} на ${NODE_ALIAS}: down ✓"
+        fi
+    done
 done
 
 # ── Дані (тільки повне видалення, не partial, не keep-data) ───────────────────
