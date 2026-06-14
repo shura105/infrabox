@@ -1,7 +1,0 @@
-# Артефакти роботи інсталятора (не версіонуються)
-host-report.json
-host-report-*.json
-__pycache__/
-*.pyc
-# topology.yml містить JWT_SECRET і SSH-шляхи — генерується локально 0_prepare.sh
-topology.yml
