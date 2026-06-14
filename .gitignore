@@ -32,3 +32,9 @@ ui/data/
 # TLS — environment-specific (each install regenerates with mkcert)
 ui/frontend/ssl/*
 !ui/frontend/ssl/README.md
+
+# Service discovery — .env генерує 3_deploy (адреса core), не версіонувати
+adm/.env
+arch/.env
+core/.env
+ui/.env
