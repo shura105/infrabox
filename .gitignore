@@ -38,3 +38,13 @@ adm/.env
 arch/.env
 core/.env
 ui/.env
+
+# Low-level constructor — runtime data (per-deployment, live on server)
+lowlevel/projects/*
+!lowlevel/projects/.gitkeep
+lowlevel/knowledge/*
+!lowlevel/knowledge/.gitkeep
+
+# Sensitive host manifest (contains SSH private key) — never version
+core/service/config/infrabox.json
+core/service/config/infrabox.db

@@ -1,0 +1,22 @@
+services:
+
+  lowlevel:
+    build: ./backend
+    container_name: infrabox-lowlevel
+    restart: unless-stopped
+    networks:
+      - infrabox-net
+    environment:
+      SERVICE_NAME: infrabox-lowlevel
+      REDIS_HOST: ${REDIS_HOST:-infrabox-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      TZ: Europe/Kyiv
+    volumes:
+      - ./backend/app:/app/app                        # dev: правки без ребілду (restart)
+      - ./projects:/app/projects                      # проєкти пристроїв (persistent)
+      - ./knowledge:/app/knowledge                    # база знань обладнання (persistent)
+      - ../core/service/config:/app/points:ro         # points.json для прив'язки (read-only)
+
+networks:
+  infrabox-net:
+    external: true
