@@ -147,6 +147,20 @@ def update_hardware(device_id: str, hardware_id) -> dict | None:
     return dev
 
 
+def update_scheme_image(device_id: str, image) -> dict | None:
+    """Обране зображення схеми (ім'я файлу з images БЗ-контролера)."""
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    if image:
+        dev["scheme_image"] = image
+    else:
+        dev.pop("scheme_image", None)
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
+
 def update_pins(device_id: str, pins) -> dict | None:
     """Записує таблицю задіяних портів. Нормалізує рядки до відомих полів."""
     dev = get_device(device_id)
@@ -163,6 +177,87 @@ def update_pins(device_id: str, pins) -> dict | None:
             "mode":     str(p.get("mode", "")).strip(),
         })
     dev["pins"] = clean
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
+
+def list_points() -> list[dict]:
+    """Точки Infrabox (з points.json) — для прив'язки сигналів."""
+    try:
+        with open(POINTS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def update_program(device_id: str, program) -> dict | None:
+    """Записує конфігурацію формування коду у device.json (об'єкт program)."""
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    program = program or {}
+    wifi = program.get("wifi") or {}
+    mqtt = program.get("mqtt") or {}
+
+    signals = []
+    for s in (program.get("signals") or []):
+        if not isinstance(s, dict):
+            continue
+        try:
+            pid = int(s.get("point_id"))
+        except (TypeError, ValueError):
+            pid = None
+        try:
+            interval = int(s.get("interval_ms") or 1000)
+        except (TypeError, ValueError):
+            interval = 1000
+        signals.append({
+            "type":        str(s.get("type", "")).strip() or "discrete_in",
+            "pin":         str(s.get("pin", "")).strip(),
+            "point_id":    pid,
+            "poll":        str(s.get("poll", "timer")).strip() or "timer",
+            "interval_ms": interval,
+        })
+
+    # додатковий функціонал: піни для ініціалізації, логіку користувач дописує сам
+    custom = []
+    for c in (program.get("custom") or []):
+        if not isinstance(c, dict):
+            continue
+        cpins = []
+        for p in (c.get("pins") or []):
+            if not isinstance(p, dict):
+                continue
+            cpins.append({
+                "pin":     str(p.get("pin", "")).strip(),
+                "comment": str(p.get("comment", "")).strip(),
+            })
+        custom.append({"name": str(c.get("name", "")).strip(), "pins": cpins})
+
+    try:
+        port = int(mqtt.get("port") or 1883)
+    except (TypeError, ValueError):
+        port = 1883
+
+    connection = str(program.get("connection", "wifi")).strip() or "wifi"
+    # OTA можливе лише через WiFi
+    ota = bool(program.get("ota", False)) and connection == "wifi"
+
+    dev["program"] = {
+        "purpose":    str(program.get("purpose", "")).strip(),
+        "connection": connection,
+        "ota":        ota,
+        "wifi":       {"ssid": str(wifi.get("ssid", "")), "pass": str(wifi.get("pass", ""))},
+        "mqtt":    {
+            "host":      str(mqtt.get("host", "")).strip(),
+            "port":      port,
+            "client_id": str(mqtt.get("client_id", "")).strip(),
+        },
+        "signals": signals,
+        "custom":  custom,
+    }
     with open(_device_json(device_id), "w", encoding="utf-8") as f:
         json.dump(dev, f, ensure_ascii=False, indent=2)
     return dev

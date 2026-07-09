@@ -190,6 +190,9 @@
             overflow: hidden; display: flex; align-items: center; justify-content: center;
         }
         .img-cell img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
+        .img-pick { display: flex; flex-direction: column; gap: 6px; }
+        .pick-lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c9d1d9; cursor: pointer; }
+        .pick-lbl input { width: 15px; height: 15px; }
 
         /* lightbox */
         .lightbox {
@@ -228,6 +231,39 @@
             resize: vertical; overflow: hidden; min-height: 34px; display: block;
         }
         .cell-txt:focus { outline: none; border-color: #58a6ff; }
+
+        /* program editor — конфігурація формування коду */
+        .program-editor { max-width: 820px; display: flex; flex-direction: column; gap: 20px; }
+        .inp {
+            width: 100%; max-width: 440px; padding: 10px 12px; border-radius: 8px;
+            border: 1px solid #30363d; background: #0d1117; color: #e6edf3;
+            font-size: 13px; font-family: inherit;
+        }
+        .inp:focus { outline: none; border-color: #58a6ff; }
+        .cfg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; max-width: 640px; }
+        .cfg-grid .inp { max-width: none; }
+        .chk {
+            display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+            color: #c9d1d9; text-transform: none; letter-spacing: 0; font-weight: 400;
+        }
+        .chk input { width: 16px; height: 16px; }
+        select.inp { max-width: none; }
+
+        /* логічні зони конфігурації */
+        .config-section {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;
+        }
+        .section-title { font-size: 13px; font-weight: 600; color: #e6edf3; }
+        .sig-zones { display: flex; flex-direction: column; gap: 14px; }
+        .sig-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+        }
+        .sig-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .sig-title { font-size: 14px; font-weight: 600; color: #e6edf3; }
+        .sig-del { padding: 4px 10px; font-size: 12px; }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
         /* empty states */
         .empty {
@@ -435,9 +471,10 @@
             ? `<div class="ov-desc">${escapeHtml(d.description)}</div>`
             : `<div class="ov-muted">Опис не додано.</div>`;
 
-        const schemeHtml = d.scheme
-            ? `<img class="ov-scheme-img" src="${d.scheme}" alt="Схема">`
-            : `<div class="ov-scheme-empty">Схему не додано</div>`;
+        const hasScheme = d.hardware && d.scheme_image;
+        const schemeHtml = hasScheme
+            ? `<div id="ovSchemeImg"><div class="ov-muted">Завантаження…</div></div>`
+            : `<div class="ov-scheme-empty">Схему не обрано</div>`;
 
         const programHtml = `
             <a class="dl-link" href="/lowlevel/api/devices/${encodeURIComponent(d.id)}/firmware" download>⬇ Завантажити код</a>
@@ -459,6 +496,16 @@
         wsEl.querySelectorAll("[data-edit]").forEach(btn =>
             btn.addEventListener("click", () => { editorSection = btn.dataset.edit; renderWorkspace(); })
         );
+
+        if (hasScheme) {
+            kbImageURL(d.hardware, d.scheme_image).then(url => {
+                const c = document.getElementById("ovSchemeImg");
+                if (!c) return;
+                c.innerHTML = url
+                    ? `<img class="ov-scheme-img" src="${url}" alt="Схема">`
+                    : `<div class="ov-scheme-empty">Зображення не знайдено</div>`;
+            });
+        }
     }
 
     // сторінка редагування розділу (опис / схема / програма)
@@ -474,10 +521,251 @@
             .addEventListener("click", () => { editorSection = null; renderWorkspace(); });
 
         const body = document.getElementById("wsBody");
-        if (section === "desc")   return renderDescEditor(d, body);
-        if (section === "scheme") return renderSchemeEditor(d, body);
-        // TODO: program — наповнимо далі
+        if (section === "desc")    return renderDescEditor(d, body);
+        if (section === "scheme")  return renderSchemeEditor(d, body);
+        if (section === "program") return renderProgramEditor(d, body);
         body.innerHTML = `<div class="ws-placeholder">Сторінка редагування «${label}» — наповнимо далі.</div>`;
+    }
+
+    // редактор програми — логічні зони конфігурації формування коду
+    async function renderProgramEditor(d, body) {
+        body.innerHTML = `<div class="ws-placeholder">Завантаження точок Infrabox…</div>`;
+
+        let points = [];
+        try {
+            const data = await apiJson("GET", "/points");
+            points = data.points || [];
+        } catch (e) {
+            body.innerHTML = `<div class="ws-placeholder">Помилка завантаження точок: ${e.message}</div>`;
+            return;
+        }
+
+        const prog = d.program || {};
+        const wifi = prog.wifi || {};
+        const mqtt = prog.mqtt || {};
+        const devPins = (d.pins || []).map(p => p.pin).filter(Boolean);
+        const discretePoints = points.filter(p => p.type === "discrete");
+        let signals = (prog.signals || []).map(s => ({
+            type: s.type || "discrete_in", pin: s.pin || "", point_id: (s.point_id ?? ""),
+            poll: s.poll || "timer", interval_ms: (s.interval_ms ?? 1000),
+        }));
+        let custom = (prog.custom || []).map(c => ({
+            name: c.name || "",
+            pins: (c.pins || []).map(p => ({ pin: p.pin || "", comment: p.comment || "" })),
+        }));
+
+        body.innerHTML = `
+            <div class="program-editor">
+                <!-- зона: загальна конфігурація -->
+                <div class="config-section">
+                    <div class="section-title">Загальна конфігурація</div>
+                    <div class="field">
+                        <label>Призначення пристрою</label>
+                        <input class="inp" id="pgPurpose" value="${escapeHtml(prog.purpose || "")}" placeholder="напр. Вузол котельні">
+                    </div>
+                    <div class="field">
+                        <label>Тип підключення</label>
+                        <select class="inp" id="pgConn">
+                            <option value="wifi"${(prog.connection || "wifi") === "wifi" ? " selected" : ""}>WiFi</option>
+                            <option value="ethernet"${prog.connection === "ethernet" ? " selected" : ""}>Ethernet (шилд)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Оновлення прошивки</label>
+                        <label class="chk"><input type="checkbox" id="pgOta" ${prog.ota ? "checked" : ""}> Увімкнути OTA-оновлення</label>
+                        <span class="ov-muted" id="pgOtaHint" style="display:none">OTA доступне лише через WiFi</span>
+                    </div>
+                    <div class="cfg-grid">
+                        <div class="field wifi-field"><label>WiFi SSID</label><input class="inp" id="pgSsid" value="${escapeHtml(wifi.ssid || "")}" autocomplete="off"></div>
+                        <div class="field wifi-field"><label>WiFi пароль</label><input class="inp" id="pgWpass" value="${escapeHtml(wifi.pass || "")}" autocomplete="off"></div>
+                        <div class="field"><label>MQTT брокер</label><input class="inp" id="pgHost" value="${escapeHtml(mqtt.host || "homeServ2.local")}"></div>
+                        <div class="field"><label>MQTT порт</label><input class="inp" id="pgPort" type="number" value="${mqtt.port || 1883}"></div>
+                        <div class="field"><label>MQTT client id</label><input class="inp" id="pgClient" value="${escapeHtml(mqtt.client_id || d.id)}"></div>
+                    </div>
+                </div>
+
+                <!-- зони: точки та додатковий функціонал -->
+                <div class="section-title">Точки та додатковий функціонал</div>
+                <div id="sigZones" class="sig-zones"></div>
+                <div id="customZones" class="sig-zones"></div>
+                <div class="btn-row">
+                    <button class="btn" id="btnAddSig">＋ Додати сигнал</button>
+                    <button class="btn" id="btnAddCustom">＋ Додатковий функціонал</button>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="btnSaveProg">💾 Зберегти</button>
+                    <span class="editor-status" id="progStatus"></span>
+                </div>
+            </div>`;
+
+        function pinSelect(val) {
+            if (!devPins.length)
+                return `<input class="inp" data-f="pin" value="${escapeHtml(val)}" placeholder="порт (задайте у «Схема»)">`;
+            const opts = [`<option value="">—</option>`].concat(
+                devPins.map(pn => `<option value="${escapeHtml(pn)}"${pn === val ? " selected" : ""}>${escapeHtml(pn)}</option>`)
+            ).join("");
+            return `<select class="inp" data-f="pin">${opts}</select>`;
+        }
+        function pointSelect(val) {
+            const opts = [`<option value="">—</option>`].concat(
+                discretePoints.map(p => `<option value="${p.id}"${String(p.id) === String(val) ? " selected" : ""}>${p.id} · ${escapeHtml(p.pointname || "")}</option>`)
+            ).join("");
+            return `<select class="inp" data-f="point">${opts}</select>`;
+        }
+
+        function renderSignals() {
+            const cont = document.getElementById("sigZones");
+            cont.innerHTML = "";
+            if (signals.length === 0) {
+                cont.innerHTML = `<div class="ov-muted">Точок не додано. Натисніть «Додати сигнал».</div>`;
+                return;
+            }
+            signals.forEach((s, i) => {
+                const card = document.createElement("div");
+                card.className = "sig-card";
+                const timerField = `
+                    <div class="field" data-timer style="${s.poll === "timer" ? "" : "display:none"}">
+                        <label>Інтервал опитування, мс</label>
+                        <input class="inp" data-f="interval" type="number" min="10" value="${s.interval_ms}">
+                    </div>`;
+                card.innerHTML = `
+                    <div class="sig-head">
+                        <div class="sig-title">Дискретна точка #${i + 1}</div>
+                        <button class="btn danger sig-del" data-act="del">🗑 Видалити</button>
+                    </div>
+                    <div class="cfg-grid">
+                        <div class="field"><label>Порт</label>${pinSelect(s.pin)}</div>
+                        <div class="field"><label>id параметра (Infrabox)</label>${pointSelect(s.point_id)}</div>
+                        <div class="field"><label>Метод опитування</label>
+                            <select class="inp" data-f="poll">
+                                <option value="timer"${s.poll === "timer" ? " selected" : ""}>За таймером</option>
+                                <option value="interrupt"${s.poll === "interrupt" ? " selected" : ""}>По перериванню</option>
+                            </select>
+                        </div>
+                        ${timerField}
+                    </div>`;
+
+                const pinEl = card.querySelector('[data-f="pin"]');
+                pinEl.addEventListener(pinEl.tagName === "SELECT" ? "change" : "input", e => signals[i].pin = e.target.value);
+                card.querySelector('[data-f="point"]').addEventListener("change", e => signals[i].point_id = e.target.value);
+                card.querySelector('[data-f="poll"]').addEventListener("change", e => { signals[i].poll = e.target.value; renderSignals(); });
+                const intEl = card.querySelector('[data-f="interval"]');
+                if (intEl) intEl.addEventListener("input", e => signals[i].interval_ms = e.target.value);
+                card.querySelector('[data-act="del"]').addEventListener("click", () => { signals.splice(i, 1); renderSignals(); });
+                cont.appendChild(card);
+            });
+        }
+
+        document.getElementById("btnAddSig").addEventListener("click", () => {
+            signals.push({ type: "discrete_in", pin: "", point_id: "", poll: "timer", interval_ms: 1000 });
+            renderSignals();
+        });
+        renderSignals();
+
+        // ── зони «Додатковий функціонал» ─────────────────────────
+        function renderCustom() {
+            const cont = document.getElementById("customZones");
+            cont.innerHTML = "";
+            custom.forEach((c, ci) => {
+                const card = document.createElement("div");
+                card.className = "sig-card";
+                card.innerHTML = `
+                    <div class="sig-head">
+                        <div class="sig-title">Додатковий функціонал #${ci + 1}</div>
+                        <button class="btn danger sig-del" data-act="del">🗑 Видалити</button>
+                    </div>
+                    <div class="field">
+                        <label>Назва (коментар у коді)</label>
+                        <input class="inp" data-f="name" value="${escapeHtml(c.name)}" placeholder="напр. OLED-дисплей">
+                    </div>
+                    <div class="field">
+                        <label>Піни для ініціалізації</label>
+                        <div class="pins-wrap"><table class="pins-table"><thead><tr>
+                            <th>Пін</th><th>Опис</th><th></th>
+                        </tr></thead><tbody data-cpins></tbody></table></div>
+                        <div><button class="btn" data-act="addpin">＋ Додати пін</button></div>
+                    </div>
+                    <div class="ov-muted">Ці піни буде оголошено та ініціалізовано в коді (режим — зі «Схеми»). Логіку допишете власноруч — поза стандартним функціоналом Infrabox.</div>`;
+
+                card.querySelector('[data-f="name"]').addEventListener("input", e => custom[ci].name = e.target.value);
+                card.querySelector('[data-act="del"]').addEventListener("click", () => { custom.splice(ci, 1); renderCustom(); });
+
+                const tb = card.querySelector('[data-cpins]');
+                function renderCPins() {
+                    if (c.pins.length === 0) {
+                        tb.innerHTML = `<tr><td colspan="3" class="pins-empty">Пінів не додано.</td></tr>`;
+                        return;
+                    }
+                    tb.innerHTML = "";
+                    c.pins.forEach((p, pi) => {
+                        let pinField;
+                        if (devPins.length) {
+                            const opts = [`<option value="">—</option>`].concat(
+                                devPins.map(pn => `<option value="${escapeHtml(pn)}"${pn === p.pin ? " selected" : ""}>${escapeHtml(pn)}</option>`)
+                            ).join("");
+                            pinField = `<select class="cell-sel" data-f="pin">${opts}</select>`;
+                        } else {
+                            pinField = `<input class="cell-inp" data-f="pin" value="${escapeHtml(p.pin)}" placeholder="порт">`;
+                        }
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `<td>${pinField}</td><td><input class="cell-inp" data-f="comment" value="${escapeHtml(p.comment)}" placeholder="коментар у коді"></td><td><button class="act danger" data-act="delpin" title="Видалити">🗑</button></td>`;
+                        const pinEl = tr.querySelector('[data-f="pin"]');
+                        pinEl.addEventListener(pinEl.tagName === "SELECT" ? "change" : "input", e => c.pins[pi].pin = e.target.value);
+                        tr.querySelector('[data-f="comment"]').addEventListener("input", e => c.pins[pi].comment = e.target.value);
+                        tr.querySelector('[data-act="delpin"]').addEventListener("click", () => { c.pins.splice(pi, 1); renderCPins(); });
+                        tb.appendChild(tr);
+                    });
+                }
+                card.querySelector('[data-act="addpin"]').addEventListener("click", () => { c.pins.push({ pin: "", comment: "" }); renderCPins(); });
+                renderCPins();
+                cont.appendChild(card);
+            });
+        }
+
+        document.getElementById("btnAddCustom").addEventListener("click", () => {
+            custom.push({ name: "", pins: [] });
+            renderCustom();
+        });
+        renderCustom();
+
+        // тип підключення: WiFi-поля лише для WiFi; OTA можливе лише через WiFi
+        const connSel = document.getElementById("pgConn");
+        function applyConnection() {
+            const wifi = connSel.value === "wifi";
+            body.querySelectorAll(".wifi-field").forEach(el => el.style.display = wifi ? "" : "none");
+            const ota  = document.getElementById("pgOta");
+            const hint = document.getElementById("pgOtaHint");
+            if (!wifi) { ota.checked = false; ota.disabled = true;  hint.style.display = ""; }
+            else       {                      ota.disabled = false; hint.style.display = "none"; }
+        }
+        connSel.addEventListener("change", applyConnection);
+        applyConnection();
+
+        document.getElementById("btnSaveProg").addEventListener("click", async () => {
+            const st = document.getElementById("progStatus");
+            st.className = "editor-status"; st.textContent = "Збереження…";
+            const program = {
+                purpose:    document.getElementById("pgPurpose").value,
+                ota:        document.getElementById("pgOta").checked,
+                connection: document.getElementById("pgConn").value,
+                wifi:    { ssid: document.getElementById("pgSsid").value, pass: document.getElementById("pgWpass").value },
+                mqtt:    {
+                    host:      document.getElementById("pgHost").value,
+                    port:      document.getElementById("pgPort").value,
+                    client_id: document.getElementById("pgClient").value,
+                },
+                signals,
+                custom,
+            };
+            try {
+                const dev = await apiJson("PUT", `/devices/${encodeURIComponent(d.id)}/program`, { program });
+                const i = devices.findIndex(x => x.id === dev.id);
+                if (i >= 0) devices[i] = dev;
+                d = dev;
+                st.textContent = "✓ Збережено";
+            } catch (e) { st.className = "editor-status err"; st.textContent = e.message; }
+        });
     }
 
     // редактор схеми — вибір апаратного забезпечення з бази знань
@@ -542,7 +830,7 @@
                 if (i >= 0) devices[i] = dev;
                 d = dev;
                 statusEl.textContent = "✓ Збережено";
-                renderHwPreview(sel.value, kbList);
+                renderHwPreview(sel.value, kbList, d);
                 renderPinsTable();   // піни контролера змінились → оновити список у таблиці
             } catch (e) {
                 statusEl.className = "editor-status err";
@@ -550,7 +838,7 @@
             }
         });
 
-        renderHwPreview(d.hardware, kbList);
+        renderHwPreview(d.hardware, kbList, d);
 
         // ── таблиця задіяних портів ──────────────────────────────
         const MODES = [["", "—"], ["input", "Вхід"], ["output", "Вихід"], ["hiz", "Високий опір"]];
@@ -655,8 +943,8 @@
         renderPinsTable();
     }
 
-    // показ схеми обраного контролера (зображення з бази знань)
-    async function renderHwPreview(hwId, kbList) {
+    // показ схеми обраного контролера + вибір зображення схеми пристрою
+    async function renderHwPreview(hwId, kbList, d) {
         const prev = document.getElementById("hwPreview");
         if (!prev) return;
         const eq = kbList.find(x => x.id === hwId);
@@ -670,16 +958,30 @@
         prev.innerHTML = `
             <div class="field">
                 <label>Схема — ${escapeHtml(eq.type)}</label>
+                <div class="ov-muted" style="margin-bottom:2px">Позначте зображення, яке буде схемою пристрою в огляді.</div>
                 <div class="img-grid" id="hwImgs"></div>
             </div>`;
         const grid = document.getElementById("hwImgs");
         for (const name of imgs) {
             const url = await kbImageURL(eq.id, name);
-            const cell = document.createElement("div");
-            cell.className = "img-cell";
-            cell.innerHTML = `<img src="${url || ""}" alt="">`;
-            if (url) cell.querySelector("img").addEventListener("click", () => openLightbox(url));
-            grid.appendChild(cell);
+            const wrap = document.createElement("div");
+            wrap.className = "img-pick";
+            wrap.innerHTML = `
+                <div class="img-cell"><img src="${url || ""}" alt=""></div>
+                <label class="pick-lbl"><input type="checkbox" ${name === d.scheme_image ? "checked" : ""}> Схема пристрою</label>`;
+            if (url) wrap.querySelector("img").addEventListener("click", () => openLightbox(url));
+            wrap.querySelector("input").addEventListener("change", async (e) => {
+                const chosen = e.target.checked ? name : "";
+                // один вибір: зняти інші галочки
+                grid.querySelectorAll("input[type=checkbox]").forEach(cb => { if (cb !== e.target) cb.checked = false; });
+                try {
+                    const dev = await apiJson("PUT", `/devices/${encodeURIComponent(d.id)}/scheme_image`, { image: chosen || null });
+                    const i = devices.findIndex(x => x.id === dev.id);
+                    if (i >= 0) devices[i] = dev;
+                    d.scheme_image = dev.scheme_image || "";
+                } catch (err) { alert(err.message); e.target.checked = !e.target.checked; }
+            });
+            grid.appendChild(wrap);
         }
     }
 

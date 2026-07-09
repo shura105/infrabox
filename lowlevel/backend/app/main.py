@@ -110,6 +110,23 @@ def set_hardware(device_id: str, body: HardwareUpdate, _: dict = Depends(require
     return dev
 
 
+class SchemeImageUpdate(BaseModel):
+    image: str | None = None
+
+
+@app.put("/devices/{device_id}/scheme_image")
+def set_scheme_image(device_id: str, body: SchemeImageUpdate, _: dict = Depends(require_admin)):
+    dev = store.get_device(device_id)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    if body.image:
+        hw = dev.get("hardware")
+        eq = kb.get_equipment(hw) if hw else None
+        if not eq or body.image not in (eq.get("images") or []):
+            raise HTTPException(status_code=400, detail="Зображення не належить обраному контролеру")
+    return store.update_scheme_image(device_id, body.image)
+
+
 class PinsUpdate(BaseModel):
     pins: list[dict] = []
 
@@ -120,6 +137,28 @@ def set_pins(device_id: str, body: PinsUpdate, _: dict = Depends(require_admin))
     if dev is None:
         raise HTTPException(status_code=404, detail="Пристрій не знайдено")
     return dev
+
+
+class ProgramUpdate(BaseModel):
+    program: dict = {}
+
+
+@app.put("/devices/{device_id}/program")
+def set_program(device_id: str, body: ProgramUpdate, _: dict = Depends(require_admin)):
+    dev = store.update_program(device_id, body.program)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    return dev
+
+
+@app.get("/points")
+def list_points(_: dict = Depends(require_admin)):
+    """Точки Infrabox для прив'язки сигналів (id + pointname + type)."""
+    pts = store.list_points()
+    return {"points": [
+        {"id": p.get("id"), "pointname": p.get("pointname"), "type": p.get("type")}
+        for p in pts
+    ]}
 
 
 # ── база знань обладнання ─────────────────────────────────────────────────────
