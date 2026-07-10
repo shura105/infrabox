@@ -106,6 +106,9 @@
         .add-form-row .btn { flex: 1; justify-content: center; }
         .add-error { color: #f85149; font-size: 12px; margin-top: 8px; min-height: 14px; line-height: 1.4; }
 
+        /* кнопки користувацьких блоків коду (ліва панель на вкладці «Код») */
+        .block-btn { flex: 1; justify-content: flex-start; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
         /* right column — workspace */
         .workspace {
             flex: 1; min-height: 0; overflow: hidden;
@@ -113,9 +116,13 @@
         }
         .ws-toolbar {
             flex-shrink: 0; display: flex; align-items: center;
-            justify-content: flex-end; gap: 8px;
-            padding: 10px 24px; border-bottom: 1px solid #21262d;
+            gap: 12px; padding: 10px 24px; border-bottom: 1px solid #21262d;
         }
+        .ws-tb-slot { flex: 1; display: flex; align-items: center; min-width: 0; }
+        .ws-tb-left   { justify-content: flex-start; }
+        .ws-tb-center { justify-content: center; }
+        .ws-tb-right  { justify-content: flex-end; }
+        .ws-tb-title  { font-size: 14px; font-weight: 600; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .ws-content {
             flex: 1; overflow-y: auto; padding: 24px 32px;
             display: flex; flex-direction: column;
@@ -265,6 +272,48 @@
         .sig-del { padding: 4px 10px; font-size: 12px; }
         .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
+        /* редактор коду */
+        .code-editor { display: flex; flex-direction: column; gap: 14px; }
+        .code-palette { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        /* overlay-редактор із підсвіткою синтаксису */
+        .ce-wrap { position: relative; height: 460px; border: 1px solid #30363d; border-radius: 10px; overflow: hidden; }
+        .ce-wrap.modal-ce { height: 60vh; }
+        .ce-wrap:focus-within { border-color: #58a6ff; }
+        .ce-hl, .ce-ta {
+            margin: 0; position: absolute; inset: 0; box-sizing: border-box;
+            padding: 14px 16px; border: 0;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: 13px; line-height: 1.5; white-space: pre; overflow: auto; tab-size: 2;
+        }
+        .ce-hl { z-index: 1; pointer-events: none; color: #e6edf3; background: #0d1117; }
+        .ce-hl code { font: inherit; }
+        .ce-ta { z-index: 2; background: transparent; color: transparent; caret-color: #e6edf3; resize: none; }
+        .ce-ta:focus { outline: none; }
+        /* токени підсвітки */
+        .tok-cm  { color: #8b949e; font-style: italic; }
+        .tok-pp  { color: #ff7b72; }
+        .tok-str { color: #a5d6ff; }
+        .tok-num { color: #79c0ff; }
+        .tok-kw  { color: #ff7b72; }
+        .tok-bi  { color: #d2a8ff; }
+
+        /* рядок користувацького блоку в лівій панелі */
+        .block-row { display: flex; gap: 4px; margin-bottom: 6px; }
+
+        /* модалка редагування блоку */
+        .modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(1,4,9,.7); padding: 24px; }
+        .modal-box { width: min(880px, 95vw); max-height: 92vh; display: flex; flex-direction: column; gap: 14px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px 20px; }
+        .modal-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .modal-title { font-size: 15px; font-weight: 600; color: #e6edf3; }
+        #blockModalEditor { overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+        /* секція у модалці вкраплення */
+        .sec-inject { display: flex; flex-direction: column; gap: 8px; }
+        .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .sec-label { font-size: 13px; font-weight: 600; color: #e6edf3; }
+        .ce-wrap.sec-ce { height: 140px; }
+
         /* empty states */
         .empty {
             flex: 1; display: flex; flex-direction: column;
@@ -292,7 +341,7 @@
 
 <main>
     <!-- ── ліва колонка: перелік пристроїв ─────────────────────── -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="deviceSidebar">
         <div class="sidebar-head">
             <span class="lbl">Пристрої</span>
             <button class="btn btn-toggle" id="btnEdit" title="Редагувати список">✎ Редагувати</button>
@@ -302,10 +351,23 @@
         </div>
     </aside>
 
+    <!-- ── ліва колонка (на вкладці «Код»): користувацькі блоки ─── -->
+    <aside class="sidebar" id="codeSidebar" style="display:none">
+        <div class="sidebar-head">
+            <span class="lbl">Блоки коду</span>
+            <button class="btn btn-primary" id="btnNewBlock" title="Створити блок">＋ Новий блок</button>
+        </div>
+        <div class="sidebar-list" id="blockList">
+            <!-- користувацькі блоки рендеряться скриптом -->
+        </div>
+    </aside>
+
     <!-- ── права колонка: робочий простір ──────────────────────── -->
     <section class="workspace">
         <div class="ws-toolbar">
-            <a class="btn" href="/constructor-knowledge">📚 База знань</a>
+            <div class="ws-tb-slot ws-tb-left" id="wsTbLeft"></div>
+            <div class="ws-tb-slot ws-tb-center" id="wsTbCenter"></div>
+            <div class="ws-tb-slot ws-tb-right"><a class="btn" href="/constructor-knowledge">📚 База знань</a></div>
         </div>
         <div class="ws-content" id="wsContent">
             <!-- вміст рендериться скриптом -->
@@ -315,6 +377,22 @@
 
 <!-- збільшене зображення -->
 <div class="lightbox" id="lightbox"><img alt="Зображення"></div>
+
+<!-- редагування коду блоку -->
+<div class="modal" id="blockModal" style="display:none">
+    <div class="modal-box">
+        <div class="modal-head">
+            <span class="modal-title" id="blockModalTitle">Блок</span>
+            <button class="btn" id="blockModalClose" title="Закрити">✕</button>
+        </div>
+        <div id="blockModalEditor"></div>
+        <div class="form-actions">
+            <button class="btn btn-primary" id="btnBlockSave">💾 Зберегти</button>
+            <button class="btn" id="btnBlockCancel">Скасувати</button>
+            <span class="editor-status" id="blockModalStatus"></span>
+        </div>
+    </div>
+</div>
 
 <script>
     // ── ім'я користувача в хедері ──────────────────────────────
@@ -371,6 +449,7 @@
         { id: "desc",    label: "Опис" },
         { id: "scheme",  label: "Схема" },
         { id: "program", label: "Програма" },
+        { id: "code",    label: "Код" },
     ];
 
     // ── рендер списку пристроїв ─────────────────────────────────
@@ -454,8 +533,274 @@
     }
 
     // ── робочий простір (центральне поле) ───────────────────────
+    // ліва/центральна частини верхньої панелі (права — «База знань», постійна)
+    function setToolbar(leftHtml, centerHtml) {
+        document.getElementById("wsTbLeft").innerHTML   = leftHtml || "";
+        document.getElementById("wsTbCenter").innerHTML = centerHtml || "";
+    }
+
+    // на вкладці «Код» ліва панель = блоки коду; інакше = список пристроїв
+    function toggleSidebar() {
+        const codeMode = selectedId && editorSection === "code";
+        document.getElementById("deviceSidebar").style.display = codeMode ? "none" : "";
+        document.getElementById("codeSidebar").style.display   = codeMode ? "" : "none";
+        if (codeMode) renderBlockList();
+    }
+
+    // вставка тексту блоку в основний код (за курсором)
+    function insertIntoCode(text) {
+        const area = document.getElementById("codeArea");
+        if (!area) return;
+        const start = area.selectionStart ?? area.value.length;
+        const end   = area.selectionEnd ?? area.value.length;
+        area.value = area.value.slice(0, start) + text + area.value.slice(end);
+        const pos = start + text.length;
+        area.selectionStart = area.selectionEnd = pos;
+        area.dispatchEvent(new Event("input"));   // оновити підсвітку
+        area.focus();
+    }
+
+    // ── секції основної програми (для посекторного вкраплення) ──
+    const CODE_SECTIONS = [
+        { id: "includes",  label: "Includes",  header: "// --- Includes ---" },
+        { id: "config",    label: "Конфіг",    header: "// --- Конфіг ---" },
+        { id: "globals",   label: "Глобальні", header: "// --- Глобальні ---" },
+        { id: "functions", label: "Функції",   header: "// --- Функції ---" },
+        { id: "setup",     label: "setup()",   func: "setup" },
+        { id: "loop",      label: "loop()",    func: "loop" },
+    ];
+
+    // кінець top-level секції = початок наступного маркера секції
+    function topSectionEnd(text, sectionId) {
+        const sec = CODE_SECTIONS.find(s => s.id === sectionId);
+        const start = text.indexOf(sec.header);
+        if (start < 0) return -1;
+        const after = start + sec.header.length;
+        let end = text.length;
+        CODE_SECTIONS.forEach(s => {
+            let pos = -1;
+            if (s.header) pos = text.indexOf(s.header, after);
+            else if (s.func) {
+                const m = new RegExp("void\\s+" + s.func + "\\s*\\(").exec(text.slice(after));
+                if (m) pos = after + m.index;
+            }
+            if (pos >= 0 && pos < end) end = pos;
+        });
+        return end;
+    }
+
+    // індекс закривної } тіла функції (setup/loop)
+    function funcBodyEnd(text, funcName) {
+        const m = new RegExp("void\\s+" + funcName + "\\s*\\([^)]*\\)\\s*\\{").exec(text);
+        if (!m) return -1;
+        let i = m.index + m[0].length, depth = 1;
+        while (i < text.length && depth > 0) {
+            const ch = text[i];
+            if (ch === "{") depth++;
+            else if (ch === "}") { depth--; if (depth === 0) return i; }
+            i++;
+        }
+        return -1;
+    }
+
+    // вкраплення фрагмента в кінець секції основного коду
+    function injectIntoSection(sectionId, fragment) {
+        const area = document.getElementById("codeArea");
+        if (!area) return false;
+        const frag = String(fragment || "").replace(/\s+$/, "");
+        if (!frag.trim()) return false;
+        const sec = CODE_SECTIONS.find(s => s.id === sectionId);
+        let text = area.value;
+
+        if (sec.func) {
+            const idx = funcBodyEnd(text, sec.func);
+            if (idx < 0) { alert(`Секцію «${sec.label}» не знайдено — спершу вставте блок «${sec.label}».`); return false; }
+            const indented = frag.split("\n").map(l => l ? "  " + l : l).join("\n");
+            const before = text.slice(0, idx).replace(/[ \t]*$/, "");
+            const nl = before.endsWith("\n") ? "" : "\n";
+            text = before + nl + indented + "\n" + text.slice(idx);
+        } else {
+            const idx = topSectionEnd(text, sectionId);
+            if (idx < 0) { alert(`Секцію «${sec.label}» не знайдено — спершу вставте блок «${sec.label}».`); return false; }
+            const before = text.slice(0, idx).replace(/\s+$/, "");
+            text = before + "\n" + frag + "\n\n" + text.slice(idx);
+        }
+        area.value = text;
+        area.dispatchEvent(new Event("input"));
+        return true;
+    }
+
+    // ── підсвітка синтаксису (Arduino/C, самодостатня) ──────────
+    const CODE_KW = new Set(["void","int","float","double","bool","boolean","char","byte","word","long","short","unsigned","signed","const","constexpr","static","volatile","if","else","for","while","do","switch","case","default","break","continue","return","true","false","null","NULL","struct","class","enum","typedef","new","delete","sizeof","public","private","uint8_t","uint16_t","uint32_t","uint64_t","int8_t","int16_t","int32_t","size_t","String"]);
+    const CODE_BI = new Set(["setup","loop","pinMode","digitalWrite","digitalRead","analogRead","analogWrite","delay","delayMicroseconds","millis","micros","Serial","attachInterrupt","digitalPinToInterrupt","HIGH","LOW","INPUT","OUTPUT","INPUT_PULLUP","RISING","FALLING","CHANGE","WiFi","PubSubClient"]);
+
+    function highlightCode(src) {
+        const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const rules = [
+            [/^\/\/[^\n]*/,            "cm"],
+            [/^\/\*[\s\S]*?\*\//,      "cm"],
+            [/^"(?:\\.|[^"\\])*"/,     "str"],
+            [/^'(?:\\.|[^'\\])*'/,     "str"],
+            [/^\d[\d.xXa-fA-F]*/,      "num"],
+            [/^[A-Za-z_]\w*/,          "word"],
+        ];
+        let out = "", i = 0;
+        while (i < src.length) {
+            const rest = src.slice(i);
+            // препроцесор — лише на початку рядка
+            if ((i === 0 || src[i - 1] === "\n")) {
+                const pp = rest.match(/^[ \t]*#[^\n]*/);
+                if (pp) { out += `<span class="tok-pp">${esc(pp[0])}</span>`; i += pp[0].length; continue; }
+            }
+            let matched = false;
+            for (const [re, cls] of rules) {
+                const m = rest.match(re);
+                if (m) {
+                    let text = m[0], klass = cls;
+                    if (cls === "word") klass = CODE_KW.has(text) ? "kw" : (CODE_BI.has(text) ? "bi" : null);
+                    out += klass ? `<span class="tok-${klass}">${esc(text)}</span>` : esc(text);
+                    i += text.length; matched = true; break;
+                }
+            }
+            if (!matched) { out += esc(src[i]); i++; }
+        }
+        return out;
+    }
+
+    // overlay-редактор коду: textarea (прозорий) + <pre> з підсвіткою
+    function buildCodeArea(value) {
+        const wrap = document.createElement("div");
+        wrap.className = "ce-wrap";
+        const pre = document.createElement("pre");
+        pre.className = "ce-hl";
+        pre.setAttribute("aria-hidden", "true");
+        const code = document.createElement("code");
+        pre.appendChild(code);
+        const ta = document.createElement("textarea");
+        ta.className = "ce-ta";
+        ta.spellcheck = false;
+        ta.value = value || "";
+        wrap.appendChild(pre);
+        wrap.appendChild(ta);
+
+        const sync = () => { code.innerHTML = highlightCode(ta.value) + "\n"; };
+        ta.addEventListener("input", sync);
+        ta.addEventListener("scroll", () => { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; });
+        ta.addEventListener("keydown", (e) => {
+            if (e.key === "Tab") {
+                e.preventDefault();
+                const s = ta.selectionStart, en = ta.selectionEnd;
+                ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+                ta.selectionStart = ta.selectionEnd = s + 2;
+                sync();
+            }
+        });
+        sync();
+        return { el: wrap, textarea: ta, getValue: () => ta.value };
+    }
+
+    function renderBlockList() {
+        const list = document.getElementById("blockList");
+        if (!list) return;
+        const dev = devices.find(x => x.id === selectedId);
+        const blocks = (dev && dev.code_blocks) || [];
+        list.innerHTML = "";
+        if (blocks.length === 0) {
+            list.innerHTML = `<div class="list-empty">Блоків ще немає. Натисніть «＋ Новий блок».</div>`;
+            return;
+        }
+        blocks.forEach((b, i) => {
+            const row = document.createElement("div");
+            row.className = "block-row";
+            row.innerHTML = `
+                <button class="btn block-btn" data-act="open" title="Відкрити (вкраплення по секціях)">${escapeHtml(b.name || "(без назви)")}</button>
+                <button class="act danger" data-act="del" title="Видалити блок">🗑</button>`;
+            row.querySelector('[data-act="open"]').addEventListener("click", () => openBlockModal(i));
+            row.querySelector('[data-act="del"]').addEventListener("click", () => deleteCodeBlock(i));
+            list.appendChild(row);
+        });
+    }
+
+    async function saveCodeBlocks(blocks) {
+        const dev = devices.find(x => x.id === selectedId);
+        if (!dev) return null;
+        const updated = await apiJson("PUT", `/devices/${encodeURIComponent(dev.id)}/code_blocks`, { blocks });
+        const i = devices.findIndex(x => x.id === updated.id);
+        if (i >= 0) devices[i] = updated;
+        return updated;
+    }
+
+    async function newCodeBlock() {
+        const dev = devices.find(x => x.id === selectedId);
+        if (!dev) return;
+        const name = (prompt("Назва блоку:") || "").trim();
+        if (!name) return;
+        const blocks = (dev.code_blocks || []).concat([{ name, sections: {} }]);
+        try { await saveCodeBlocks(blocks); renderBlockList(); }
+        catch (e) { alert(e.message); }
+    }
+
+    async function deleteCodeBlock(index) {
+        const dev = devices.find(x => x.id === selectedId);
+        if (!dev) return;
+        const blocks = dev.code_blocks || [];
+        const b = blocks[index];
+        if (!b) return;
+        if (!confirm(`Видалити блок «${b.name || ""}»?`)) return;
+        try { await saveCodeBlocks(blocks.filter((_, j) => j !== index)); renderBlockList(); }
+        catch (e) { alert(e.message); }
+    }
+
+    // модалка блоку: фрагменти по секціях + кнопка «Вставити» на кожну секцію
+    function openBlockModal(index) {
+        const dev = devices.find(x => x.id === selectedId);
+        const blocks = (dev && dev.code_blocks) || [];
+        const b = blocks[index];
+        if (!b) return;
+
+        document.getElementById("blockModalTitle").textContent = "Блок: " + (b.name || "");
+        const host = document.getElementById("blockModalEditor");
+        host.innerHTML = "";
+        const bsecs = b.sections || {};
+        const editors = {};
+        CODE_SECTIONS.forEach(sec => {
+            const wrap = document.createElement("div");
+            wrap.className = "sec-inject";
+            const head = document.createElement("div");
+            head.className = "sec-head";
+            head.innerHTML = `<span class="sec-label">${sec.label}</span>
+                <button class="btn" data-inject="${sec.id}">↳ Вставити в ${sec.label}</button>`;
+            const ed = buildCodeArea(bsecs[sec.id] || "");
+            ed.el.classList.add("sec-ce");
+            wrap.appendChild(head);
+            wrap.appendChild(ed.el);
+            host.appendChild(wrap);
+            editors[sec.id] = ed;
+            head.querySelector("[data-inject]").addEventListener("click", () => injectIntoSection(sec.id, ed.getValue()));
+        });
+
+        const modal  = document.getElementById("blockModal");
+        const status = document.getElementById("blockModalStatus");
+        status.className = "editor-status"; status.textContent = "";
+        modal.style.display = "flex";
+
+        const close = () => { modal.style.display = "none"; };
+        document.getElementById("blockModalClose").onclick = close;
+        document.getElementById("btnBlockCancel").onclick  = close;
+        document.getElementById("btnBlockSave").onclick = async () => {
+            status.className = "editor-status"; status.textContent = "Збереження…";
+            const sections = {};
+            CODE_SECTIONS.forEach(sec => sections[sec.id] = editors[sec.id].getValue());
+            const updated = blocks.map((x, j) => j === index ? { name: x.name, sections } : x);
+            try { await saveCodeBlocks(updated); renderBlockList(); status.textContent = "✓ Збережено"; }
+            catch (e) { status.className = "editor-status err"; status.textContent = e.message; }
+        };
+    }
+
     function renderWorkspace() {
         const d = devices.find(x => x.id === selectedId);
+        setToolbar("", "");   // редактор наповнить її сам
+        toggleSidebar();
         if (!d)            { wsEl.innerHTML = emptyStateHtml(); return; }
         if (editorSection) { renderEditor(d, editorSection);   return; }
         renderOverview(d);
@@ -477,8 +822,8 @@
             : `<div class="ov-scheme-empty">Схему не обрано</div>`;
 
         const programHtml = `
-            <a class="dl-link" href="/lowlevel/api/devices/${encodeURIComponent(d.id)}/firmware" download>⬇ Завантажити код</a>
-            <div class="ov-muted" style="margin-top:8px">Arduino-скетч (.ino) для прошивки пристрою.</div>`;
+            <button class="dl-link" data-edit="code">⬇ Код пристрою</button>
+            <div class="ov-muted" style="margin-top:8px">Складання та завантаження Arduino-скетча (.ino).</div>`;
 
         wsEl.innerHTML = `
             <div class="ws-head">
@@ -508,23 +853,192 @@
         }
     }
 
-    // сторінка редагування розділу (опис / схема / програма)
+    // сторінка редагування розділу (опис / схема / програма / код)
     function renderEditor(d, section) {
         const label = (SECTIONS.find(s => s.id === section) || {}).label || section;
-        wsEl.innerHTML = `
-            <div class="ws-head">
-                <div class="ws-title">${escapeHtml(d.name)} — ${label}</div>
-                <button class="btn" id="btnBackOverview">← Назад</button>
-            </div>
-            <div class="ws-body" id="wsBody"></div>`;
+        // панель: ← Назад (зліва) | назва (центр) | База знань (справа)
+        setToolbar(
+            `<button class="btn" id="btnBackOverview">← Назад</button>`,
+            `<span class="ws-tb-title">${escapeHtml(d.name)} — ${label}</span>`
+        );
         document.getElementById("btnBackOverview")
             .addEventListener("click", () => { editorSection = null; renderWorkspace(); });
 
+        wsEl.innerHTML = `<div class="ws-body" id="wsBody"></div>`;
         const body = document.getElementById("wsBody");
         if (section === "desc")    return renderDescEditor(d, body);
         if (section === "scheme")  return renderSchemeEditor(d, body);
         if (section === "program") return renderProgramEditor(d, body);
+        if (section === "code")    return renderCodeEditor(d, body);
         body.innerHTML = `<div class="ws-placeholder">Сторінка редагування «${label}» — наповнимо далі.</div>`;
+    }
+
+    // хелпер-коментар: зведення конфігурації пристрою для шапки коду
+    function buildHelperComment(d) {
+        const oneLine = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+        const prog = d.program || {};
+        const wifi = prog.wifi || {};
+        const mqtt = prog.mqtt || {};
+        const modeLbl = { input: "вхід", output: "вихід", hiz: "високий опір" };
+        const typeLbl = { analog_in: "аналоговий вхід", discrete_in: "дискретний вхід", control_out: "керуючий вихід" };
+        const sep = "=".repeat(58), dash = "-".repeat(58);
+
+        const L = ["/* " + sep];
+        L.push(" *  Пристрій: " + oneLine(d.name || d.id));
+        if (prog.purpose) L.push(" *  Призначення: " + oneLine(prog.purpose));
+        L.push(" *  Підключення: " + (prog.connection === "ethernet" ? "Ethernet (шилд)" : "WiFi"));
+        if ((prog.connection || "wifi") === "wifi") {
+            L.push(" *  WiFi SSID: " + oneLine(wifi.ssid || ""));
+            L.push(" *  WiFi пароль: " + oneLine(wifi.pass || ""));
+        }
+        L.push(" *  MQTT: " + oneLine(mqtt.host || "") + ":" + (mqtt.port || 1883) + ", client=" + oneLine(mqtt.client_id || d.id));
+        L.push(" *  OTA: " + (prog.ota ? "так" : "ні"));
+
+        const pins = d.pins || [];
+        if (pins.length) {
+            L.push(" * " + dash, " *  Задіяні порти:");
+            pins.forEach(p => L.push(" *    " + [oneLine(p.pin), oneLine(p.function), oneLine(p.purpose), modeLbl[p.mode] || oneLine(p.mode)].filter(Boolean).join(" | ")));
+        }
+
+        const sigs = prog.signals || [];
+        if (sigs.length) {
+            L.push(" * " + dash, " *  Сигнали:");
+            sigs.forEach(s => {
+                const t = typeLbl[s.type] || s.type;
+                const poll = s.poll === "interrupt" ? "переривання" : `таймер ${s.interval_ms || 1000}мс`;
+                L.push(" *    [" + t + "] " + oneLine(s.pin || "?") + " -> точка " + (s.point_id ?? "?") + " (" + poll + ")");
+            });
+        }
+
+        const custom = prog.custom || [];
+        if (custom.length) {
+            L.push(" * " + dash, " *  Додатковий функціонал:");
+            custom.forEach(c => {
+                const pinList = (c.pins || []).map(p => oneLine(p.pin) + (p.comment ? ` (${oneLine(p.comment)})` : "")).filter(Boolean).join(", ");
+                L.push(" *    " + oneLine(c.name || "(без назви)") + (pinList ? ": " + pinList : ""));
+            });
+        }
+
+        L.push(" * " + sep + " */");
+        return L.join("\n") + "\n\n";
+    }
+
+    // блок «Includes» — за платформою контролера, типом підключення, OTA
+    function buildIncludesBlock(d, platform) {
+        const prog = d.program || {};
+        const conn = prog.connection || "wifi";
+        const L = ["// --- Includes ---"];
+        if (conn === "ethernet") {
+            L.push("#include <SPI.h>");
+            L.push("#include <Ethernet.h>");
+        } else if (platform === "esp8266") {
+            L.push("#include <ESP8266WiFi.h>");
+        } else {
+            if (!platform) L.push("// платформа не вказана — використано WiFi.h (ESP32)");
+            L.push("#include <WiFi.h>");
+        }
+        L.push("#include <PubSubClient.h>");
+        if (prog.ota) {
+            if (platform === "esp8266") {
+                L.push("#include <ESP8266mDNS.h>");
+                L.push("#include <WiFiUdp.h>");
+            }
+            L.push("#include <ArduinoOTA.h>");
+        }
+        return L.join("\n") + "\n\n";
+    }
+
+    // блок «Конфіг» — параметри підставляються з налаштувань пристрою
+    function buildConfigBlock(d) {
+        const prog = d.program || {};
+        const wifi = prog.wifi || {};
+        const mqtt = prog.mqtt || {};
+        const q = s => String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        const L = ["// --- Конфіг ---"];
+        if ((prog.connection || "wifi") === "wifi") {
+            L.push(`const char* WIFI_SSID = "${q(wifi.ssid)}";`);
+            L.push(`const char* WIFI_PASS = "${q(wifi.pass)}";`);
+        }
+        L.push(`const char* MQTT_HOST = "${q(mqtt.host || "homeServ2.local")}";`);
+        L.push(`const uint16_t MQTT_PORT = ${parseInt(mqtt.port) || 1883};`);
+        L.push(`const char* MQTT_CLIENT_ID = "${q(mqtt.client_id || d.id)}";`);
+        return L.join("\n") + "\n\n";
+    }
+
+    // редактор коду — блоки-кнопки вставляють редагований текст у головний код
+    async function renderCodeEditor(d, body) {
+        body.innerHTML = `<div class="ws-placeholder">Завантаження…</div>`;
+
+        // платформа контролера (для Includes) — з бази знань
+        let platform = "";
+        if (d.hardware) {
+            try {
+                const eq = await apiJson("GET", `/knowledge/${encodeURIComponent(d.hardware)}`);
+                platform = eq.platform || "";
+            } catch (e) {}
+        }
+
+        const BLOCKS = [
+            { name: "Includes",  gen: buildIncludesBlock },
+            { name: "Конфіг",    gen: buildConfigBlock },
+            { name: "Глобальні", code: "// --- Глобальні ---\nWiFiClient net;\nPubSubClient mqtt(net);\n\n" },
+            { name: "Функції",   code: "// --- Функції ---\n\n" },
+            { name: "setup()",   code: "void setup() {\n  \n}\n\n" },
+            { name: "loop()",    code: "void loop() {\n  mqtt.loop();\n}\n\n" },
+        ];
+
+        body.innerHTML = `
+            <div class="code-editor">
+                <div class="code-palette">
+                    <button class="btn" id="btnHelper" title="Вставити хелпер-коментар зі зведенням конфігурації">Хелпер</button>
+                    ${BLOCKS.map((b, i) => `<button class="btn" data-blk="${i}" title="Вставити блок">${escapeHtml(b.name)}</button>`).join("")}
+                </div>
+                <div id="codeAreaHost"></div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="btnSaveCode">💾 Зберегти</button>
+                    <button class="btn" id="btnDlCode">⬇ Завантажити .ino</button>
+                    <span class="editor-status" id="codeStatus"></span>
+                </div>
+            </div>`;
+
+        // overlay-редактор із підсвіткою
+        const ed = buildCodeArea(d.code || "");
+        ed.textarea.id = "codeArea";
+        document.getElementById("codeAreaHost").appendChild(ed.el);
+        const area = ed.textarea;
+
+        body.querySelectorAll("[data-blk]").forEach(btn =>
+            btn.addEventListener("click", () => {
+                const b = BLOCKS[+btn.dataset.blk];
+                const dev = devices.find(x => x.id === selectedId) || d;
+                insertIntoCode(b.gen ? b.gen(dev, platform) : b.code);
+            })
+        );
+
+        document.getElementById("btnHelper").addEventListener("click", () => {
+            const dev = devices.find(x => x.id === selectedId) || d;
+            insertIntoCode(buildHelperComment(dev));
+        });
+
+        document.getElementById("btnSaveCode").addEventListener("click", async () => {
+            const st = document.getElementById("codeStatus");
+            st.className = "editor-status"; st.textContent = "Збереження…";
+            try {
+                const dev = await apiJson("PUT", `/devices/${encodeURIComponent(d.id)}/code`, { code: area.value });
+                const i = devices.findIndex(x => x.id === dev.id);
+                if (i >= 0) devices[i] = dev;
+                d = dev;
+                st.textContent = "✓ Збережено";
+            } catch (e) { st.className = "editor-status err"; st.textContent = e.message; }
+        });
+
+        document.getElementById("btnDlCode").addEventListener("click", () => {
+            const blob = new Blob([area.value], { type: "text/plain" });
+            const url  = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = `${d.id}.ino`; a.click();
+            URL.revokeObjectURL(url);
+        });
     }
 
     // редактор програми — логічні зони конфігурації формування коду
@@ -1096,6 +1610,8 @@
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") lightbox.classList.remove("show");
     });
+
+    document.getElementById("btnNewBlock").addEventListener("click", newCodeBlock);
 
     // ── старт ───────────────────────────────────────────────────
     renderWorkspace();   // empty-state до завантаження

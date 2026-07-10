@@ -147,6 +147,40 @@ def update_hardware(device_id: str, hardware_id) -> dict | None:
     return dev
 
 
+def update_code(device_id: str, code) -> dict | None:
+    """Зберігає основний код пристрою (складений скетч)."""
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    dev["code"] = str(code or "")
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
+
+CODE_SECTION_IDS = ["includes", "config", "globals", "functions", "setup", "loop"]
+
+
+def update_code_blocks(device_id: str, blocks) -> dict | None:
+    """Користувацькі блоки коду: [{name, sections:{includes,config,…}}]."""
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    clean = []
+    for b in (blocks or []):
+        if not isinstance(b, dict):
+            continue
+        sections = b.get("sections") if isinstance(b.get("sections"), dict) else {}
+        clean.append({
+            "name": str(b.get("name", "")).strip(),
+            "sections": {sid: str(sections.get(sid, "")) for sid in CODE_SECTION_IDS},
+        })
+    dev["code_blocks"] = clean
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
+
 def update_scheme_image(device_id: str, image) -> dict | None:
     """Обране зображення схеми (ім'я файлу з images БЗ-контролера)."""
     dev = get_device(device_id)

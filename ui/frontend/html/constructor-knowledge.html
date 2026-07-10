@@ -381,6 +381,15 @@
                 </div>
 
                 <div class="field">
+                    <label>Платформа</label>
+                    <select class="inp" id="editPlatform">
+                        <option value=""${!eq.platform ? " selected" : ""}>— не вказано —</option>
+                        <option value="esp32"${eq.platform === "esp32" ? " selected" : ""}>ESP32</option>
+                        <option value="esp8266"${eq.platform === "esp8266" ? " selected" : ""}>ESP8266</option>
+                    </select>
+                </div>
+
+                <div class="field">
                     <label>Зображення</label>
                     <div class="img-grid" id="viewImages"></div>
                     <div class="form-actions">
@@ -423,10 +432,11 @@
         document.getElementById("btnSaveEq").addEventListener("click", async () => {
             const st = document.getElementById("saveStatus");
             const type = document.getElementById("editType").value.trim();
+            const platform = document.getElementById("editPlatform").value;
             const info = document.getElementById("editInfo").value;
             st.className = "form-status"; st.textContent = "Збереження…";
             try {
-                const rec = await apiJson("PUT", `/knowledge/${encodeURIComponent(eq.id)}`, { type, info, pins });
+                const rec = await apiJson("PUT", `/knowledge/${encodeURIComponent(eq.id)}`, { type, platform, info, pins });
                 const i = equipment.findIndex(x => x.id === rec.id);
                 if (i >= 0) equipment[i] = rec;
                 document.getElementById("viewTitle").textContent = rec.type;

@@ -111,6 +111,7 @@ def create_equipment(type_: str, info: str = "") -> dict:
     rec = {
         "id": eid,
         "type": type_,
+        "platform": "",
         "info": info or "",
         "images": [],
         "pins": [],
@@ -132,7 +133,7 @@ def _clean_pins(pins) -> list[dict]:
     return out
 
 
-def update_equipment(eid: str, type_=None, info=None, pins=None) -> dict | None:
+def update_equipment(eid: str, type_=None, info=None, pins=None, platform=None) -> dict | None:
     rec = get_equipment(eid)
     if rec is None:
         return None
@@ -141,6 +142,8 @@ def update_equipment(eid: str, type_=None, info=None, pins=None) -> dict | None:
         if not t:
             raise ValidationError("Вкажіть тип обладнання")
         rec["type"] = t
+    if platform is not None:
+        rec["platform"] = str(platform).strip()
     if info is not None:
         rec["info"] = info
     if pins is not None:

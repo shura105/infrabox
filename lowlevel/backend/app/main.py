@@ -151,6 +151,30 @@ def set_program(device_id: str, body: ProgramUpdate, _: dict = Depends(require_a
     return dev
 
 
+class CodeUpdate(BaseModel):
+    code: str = ""
+
+
+@app.put("/devices/{device_id}/code")
+def set_code(device_id: str, body: CodeUpdate, _: dict = Depends(require_admin)):
+    dev = store.update_code(device_id, body.code)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    return dev
+
+
+class CodeBlocksUpdate(BaseModel):
+    blocks: list[dict] = []
+
+
+@app.put("/devices/{device_id}/code_blocks")
+def set_code_blocks(device_id: str, body: CodeBlocksUpdate, _: dict = Depends(require_admin)):
+    dev = store.update_code_blocks(device_id, body.blocks)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    return dev
+
+
 @app.get("/points")
 def list_points(_: dict = Depends(require_admin)):
     """Точки Infrabox для прив'язки сигналів (id + pointname + type)."""
@@ -171,6 +195,7 @@ class EquipmentUpdate(BaseModel):
     type: str | None = None
     info: str | None = None
     pins: list[dict] | None = None
+    platform: str | None = None
 
 
 @app.get("/knowledge")
@@ -197,7 +222,7 @@ def get_equipment(eid: str, _: dict = Depends(require_admin)):
 @app.put("/knowledge/{eid}")
 def update_equipment(eid: str, body: EquipmentUpdate, _: dict = Depends(require_admin)):
     try:
-        rec = kb.update_equipment(eid, body.type, body.info, body.pins)
+        rec = kb.update_equipment(eid, body.type, body.info, body.pins, body.platform)
     except store.ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if rec is None:
