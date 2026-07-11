@@ -160,6 +160,76 @@ def update_code(device_id: str, code) -> dict | None:
 
 CODE_SECTION_IDS = ["includes", "config", "globals", "functions", "setup", "loop"]
 
+# ── конструктив (корпус): STL + G-code ────────────────────────────────────────
+ENCLOSURE_EXT = {
+    "stl":   {".stl"},
+    "gcode": {".gcode", ".gco", ".g", ".nc", ".ngc"},
+}
+
+
+def _enclosure_dir(device_id: str) -> str:
+    return os.path.join(_project_dir(device_id), "enclosure")
+
+
+def save_enclosure(device_id: str, kind: str, filename: str, data: bytes) -> dict | None:
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    if kind not in ENCLOSURE_EXT:
+        raise ValidationError("Невідомий тип файлу")
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext not in ENCLOSURE_EXT[kind]:
+        raise ValidationError("Очікується: " + ", ".join(sorted(ENCLOSURE_EXT[kind])))
+
+    idir = _enclosure_dir(device_id)
+    os.makedirs(idir, exist_ok=True)
+    enc = dev.get("enclosure") or {}
+    fname = f"{kind}{ext}"
+    old = enc.get(kind)
+    if old and old != fname:
+        op = os.path.join(idir, old)
+        if os.path.isfile(op):
+            os.remove(op)
+    with open(os.path.join(idir, fname), "wb") as f:
+        f.write(data)
+    enc[kind] = fname
+    enc[kind + "_name"] = os.path.basename(filename or fname)
+    dev["enclosure"] = enc
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
+
+def enclosure_path(device_id: str, kind: str) -> str | None:
+    if kind not in ENCLOSURE_EXT:
+        return None
+    dev = get_device(device_id)
+    if not dev:
+        return None
+    fn = (dev.get("enclosure") or {}).get(kind)
+    if not fn:
+        return None
+    path = os.path.join(_enclosure_dir(device_id), fn)
+    return path if os.path.isfile(path) else None
+
+
+def delete_enclosure(device_id: str, kind: str) -> dict | None:
+    dev = get_device(device_id)
+    if dev is None:
+        return None
+    enc = dev.get("enclosure") or {}
+    fn = enc.get(kind)
+    if fn:
+        p = os.path.join(_enclosure_dir(device_id), fn)
+        if os.path.isfile(p):
+            os.remove(p)
+    enc.pop(kind, None)
+    enc.pop(kind + "_name", None)
+    dev["enclosure"] = enc
+    with open(_device_json(device_id), "w", encoding="utf-8") as f:
+        json.dump(dev, f, ensure_ascii=False, indent=2)
+    return dev
+
 
 def update_code_blocks(device_id: str, blocks) -> dict | None:
     """Користувацькі блоки коду: [{name, sections:{includes,config,…}}]."""

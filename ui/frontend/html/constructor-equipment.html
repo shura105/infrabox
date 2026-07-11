@@ -262,6 +262,10 @@
             padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;
         }
         .section-title { font-size: 13px; font-weight: 600; color: #e6edf3; }
+
+        /* 3D-перегляд STL */
+        .stl-view { width: 100%; min-height: 200px; border: 1px solid #30363d; border-radius: 10px; overflow: hidden; background: #0d1117; }
+        .stl-view canvas { display: block; width: 100%; }
         .sig-zones { display: flex; flex-direction: column; gap: 14px; }
         .sig-card {
             background: #161b22; border: 1px solid #30363d; border-radius: 10px;
@@ -310,9 +314,16 @@
 
         /* секція у модалці вкраплення */
         .sec-inject { display: flex; flex-direction: column; gap: 8px; }
-        .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .sec-label { font-size: 13px; font-weight: 600; color: #e6edf3; }
+        .sec-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .sec-label { font-size: 13px; font-weight: 600; color: #e6edf3; min-width: 92px; }
+        .sec-actions { display: flex; align-items: center; gap: 8px; }
+        .sec-line {
+            width: 96px; padding: 6px 8px; border-radius: 6px;
+            border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 12px;
+        }
+        .sec-line:focus { outline: none; border-color: #58a6ff; }
         .ce-wrap.sec-ce { height: 140px; }
+        .modal-name { max-width: 440px; }
 
         /* empty states */
         .empty {
@@ -382,7 +393,7 @@
 <div class="modal" id="blockModal" style="display:none">
     <div class="modal-box">
         <div class="modal-head">
-            <span class="modal-title" id="blockModalTitle">Блок</span>
+            <input class="inp modal-name" id="blockNameInput" placeholder="Назва блоку" autocomplete="off">
             <button class="btn" id="blockModalClose" title="Закрити">✕</button>
         </div>
         <div id="blockModalEditor"></div>
@@ -450,6 +461,7 @@
         { id: "scheme",  label: "Схема" },
         { id: "program", label: "Програма" },
         { id: "code",    label: "Код" },
+        { id: "build",   label: "Конструктив" },
     ];
 
     // ── рендер списку пристроїв ─────────────────────────────────
@@ -570,64 +582,31 @@
         { id: "loop",      label: "loop()",    func: "loop" },
     ];
 
-    // кінець top-level секції = початок наступного маркера секції
-    function topSectionEnd(text, sectionId) {
-        const sec = CODE_SECTIONS.find(s => s.id === sectionId);
-        const start = text.indexOf(sec.header);
-        if (start < 0) return -1;
-        const after = start + sec.header.length;
-        let end = text.length;
-        CODE_SECTIONS.forEach(s => {
-            let pos = -1;
-            if (s.header) pos = text.indexOf(s.header, after);
-            else if (s.func) {
-                const m = new RegExp("void\\s+" + s.func + "\\s*\\(").exec(text.slice(after));
-                if (m) pos = after + m.index;
-            }
-            if (pos >= 0 && pos < end) end = pos;
-        });
-        return end;
+    // обгортка користувацького фрагмента розділовими маркерами
+    function wrapClientCode(fragment, blockName, sectionLabel) {
+        const name = (blockName || "блок").trim();
+        const tag  = name + (sectionLabel ? " · " + sectionLabel : "");
+        const W = 66;
+        const top = "// ╭──── користувацький код: " + tag + " ";
+        const bot = "// ╰──── кінець: " + name + " ";
+        const topLine = top + "─".repeat(Math.max(4, W - top.length));
+        const botLine = bot + "─".repeat(Math.max(4, W - bot.length));
+        return topLine + "\n" + String(fragment).replace(/\s+$/, "") + "\n" + botLine + "\n";
     }
 
-    // індекс закривної } тіла функції (setup/loop)
-    function funcBodyEnd(text, funcName) {
-        const m = new RegExp("void\\s+" + funcName + "\\s*\\([^)]*\\)\\s*\\{").exec(text);
-        if (!m) return -1;
-        let i = m.index + m[0].length, depth = 1;
-        while (i < text.length && depth > 0) {
-            const ch = text[i];
-            if (ch === "{") depth++;
-            else if (ch === "}") { depth--; if (depth === 0) return i; }
-            i++;
-        }
-        return -1;
-    }
-
-    // вкраплення фрагмента в кінець секції основного коду
-    function injectIntoSection(sectionId, fragment) {
+    // вставка фрагмента на заданий рядок основного коду (1-based)
+    function insertAtLineNum(lineNum, text) {
         const area = document.getElementById("codeArea");
-        if (!area) return false;
-        const frag = String(fragment || "").replace(/\s+$/, "");
-        if (!frag.trim()) return false;
-        const sec = CODE_SECTIONS.find(s => s.id === sectionId);
-        let text = area.value;
-
-        if (sec.func) {
-            const idx = funcBodyEnd(text, sec.func);
-            if (idx < 0) { alert(`Секцію «${sec.label}» не знайдено — спершу вставте блок «${sec.label}».`); return false; }
-            const indented = frag.split("\n").map(l => l ? "  " + l : l).join("\n");
-            const before = text.slice(0, idx).replace(/[ \t]*$/, "");
-            const nl = before.endsWith("\n") ? "" : "\n";
-            text = before + nl + indented + "\n" + text.slice(idx);
-        } else {
-            const idx = topSectionEnd(text, sectionId);
-            if (idx < 0) { alert(`Секцію «${sec.label}» не знайдено — спершу вставте блок «${sec.label}».`); return false; }
-            const before = text.slice(0, idx).replace(/\s+$/, "");
-            text = before + "\n" + frag + "\n\n" + text.slice(idx);
-        }
-        area.value = text;
+        if (!area) return;
+        const frag = String(text || "").replace(/\s+$/, "");
+        if (!frag.trim()) return;
+        const lines = area.value.length ? area.value.split("\n") : [];
+        let at = parseInt(lineNum);
+        if (isNaN(at) || at < 1) at = 1;
+        if (at > lines.length + 1) at = lines.length + 1;
+        lines.splice(at - 1, 0, ...frag.split("\n"));
+        area.value = lines.join("\n");
         area.dispatchEvent(new Event("input"));
-        return true;
     }
 
     // ── підсвітка синтаксису (Arduino/C, самодостатня) ──────────
@@ -758,7 +737,7 @@
         const b = blocks[index];
         if (!b) return;
 
-        document.getElementById("blockModalTitle").textContent = "Блок: " + (b.name || "");
+        document.getElementById("blockNameInput").value = b.name || "";
         const host = document.getElementById("blockModalEditor");
         host.innerHTML = "";
         const bsecs = b.sections || {};
@@ -769,14 +748,25 @@
             const head = document.createElement("div");
             head.className = "sec-head";
             head.innerHTML = `<span class="sec-label">${sec.label}</span>
-                <button class="btn" data-inject="${sec.id}">↳ Вставити в ${sec.label}</button>`;
+                <div class="sec-actions">
+                    <input class="sec-line" type="number" min="1" placeholder="рядок" title="Номер рядка (порожньо = за курсором)">
+                    <button class="btn" data-inject>↳ Вставити</button>
+                </div>`;
             const ed = buildCodeArea(bsecs[sec.id] || "");
             ed.el.classList.add("sec-ce");
             wrap.appendChild(head);
             wrap.appendChild(ed.el);
             host.appendChild(wrap);
             editors[sec.id] = ed;
-            head.querySelector("[data-inject]").addEventListener("click", () => injectIntoSection(sec.id, ed.getValue()));
+            head.querySelector("[data-inject]").addEventListener("click", () => {
+                const code = ed.getValue();
+                if (!code.trim()) return;
+                const blockName = document.getElementById("blockNameInput").value.trim();
+                const wrapped = wrapClientCode(code, blockName, sec.label);
+                const lineVal = head.querySelector(".sec-line").value.trim();
+                if (lineVal) insertAtLineNum(parseInt(lineVal), wrapped);
+                else insertIntoCode(wrapped);
+            });
         });
 
         const modal  = document.getElementById("blockModal");
@@ -789,9 +779,10 @@
         document.getElementById("btnBlockCancel").onclick  = close;
         document.getElementById("btnBlockSave").onclick = async () => {
             status.className = "editor-status"; status.textContent = "Збереження…";
+            const name = document.getElementById("blockNameInput").value.trim();
             const sections = {};
             CODE_SECTIONS.forEach(sec => sections[sec.id] = editors[sec.id].getValue());
-            const updated = blocks.map((x, j) => j === index ? { name: x.name, sections } : x);
+            const updated = blocks.map((x, j) => j === index ? { name: name || x.name, sections } : x);
             try { await saveCodeBlocks(updated); renderBlockList(); status.textContent = "✓ Збережено"; }
             catch (e) { status.className = "editor-status err"; status.textContent = e.message; }
         };
@@ -870,7 +861,159 @@
         if (section === "scheme")  return renderSchemeEditor(d, body);
         if (section === "program") return renderProgramEditor(d, body);
         if (section === "code")    return renderCodeEditor(d, body);
+        if (section === "build")   return renderBuildEditor(d, body);
         body.innerHTML = `<div class="ws-placeholder">Сторінка редагування «${label}» — наповнимо далі.</div>`;
+    }
+
+    // ── three.js (для 3D-перегляду STL) — лениве завантаження з CDN ──
+    let _threeReady = null;
+    function _loadScript(src) {
+        return new Promise((res, rej) => {
+            const s = document.createElement("script");
+            s.src = src; s.onload = res; s.onerror = () => rej(new Error("load " + src));
+            document.head.appendChild(s);
+        });
+    }
+    async function ensureThree() {
+        if (window.THREE && THREE.STLLoader && THREE.OrbitControls) return true;
+        if (!_threeReady) {
+            const base = "https://cdn.jsdelivr.net/npm/three@0.128.0/";
+            _threeReady = _loadScript(base + "build/three.min.js")
+                .then(() => _loadScript(base + "examples/js/loaders/STLLoader.js"))
+                .then(() => _loadScript(base + "examples/js/controls/OrbitControls.js"));
+        }
+        try { await _threeReady; return !!(window.THREE && THREE.STLLoader && THREE.OrbitControls); }
+        catch { return false; }
+    }
+
+    async function renderStl(container, arrayBuffer) {
+        const ok = await ensureThree();
+        if (!ok) {
+            container.innerHTML = `<div class="ov-muted" style="padding:16px">3D-перегляд недоступний (немає доступу до бібліотеки three.js). Файл усе одно збережено — його можна вивантажити.</div>`;
+            return;
+        }
+        const W = container.clientWidth || 600, H = 380;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0d1117);
+        const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 100000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio || 1);
+        renderer.setSize(W, H);
+        container.innerHTML = "";
+        container.appendChild(renderer.domElement);
+
+        const geom = new THREE.STLLoader().parse(arrayBuffer);
+        geom.computeVertexNormals();
+        geom.center();
+        const mat = new THREE.MeshPhongMaterial({ color: 0x58a6ff, specular: 0x222222, shininess: 24 });
+        scene.add(new THREE.Mesh(geom, mat));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(1, 1, 1); scene.add(dl);
+        const dl2 = new THREE.DirectionalLight(0xffffff, 0.3); dl2.position.set(-1, -0.5, -1); scene.add(dl2);
+
+        geom.computeBoundingSphere();
+        const r = (geom.boundingSphere && geom.boundingSphere.radius) || 50;
+        camera.position.set(r * 1.5, r * 1.2, r * 2.2);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        (function anim() { requestAnimationFrame(anim); controls.update(); renderer.render(scene, camera); })();
+    }
+
+    // редактор «Конструктив» — STL + G-code (перегляд / завантаження / вивантаження)
+    async function renderBuildEditor(d, body) {
+        const enc = d.enclosure || {};
+        body.innerHTML = `
+            <div class="program-editor">
+                <div class="config-section">
+                    <div class="section-title">Корпус — STL</div>
+                    <div id="stlPreview" class="stl-view"></div>
+                    <div class="form-actions">
+                        <button class="btn" id="btnStlUp">⬆ Завантажити STL</button>
+                        <button class="btn" id="btnStlDown">⬇ Вивантажити</button>
+                        <button class="btn danger" id="btnStlDel">🗑 Видалити</button>
+                        <input type="file" id="stlFile" accept=".stl" hidden>
+                        <span class="editor-status" id="stlStatus">${enc.stl ? escapeHtml(enc.stl_name || "модель.stl") : "не завантажено"}</span>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <div class="section-title">G-code (друк)</div>
+                    <div class="form-actions">
+                        <button class="btn" id="btnGcUp">⬆ Завантажити G-code</button>
+                        <button class="btn" id="btnGcDown">⬇ Вивантажити</button>
+                        <button class="btn danger" id="btnGcDel">🗑 Видалити</button>
+                        <input type="file" id="gcFile" accept=".gcode,.gco,.g,.nc,.ngc" hidden>
+                        <span class="editor-status" id="gcStatus">${enc.gcode ? escapeHtml(enc.gcode_name || "модель.gcode") : "не завантажено"}</span>
+                    </div>
+                </div>
+            </div>`;
+
+        // STL preview (якщо є)
+        const prev = document.getElementById("stlPreview");
+        if (enc.stl) {
+            prev.innerHTML = `<div class="ov-muted" style="padding:16px">Завантаження перегляду…</div>`;
+            try {
+                const r = await fetch(`${API}/devices/${encodeURIComponent(d.id)}/enclosure/stl`, { headers: { ...authHeaders() } });
+                if (r.ok) renderStl(prev, await r.arrayBuffer());
+                else prev.innerHTML = `<div class="ov-muted" style="padding:16px">Не вдалося завантажити STL.</div>`;
+            } catch (e) { prev.innerHTML = `<div class="ov-muted" style="padding:16px">${e.message}</div>`; }
+        } else {
+            prev.innerHTML = `<div class="ov-muted" style="padding:16px">STL не завантажено.</div>`;
+        }
+
+        wireEnclosure(d, "stl",   "stlFile", "btnStlUp", "btnStlDown", "btnStlDel", "stlStatus");
+        wireEnclosure(d, "gcode", "gcFile",  "btnGcUp",  "btnGcDown",  "btnGcDel",  "gcStatus");
+    }
+
+    function wireEnclosure(d, kind, fileId, upId, downId, delId, statusId) {
+        const fileInp = document.getElementById(fileId);
+        const status  = document.getElementById(statusId);
+        const path    = `/devices/${encodeURIComponent(d.id)}/enclosure/${kind}`;
+
+        document.getElementById(upId).addEventListener("click", () => fileInp.click());
+        fileInp.addEventListener("change", async () => {
+            const f = fileInp.files[0]; fileInp.value = "";
+            if (!f) return;
+            status.className = "editor-status"; status.textContent = "Завантаження…";
+            try {
+                const fd = new FormData(); fd.append("file", f);
+                const r = await fetch(API + path, { method: "POST", headers: { ...authHeaders() }, body: fd });
+                if (!r.ok) throw new Error(await errMsg(r));
+                const dev = await r.json();
+                const i = devices.findIndex(x => x.id === dev.id); if (i >= 0) devices[i] = dev; d = dev;
+                editorSection = "build"; renderWorkspace();   // перемалювати (підхопити прев'ю)
+            } catch (e) { status.className = "editor-status err"; status.textContent = e.message; }
+        });
+
+        document.getElementById(downId).addEventListener("click", async () => {
+            try {
+                const r = await fetch(API + path, { headers: { ...authHeaders() } });
+                if (!r.ok) throw new Error(await errMsg(r));
+                const blob = await r.blob();
+                const enc = (d.enclosure || {});
+                const name = enc[kind + "_name"] || `${d.id}-${kind}`;
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob); a.download = name; a.click();
+                URL.revokeObjectURL(a.href);
+            } catch (e) { status.className = "editor-status err"; status.textContent = e.message; }
+        });
+
+        document.getElementById(delId).addEventListener("click", async () => {
+            if (!confirm("Видалити файл?")) return;
+            try {
+                const r = await fetch(API + path, { method: "DELETE", headers: { ...authHeaders() } });
+                if (!r.ok) throw new Error(await errMsg(r));
+                const dev = await r.json();
+                const i = devices.findIndex(x => x.id === dev.id); if (i >= 0) devices[i] = dev; d = dev;
+                editorSection = "build"; renderWorkspace();
+            } catch (e) { status.className = "editor-status err"; status.textContent = e.message; }
+        });
+    }
+
+    async function errMsg(r) {
+        let m = "Помилка " + r.status;
+        try { const j = await r.json(); if (j.detail) m = j.detail; } catch {}
+        return m;
     }
 
     // хелпер-коментар: налаштування Arduino IDE + зведення конфігурації
@@ -1029,6 +1172,7 @@
         L.push("}");
         L.push("");
         L.push("void publishPoint(const char* topic, int id, int value) {");
+        L.push('  Serial.printf("[%d] %s = %d\\n", id, topic, value);');
         L.push("  char payload[64];");
         L.push('  snprintf(payload, sizeof(payload), "{\\"id\\":%d,\\"value\\":%d,\\"ts\\":%lu}", id, value, millis() / 1000);');
         L.push("  mqtt.publish(topic, payload);");
@@ -1050,10 +1194,11 @@
         if (conn === "ethernet") {
             L.push("  byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };");
             L.push("  Ethernet.begin(mac);   // DHCP");
+            L.push('  Serial.print("IP: "); Serial.println(Ethernet.localIP());');
         } else {
             L.push("  WiFi.begin(WIFI_SSID, WIFI_PASS);");
             L.push('  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }');
-            L.push('  Serial.println("\\nWiFi OK");');
+            L.push('  Serial.print("\\nWiFi OK, IP: "); Serial.println(WiFi.localIP());');
         }
         L.push("  mqtt.setServer(MQTT_HOST, MQTT_PORT);");
         if (prog.ota) {

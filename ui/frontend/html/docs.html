@@ -847,7 +847,15 @@
             <h3>Увімкнення / вимкнення</h3>
             <p>Керується зі сторінки <strong>Адмін → Застосунки → Симулятор</strong>: кнопки <em>Запустити</em> / <em>Зупинити</em> (контейнер ставиться на паузу).</p>
 
-            <div class="note warn"><strong>Увага:</strong> якщо реальне обладнання публікує ті ж точки в <code>infrabox-mosquitto-real</code>, обидва значення потраплять в core. Останнє оброблене виграє. Для чистого тесту краще спочатку зупинити симулятор.</div>
+            <h3>Перемикання джерела даних (sim ↔ real)</h3>
+            <p>Core підписується <strong>лише на один</strong> MQTT-брокер — залежно від поля <code>data_source</code> у секції <code>bootstrap</code> файлу <code>core/service/config/sys_params.json</code>:</p>
+            <ul>
+                <li><code>"sim"</code> — core підключається до <code>infrabox-mosquitto-sim</code>; дані надходять від <strong>симулятора</strong> (тест без обладнання).</li>
+                <li><code>"real"</code> — core підключається до <code>infrabox-mosquitto-real</code>; дані надходять від <strong>реального обладнання</strong> (пристроїв нижнього рівня).</li>
+            </ul>
+            <p>Щоб перемкнути: змініть <code>data_source</code> у <code>sys_params.json</code> і <strong>перезапустіть</strong> контейнер <code>infrabox-core</code> (напр. <code>docker restart infrabox-core</code> або через <strong>Адмін → Композитор</strong>). Перевірити, до якого брокера підключився core, можна в логах: <code>docker logs infrabox-core | grep "MQTT connected"</code>.</p>
+            <div class="note warn"><strong>Важливо:</strong> <code>sys_params.json</code> — це JSON, він <strong>не допускає коментарів</strong> (<code>// …</code>). Якщо дописати коментар (напр. <code>"data_source": "real" //sim/real</code>), core не розпарсить конфіг і <strong>впаде в цикл рестарту</strong> — увесь збір даних зупиниться. Пишіть значення чисто: <code>"data_source": "real"</code>.</div>
+            <div class="note">Наслідок вибору: у режимі <code>sim</code> повідомлення реальних пристроїв, що йдуть у <code>mosquitto-real</code>, <strong>ігноруються</strong> (core їх не слухає), і навпаки. Тож для тесту реального пристрою нижнього рівня переконайтесь, що <code>data_source = "real"</code>; а для чистого тесту з симулятором тримайте <code>"sim"</code> і за потреби зупиняйте симулятор.</div>
         </section>
 
         <!-- ── Архіватор ── -->

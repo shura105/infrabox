@@ -163,6 +163,34 @@ def set_code(device_id: str, body: CodeUpdate, _: dict = Depends(require_admin))
     return dev
 
 
+@app.post("/devices/{device_id}/enclosure/{kind}")
+async def upload_enclosure(device_id: str, kind: str, file: UploadFile = File(...), _: dict = Depends(require_admin)):
+    data = await file.read()
+    try:
+        dev = store.save_enclosure(device_id, kind, file.filename, data)
+    except store.ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    return dev
+
+
+@app.get("/devices/{device_id}/enclosure/{kind}")
+def download_enclosure(device_id: str, kind: str, _: dict = Depends(require_admin)):
+    path = store.enclosure_path(device_id, kind)
+    if not path:
+        raise HTTPException(status_code=404, detail="Файл не знайдено")
+    return FileResponse(path, filename=os.path.basename(path))
+
+
+@app.delete("/devices/{device_id}/enclosure/{kind}")
+def delete_enclosure(device_id: str, kind: str, _: dict = Depends(require_admin)):
+    dev = store.delete_enclosure(device_id, kind)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Пристрій не знайдено")
+    return dev
+
+
 class CodeBlocksUpdate(BaseModel):
     blocks: list[dict] = []
 
