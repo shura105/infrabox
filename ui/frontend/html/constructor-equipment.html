@@ -873,17 +873,36 @@
         body.innerHTML = `<div class="ws-placeholder">Сторінка редагування «${label}» — наповнимо далі.</div>`;
     }
 
-    // хелпер-коментар: зведення конфігурації пристрою для шапки коду
-    function buildHelperComment(d) {
+    // хелпер-коментар: налаштування Arduino IDE + зведення конфігурації
+    function buildHelperComment(d, ctx) {
         const oneLine = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
         const prog = d.program || {};
         const wifi = prog.wifi || {};
         const mqtt = prog.mqtt || {};
+        const platform = (ctx && ctx.platform) || "";
+        const ctype = (ctx && ctx.controllerType) || "";
         const modeLbl = { input: "вхід", output: "вихід", hiz: "високий опір" };
         const typeLbl = { analog_in: "аналоговий вхід", discrete_in: "дискретний вхід", control_out: "керуючий вихід" };
         const sep = "=".repeat(58), dash = "-".repeat(58);
 
         const L = ["/* " + sep];
+        // ── налаштування Arduino IDE (меню «Інструменти») ──
+        L.push(" *  Налаштування Arduino IDE (меню «Інструменти»):");
+        if (ctype) L.push(" *    Контролер: " + oneLine(ctype));
+        if (platform === "esp8266") {
+            L.push(" *    Плата: NodeMCU 1.0 (ESP-12E) / Generic ESP8266");
+            L.push(" *    Частота CPU: 80 MHz");
+            L.push(" *    Flash Size: 4MB" + (prog.ota ? " (FS:2MB — з розділом OTA)" : " (FS:2MB)"));
+            L.push(" *    Upload Speed: 115200");
+        } else {
+            L.push(" *    Плата: ESP32 Dev Module (варіант під ваш контролер)");
+            L.push(" *    Частота CPU: 240 MHz");
+            L.push(" *    Flash: QIO, 80 MHz, 4MB");
+            L.push(" *    Схема пам'яті (Partition): Default 4MB with spiffs" + (prog.ota ? " (з розділом OTA)" : ""));
+            L.push(" *    Upload Speed: 921600");
+            if (!platform) L.push(" *    (платформа не вказана — показано типові для ESP32)");
+        }
+        L.push(" * " + dash);
         L.push(" *  Пристрій: " + oneLine(d.name || d.id));
         if (prog.purpose) L.push(" *  Призначення: " + oneLine(prog.purpose));
         L.push(" *  Підключення: " + (prog.connection === "ethernet" ? "Ethernet (шилд)" : "WiFi"));
@@ -923,8 +942,17 @@
         return L.join("\n") + "\n\n";
     }
 
+    // "GPIO4" -> 4, "IO34" -> 34, "4" -> 4
+    function pinToNumber(pin) {
+        const m = String(pin || "").match(/\d+/);
+        return m ? parseInt(m[0]) : null;
+    }
+    const cstr = s => String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const sigTag = s => (s.point_id != null && s.point_id !== "") ? s.point_id : "x";
+
     // блок «Includes» — за платформою контролера, типом підключення, OTA
-    function buildIncludesBlock(d, platform) {
+    function buildIncludesBlock(d, ctx) {
+        const platform = (ctx && ctx.platform) || "";
         const prog = d.program || {};
         const conn = prog.connection || "wifi";
         const L = ["// --- Includes ---"];
@@ -965,26 +993,148 @@
         return L.join("\n") + "\n\n";
     }
 
+    // блок «Глобальні» — мережевий клієнт + MQTT + оголошення сигналів
+    function buildGlobalsBlock(d, ctx) {
+        const prog = d.program || {};
+        const conn = prog.connection || "wifi";
+        const pts  = (ctx && ctx.pointsById) || {};
+        const L = ["// --- Глобальні ---"];
+        L.push(conn === "ethernet" ? "EthernetClient net;" : "WiFiClient net;");
+        L.push("PubSubClient mqtt(net);");
+
+        const sigs = prog.signals || [];
+        sigs.forEach(s => {
+            const pid = s.point_id;
+            const tag = sigTag(s);
+            const num = pinToNumber(s.pin);
+            const p = pts[pid];
+            const topic = p ? `${p.object}/${p.system}/${p.pointname}/${p.id}` : `?/?/?/${pid}`;
+            L.push("");
+            L.push(`// сигнал: ${s.pin || "?"} -> точка ${pid ?? "?"}`);
+            if (num != null) L.push(`const int PIN_${tag} = ${num};`);
+            L.push(`const char* TOPIC_${tag} = "${cstr(topic)}";`);
+            L.push(`int last_${tag} = -1;`);
+            if (s.poll === "timer") L.push(`unsigned long lastPoll_${tag} = 0;`);
+            else                    L.push(`volatile bool flag_${tag} = false;`);
+        });
+        return L.join("\n") + "\n\n";
+    }
+
+    // блок «Функції» — стандартні хелпери Infrabox + ISR для переривань
+    function buildFunctionsBlock(d, ctx) {
+        const irq = (d.program && d.program.signals || []).filter(s => s.poll === "interrupt");
+        const L = ["// --- Функції ---"];
+        L.push("void ensureMqtt() {");
+        L.push("  if (!mqtt.connected()) mqtt.connect(MQTT_CLIENT_ID);");
+        L.push("}");
+        L.push("");
+        L.push("void publishPoint(const char* topic, int id, int value) {");
+        L.push("  char payload[64];");
+        L.push('  snprintf(payload, sizeof(payload), "{\\"id\\":%d,\\"value\\":%d,\\"ts\\":%lu}", id, value, millis() / 1000);');
+        L.push("  mqtt.publish(topic, payload);");
+        L.push("}");
+        irq.forEach(s => {
+            const tag = sigTag(s);
+            L.push("");
+            L.push(`void IRAM_ATTR isr_${tag}() { flag_${tag} = true; }`);
+        });
+        return L.join("\n") + "\n\n";
+    }
+
+    // блок «setup()» — підключення, MQTT, OTA, піни/переривання
+    function buildSetupBlock(d, ctx) {
+        const prog = d.program || {};
+        const conn = prog.connection || "wifi";
+        const sigs = prog.signals || [];
+        const L = ["void setup() {", "  Serial.begin(115200);", ""];
+        if (conn === "ethernet") {
+            L.push("  byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };");
+            L.push("  Ethernet.begin(mac);   // DHCP");
+        } else {
+            L.push("  WiFi.begin(WIFI_SSID, WIFI_PASS);");
+            L.push('  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }');
+            L.push('  Serial.println("\\nWiFi OK");');
+        }
+        L.push("  mqtt.setServer(MQTT_HOST, MQTT_PORT);");
+        if (prog.ota) {
+            L.push("  ArduinoOTA.setHostname(MQTT_CLIENT_ID);");
+            L.push("  ArduinoOTA.begin();");
+        }
+        if (sigs.length) {
+            L.push("");
+            sigs.forEach(s => {
+                const tag = sigTag(s);
+                L.push(`  pinMode(PIN_${tag}, INPUT);`);
+                if (s.poll === "interrupt")
+                    L.push(`  attachInterrupt(digitalPinToInterrupt(PIN_${tag}), isr_${tag}, CHANGE);`);
+            });
+        }
+        L.push("}");
+        return L.join("\n") + "\n\n";
+    }
+
+    // блок «loop()» — MQTT keepalive, опитування дискретів, публікація
+    function buildLoopBlock(d, ctx) {
+        const prog = d.program || {};
+        const sigs = prog.signals || [];
+        const L = ["void loop() {"];
+        if (prog.ota) L.push("  ArduinoOTA.handle();");
+        L.push("  ensureMqtt();");
+        L.push("  mqtt.loop();");
+        if (sigs.length) L.push("  unsigned long now = millis();");
+        sigs.forEach(s => {
+            const tag = sigTag(s);
+            const pid = (s.point_id != null && s.point_id !== "") ? s.point_id : 0;
+            L.push("");
+            if (s.poll === "interrupt") {
+                L.push(`  if (flag_${tag}) {`);
+                L.push(`    flag_${tag} = false;`);
+            } else {
+                const iv = parseInt(s.interval_ms) || 1000;
+                L.push(`  if (now - lastPoll_${tag} >= ${iv}) {`);
+                L.push(`    lastPoll_${tag} = now;`);
+            }
+            L.push(`    int v = digitalRead(PIN_${tag});`);
+            L.push(`    if (v != last_${tag}) {`);
+            L.push(`      last_${tag} = v;`);
+            L.push(`      publishPoint(TOPIC_${tag}, ${pid}, v);`);
+            L.push("    }");
+            L.push("  }");
+        });
+        L.push("}");
+        return L.join("\n") + "\n\n";
+    }
+
     // редактор коду — блоки-кнопки вставляють редагований текст у головний код
     async function renderCodeEditor(d, body) {
         body.innerHTML = `<div class="ws-placeholder">Завантаження…</div>`;
 
-        // платформа контролера (для Includes) — з бази знань
-        let platform = "";
+        // платформа + тип контролера (для Includes / хелпера) — з бази знань
+        let platform = "", controllerType = "";
         if (d.hardware) {
             try {
                 const eq = await apiJson("GET", `/knowledge/${encodeURIComponent(d.hardware)}`);
                 platform = eq.platform || "";
+                controllerType = eq.type || "";
             } catch (e) {}
         }
+
+        // точки Infrabox (для топіків у Глобальні) — id -> точка
+        const pointsById = {};
+        try {
+            const data = await apiJson("GET", "/points");
+            (data.points || []).forEach(p => { pointsById[p.id] = p; });
+        } catch (e) {}
+
+        const ctx = { platform, controllerType, pointsById };
 
         const BLOCKS = [
             { name: "Includes",  gen: buildIncludesBlock },
             { name: "Конфіг",    gen: buildConfigBlock },
-            { name: "Глобальні", code: "// --- Глобальні ---\nWiFiClient net;\nPubSubClient mqtt(net);\n\n" },
-            { name: "Функції",   code: "// --- Функції ---\n\n" },
-            { name: "setup()",   code: "void setup() {\n  \n}\n\n" },
-            { name: "loop()",    code: "void loop() {\n  mqtt.loop();\n}\n\n" },
+            { name: "Глобальні", gen: buildGlobalsBlock },
+            { name: "Функції",   gen: buildFunctionsBlock },
+            { name: "setup()",   gen: buildSetupBlock },
+            { name: "loop()",    gen: buildLoopBlock },
         ];
 
         body.innerHTML = `
@@ -1011,13 +1161,13 @@
             btn.addEventListener("click", () => {
                 const b = BLOCKS[+btn.dataset.blk];
                 const dev = devices.find(x => x.id === selectedId) || d;
-                insertIntoCode(b.gen ? b.gen(dev, platform) : b.code);
+                insertIntoCode(b.gen ? b.gen(dev, ctx) : b.code);
             })
         );
 
         document.getElementById("btnHelper").addEventListener("click", () => {
             const dev = devices.find(x => x.id === selectedId) || d;
-            insertIntoCode(buildHelperComment(dev));
+            insertIntoCode(buildHelperComment(dev, ctx));
         });
 
         document.getElementById("btnSaveCode").addEventListener("click", async () => {

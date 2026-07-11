@@ -177,10 +177,13 @@ def set_code_blocks(device_id: str, body: CodeBlocksUpdate, _: dict = Depends(re
 
 @app.get("/points")
 def list_points(_: dict = Depends(require_admin)):
-    """Точки Infrabox для прив'язки сигналів (id + pointname + type)."""
+    """Точки Infrabox для прив'язки сигналів і побудови MQTT-топіків."""
     pts = store.list_points()
     return {"points": [
-        {"id": p.get("id"), "pointname": p.get("pointname"), "type": p.get("type")}
+        {
+            "id": p.get("id"), "pointname": p.get("pointname"), "type": p.get("type"),
+            "object": p.get("object"), "system": p.get("system"), "drop": p.get("drop"),
+        }
         for p in pts
     ]}
 
