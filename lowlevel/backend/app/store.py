@@ -305,6 +305,12 @@ def update_program(device_id: str, program) -> dict | None:
     wifi = program.get("wifi") or {}
     mqtt = program.get("mqtt") or {}
 
+    def _f(v, dflt):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return dflt
+
     signals = []
     for s in (program.get("signals") or []):
         if not isinstance(s, dict):
@@ -317,13 +323,16 @@ def update_program(device_id: str, program) -> dict | None:
             interval = int(s.get("interval_ms") or 1000)
         except (TypeError, ValueError):
             interval = 1000
-        signals.append({
-            "type":        str(s.get("type", "")).strip() or "discrete_in",
-            "pin":         str(s.get("pin", "")).strip(),
-            "point_id":    pid,
-            "poll":        str(s.get("poll", "timer")).strip() or "timer",
-            "interval_ms": interval,
-        })
+        t = str(s.get("type", "")).strip() or "discrete_in"
+        sig = {"type": t, "pin": str(s.get("pin", "")).strip(), "point_id": pid, "interval_ms": interval}
+        if t == "analog_in":
+            sig["in_min"]  = _f(s.get("in_min"), 0)
+            sig["in_max"]  = _f(s.get("in_max"), 4095)
+            sig["out_min"] = _f(s.get("out_min"), 0)
+            sig["out_max"] = _f(s.get("out_max"), 100)
+        else:
+            sig["poll"] = str(s.get("poll", "timer")).strip() or "timer"
+        signals.append(sig)
 
     # додатковий функціонал: піни для ініціалізації, логіку користувач дописує сам
     custom = []

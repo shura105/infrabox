@@ -211,6 +211,8 @@ def list_points(_: dict = Depends(require_admin)):
         {
             "id": p.get("id"), "pointname": p.get("pointname"), "type": p.get("type"),
             "object": p.get("object"), "system": p.get("system"), "drop": p.get("drop"),
+            "min": p.get("min"), "max": p.get("max"),
+            "deadband": p.get("deadband"), "unit": p.get("unit"),
         }
         for p in pts
     ]}

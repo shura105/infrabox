@@ -1092,6 +1092,7 @@
     }
     const cstr = s => String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     const sigTag = s => (s.point_id != null && s.point_id !== "") ? s.point_id : "x";
+    const numOr = (v, dflt) => { const n = parseFloat(v); return isNaN(n) ? dflt : n; };
 
     // блок «Includes» — за платформою контролера, типом підключення, OTA
     function buildIncludesBlock(d, ctx) {
@@ -1156,9 +1157,13 @@
             L.push(`// сигнал: ${s.pin || "?"} -> точка ${pid ?? "?"}`);
             if (num != null) L.push(`const int PIN_${tag} = ${num};`);
             L.push(`const char* TOPIC_${tag} = "${cstr(topic)}";`);
-            L.push(`int last_${tag} = -1;`);
-            if (s.poll === "timer") L.push(`unsigned long lastPoll_${tag} = 0;`);
-            else                    L.push(`volatile bool flag_${tag} = false;`);
+            if (s.type === "analog_in") {
+                L.push(`unsigned long lastPoll_${tag} = 0;`);
+            } else {
+                L.push(`int last_${tag} = -1;`);
+                if (s.poll === "timer") L.push(`unsigned long lastPoll_${tag} = 0;`);
+                else                    L.push(`volatile bool flag_${tag} = false;`);
+            }
         });
         return L.join("\n") + "\n\n";
     }
@@ -1177,6 +1182,15 @@
         L.push('  snprintf(payload, sizeof(payload), "{\\"id\\":%d,\\"value\\":%d,\\"ts\\":%lu}", id, value, millis() / 1000);');
         L.push("  mqtt.publish(topic, payload);");
         L.push("}");
+        if ((d.program && d.program.signals || []).some(s => s.type === "analog_in")) {
+            L.push("");
+            L.push("void publishFloat(const char* topic, int id, float value) {");
+            L.push('  Serial.printf("[%d] %s = %.2f\\n", id, topic, value);');
+            L.push("  char payload[80];");
+            L.push('  snprintf(payload, sizeof(payload), "{\\"id\\":%d,\\"value\\":%.2f,\\"ts\\":%lu}", id, value, millis() / 1000);');
+            L.push("  mqtt.publish(topic, payload);");
+            L.push("}");
+        }
         irq.forEach(s => {
             const tag = sigTag(s);
             L.push("");
@@ -1205,15 +1219,15 @@
             L.push("  ArduinoOTA.setHostname(MQTT_CLIENT_ID);");
             L.push("  ArduinoOTA.begin();");
         }
-        if (sigs.length) {
-            L.push("");
-            sigs.forEach(s => {
-                const tag = sigTag(s);
-                L.push(`  pinMode(PIN_${tag}, INPUT);`);
-                if (s.poll === "interrupt")
-                    L.push(`  attachInterrupt(digitalPinToInterrupt(PIN_${tag}), isr_${tag}, CHANGE);`);
-            });
-        }
+        const pinLines = [];
+        sigs.forEach(s => {
+            if (s.type === "analog_in") return;   // analogRead — pinMode не потрібен
+            const tag = sigTag(s);
+            pinLines.push(`  pinMode(PIN_${tag}, INPUT);`);
+            if (s.poll === "interrupt")
+                pinLines.push(`  attachInterrupt(digitalPinToInterrupt(PIN_${tag}), isr_${tag}, CHANGE);`);
+        });
+        if (pinLines.length) { L.push(""); L.push(...pinLines); }
         L.push("}");
         return L.join("\n") + "\n\n";
     }
@@ -1231,6 +1245,24 @@
             const tag = sigTag(s);
             const pid = (s.point_id != null && s.point_id !== "") ? s.point_id : 0;
             L.push("");
+
+            if (s.type === "analog_in") {
+                const iv = parseInt(s.interval_ms) || 1000;
+                const inMin = numOr(s.in_min, 0), inMax = numOr(s.in_max, 4095);
+                const outMin = numOr(s.out_min, 0), outMax = numOr(s.out_max, 100);
+                L.push(`  if (now - lastPoll_${tag} >= ${iv}) {`);
+                L.push(`    lastPoll_${tag} = now;`);
+                L.push(`    int raw = analogRead(PIN_${tag});`);
+                if (inMax === inMin) {
+                    L.push(`    float v = ${outMin};   // raw min == raw max — масштаб не задано`);
+                } else {
+                    L.push(`    float v = ${outMin} + (float)(raw - ${inMin}) * (${outMax} - ${outMin}) / (${inMax} - ${inMin});`);
+                }
+                L.push(`    publishFloat(TOPIC_${tag}, ${pid}, v);`);   // щоразу — Infrabox сам робить deadband/NODATA
+                L.push("  }");
+                return;
+            }
+
             if (s.poll === "interrupt") {
                 L.push(`  if (flag_${tag}) {`);
                 L.push(`    flag_${tag} = false;`);
@@ -1353,10 +1385,14 @@
         const wifi = prog.wifi || {};
         const mqtt = prog.mqtt || {};
         const devPins = (d.pins || []).map(p => p.pin).filter(Boolean);
-        const discretePoints = points.filter(p => p.type === "discrete");
+        const pointById = {};
+        points.forEach(p => { pointById[p.id] = p; });
+        const pointsForType = t => points.filter(p => t === "analog_in" ? p.type === "analog" : p.type === "discrete");
         let signals = (prog.signals || []).map(s => ({
             type: s.type || "discrete_in", pin: s.pin || "", point_id: (s.point_id ?? ""),
             poll: s.poll || "timer", interval_ms: (s.interval_ms ?? 1000),
+            in_min: (s.in_min ?? 0), in_max: (s.in_max ?? 4095),
+            out_min: (s.out_min ?? 0), out_max: (s.out_max ?? 100),
         }));
         let custom = (prog.custom || []).map(c => ({
             name: c.name || "",
@@ -1416,9 +1452,14 @@
             ).join("");
             return `<select class="inp" data-f="pin">${opts}</select>`;
         }
-        function pointSelect(val) {
+        function pointSelect(val, sigType) {
+            const list = pointsForType(sigType);
             const opts = [`<option value="">—</option>`].concat(
-                discretePoints.map(p => `<option value="${p.id}"${String(p.id) === String(val) ? " selected" : ""}>${p.id} · ${escapeHtml(p.pointname || "")}</option>`)
+                list.map(p => {
+                    const rng = (sigType === "analog_in" && p.min != null)
+                        ? ` (${p.min}..${p.max}${p.unit ? " " + p.unit : ""})` : "";
+                    return `<option value="${p.id}"${String(p.id) === String(val) ? " selected" : ""}>${p.id} · ${escapeHtml((p.pointname || "") + rng)}</option>`;
+                })
             ).join("");
             return `<select class="inp" data-f="point">${opts}</select>`;
         }
@@ -1433,41 +1474,79 @@
             signals.forEach((s, i) => {
                 const card = document.createElement("div");
                 card.className = "sig-card";
-                const timerField = `
-                    <div class="field" data-timer style="${s.poll === "timer" ? "" : "display:none"}">
-                        <label>Інтервал опитування, мс</label>
-                        <input class="inp" data-f="interval" type="number" min="10" value="${s.interval_ms}">
+                const isA = s.type === "analog_in";
+
+                const typeSel = `
+                    <div class="field"><label>Тип сигналу</label>
+                        <select class="inp" data-f="type">
+                            <option value="discrete_in"${!isA ? " selected" : ""}>Дискретний вхід</option>
+                            <option value="analog_in"${isA ? " selected" : ""}>Аналоговий вхід</option>
+                        </select>
                     </div>`;
-                card.innerHTML = `
-                    <div class="sig-head">
-                        <div class="sig-title">Дискретна точка #${i + 1}</div>
-                        <button class="btn danger sig-del" data-act="del">🗑 Видалити</button>
-                    </div>
-                    <div class="cfg-grid">
-                        <div class="field"><label>Порт</label>${pinSelect(s.pin)}</div>
-                        <div class="field"><label>id параметра (Infrabox)</label>${pointSelect(s.point_id)}</div>
+
+                let specific;
+                if (isA) {
+                    specific = `
+                        <div class="field"><label>Інтервал опитування, мс</label>
+                            <input class="inp" data-f="interval" type="number" min="10" value="${s.interval_ms}"></div>
+                        <div class="field"><label>raw ADC: від</label>
+                            <input class="inp" data-f="in_min" type="number" value="${s.in_min}"></div>
+                        <div class="field"><label>Значення ADC: від</label>
+                            <input class="inp" data-f="out_min" type="number" step="any" value="${s.out_min}"></div>
+                        <div class="field"><label>raw ADC: до</label>
+                            <input class="inp" data-f="in_max" type="number" value="${s.in_max}"></div>
+                        <div class="field"><label>Значення ADC: до</label>
+                            <input class="inp" data-f="out_max" type="number" step="any" value="${s.out_max}"></div>`;
+                } else {
+                    specific = `
                         <div class="field"><label>Метод опитування</label>
                             <select class="inp" data-f="poll">
                                 <option value="timer"${s.poll === "timer" ? " selected" : ""}>За таймером</option>
                                 <option value="interrupt"${s.poll === "interrupt" ? " selected" : ""}>По перериванню</option>
                             </select>
                         </div>
-                        ${timerField}
+                        <div class="field" data-timer style="${s.poll === "timer" ? "" : "display:none"}">
+                            <label>Інтервал опитування, мс</label>
+                            <input class="inp" data-f="interval" type="number" min="10" value="${s.interval_ms}">
+                        </div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="sig-head">
+                        <div class="sig-title">${isA ? "Аналоговий" : "Дискретний"} сигнал #${i + 1}</div>
+                        <button class="btn danger sig-del" data-act="del">🗑 Видалити</button>
+                    </div>
+                    <div class="cfg-grid">
+                        ${typeSel}
+                        <div class="field"><label>Порт</label>${pinSelect(s.pin)}</div>
+                        <div class="field"><label>id параметра (Infrabox)</label>${pointSelect(s.point_id, s.type)}</div>
+                        ${specific}
                     </div>`;
 
+                card.querySelector('[data-f="type"]').addEventListener("change", e => {
+                    signals[i].type = e.target.value;
+                    signals[i].point_id = "";   // тип точки змінюється — скинути прив'язку
+                    renderSignals();
+                });
                 const pinEl = card.querySelector('[data-f="pin"]');
                 pinEl.addEventListener(pinEl.tagName === "SELECT" ? "change" : "input", e => signals[i].pin = e.target.value);
                 card.querySelector('[data-f="point"]').addEventListener("change", e => signals[i].point_id = e.target.value);
-                card.querySelector('[data-f="poll"]').addEventListener("change", e => { signals[i].poll = e.target.value; renderSignals(); });
-                const intEl = card.querySelector('[data-f="interval"]');
-                if (intEl) intEl.addEventListener("input", e => signals[i].interval_ms = e.target.value);
+                const pollEl = card.querySelector('[data-f="poll"]');
+                if (pollEl) pollEl.addEventListener("change", e => { signals[i].poll = e.target.value; renderSignals(); });
+                card.querySelectorAll('[data-f="interval"],[data-f="in_min"],[data-f="in_max"],[data-f="out_min"],[data-f="out_max"]').forEach(el => {
+                    el.addEventListener("input", e => {
+                        const key = el.dataset.f === "interval" ? "interval_ms" : el.dataset.f;
+                        signals[i][key] = e.target.value;
+                    });
+                });
                 card.querySelector('[data-act="del"]').addEventListener("click", () => { signals.splice(i, 1); renderSignals(); });
                 cont.appendChild(card);
             });
         }
 
         document.getElementById("btnAddSig").addEventListener("click", () => {
-            signals.push({ type: "discrete_in", pin: "", point_id: "", poll: "timer", interval_ms: 1000 });
+            signals.push({ type: "discrete_in", pin: "", point_id: "", poll: "timer", interval_ms: 1000,
+                           in_min: 0, in_max: 4095, out_min: 0, out_max: 100 });
             renderSignals();
         });
         renderSignals();
