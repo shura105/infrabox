@@ -11,7 +11,7 @@
       "host_sim": "infrabox-mosquitto-sim",
       "port": 1883
     },
-    "data_source": "real"
+    "data_source": "real" //sim/real
   },
   "system": {
     "system_tick_ms": 1000,

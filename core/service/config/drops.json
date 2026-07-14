@@ -1,12 +1,7 @@
 [
   {
-    "id": "homeServ-1",
-    "name": "Сервер на балконі",
-    "object": "home"
-  },
-  {
-    "id": "garageServ1",
-    "name": "Сервер в гаражі",
-    "object": "garage"
+    "id": "homeServ2.local",
+    "name": "InfraboxServer",
+    "object": "Object_001"
   }
 ]

@@ -10,15 +10,6 @@
       "deviceType": 1
     },
     {
-      "id": "home",
-      "title": "Квартира",
-      "parent": "root",
-      "x": 40,
-      "y": 200,
-      "screenNum": 2,
-      "deviceType": 1
-    },
-    {
       "id": "R1",
       "title": "Головний екран",
       "parent": null,
@@ -75,15 +66,6 @@
       "y": 300,
       "screenType": "mobile",
       "screenNum": 3,
-      "deviceType": 1
-    },
-    {
-      "id": "P1",
-      "title": "Балкон",
-      "x": 40,
-      "y": 300,
-      "screenType": "pc",
-      "screenNum": 1,
       "deviceType": 1
     }
   ],

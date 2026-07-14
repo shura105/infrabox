@@ -1,10 +1,6 @@
 [
   {
-    "id": "home",
-    "name": "Квартира"
-  },
-  {
-    "id": "garage",
-    "name": "Гараж"
+    "id": "Object_001",
+    "name": "Home"
   }
 ]
