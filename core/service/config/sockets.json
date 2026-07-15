@@ -1,28 +1,140 @@
 [
   {
-    "drop": "homeServ-1",
+    "drop": "homeServ2.local",
     "hardware": [
       {
         "id": "selfDiag",
         "name": "Selfdiagnostic",
-        "params": ["cpu_load", "mem_used", "disk_space", "net_rx", "net_tx"]
+        "params": [
+          "cpu_load",
+          "mem_used",
+          "disk_space",
+          "net_rx",
+          "net_tx"
+        ]
       }
     ],
     "software": [
-      {"id": "Selfdiagnostic", "name": "infrabox-selfdiagnostic",  "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Core",         "name": "infrabox-core",              "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Auth",         "name": "infrabox-auth",              "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Backend",      "name": "infrabox-backend",           "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "ADM",          "name": "infrabox-adm",               "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Simulator",    "name": "infrabox-simulator",         "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Archivator",   "name": "infrabox-arch",              "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Arch Backend", "name": "infrabox-arch-backend",      "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Arch UI",      "name": "infrabox-arch-ui",           "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Redis",        "name": "infrabox-redis",             "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "MQTT Real",    "name": "infrabox-mosquitto-real",    "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "MQTT Sim",     "name": "infrabox-mosquitto-sim",     "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Web",          "name": "infrabox-web",               "type": "heartbeat", "params": ["heartbeat"]},
-      {"id": "Portainer",    "name": "portainer",                  "type": "heartbeat", "params": ["heartbeat"]}
+      {
+        "id": "Adm",
+        "name": "infrabox-adm",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Arch",
+        "name": "infrabox-arch",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Arch Backend",
+        "name": "infrabox-arch-backend",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Arch Ui",
+        "name": "infrabox-arch-ui",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Auth",
+        "name": "infrabox-auth",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Backend",
+        "name": "infrabox-backend",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Core",
+        "name": "infrabox-core",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Lowlevel",
+        "name": "infrabox-lowlevel",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Mosquitto Real",
+        "name": "infrabox-mosquitto-real",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Mosquitto Sim",
+        "name": "infrabox-mosquitto-sim",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Redis",
+        "name": "infrabox-redis",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Selfdiagnostic",
+        "name": "infrabox-selfdiagnostic",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Simulator",
+        "name": "infrabox-simulator",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Web",
+        "name": "infrabox-web",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      },
+      {
+        "id": "Portainer",
+        "name": "portainer",
+        "type": "heartbeat",
+        "params": [
+          "heartbeat"
+        ]
+      }
     ]
   }
 ]

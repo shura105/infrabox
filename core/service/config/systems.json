@@ -1,7 +1,7 @@
 [
   {
-    "id": "reserveHomePower",
-    "name": "reserveHomePower",
+    "id": "homeReservePower",
+    "name": "Резервне живлення",
     "drop": "homeServ2.local",
     "operation_mode": "manual"
   }

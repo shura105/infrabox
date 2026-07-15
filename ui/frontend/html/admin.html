@@ -698,6 +698,7 @@
     <button class="tab-btn"        id="tab-system-btn" onclick="switchTab('system')">Система</button>
     <button class="tab-btn"        id="tab-apps-btn"   onclick="switchTab('apps')">Застосунки</button>
     <button class="tab-btn"        id="tab-meta-btn"     onclick="switchTab('meta')">Метадані</button>
+    <button class="tab-btn"        id="tab-database-btn" onclick="switchTab('database')">База даних</button>
     <button class="tab-btn"        id="tab-points-btn"   onclick="switchTab('points')">Параметри</button>
     <button class="tab-btn"        id="tab-archives-btn" onclick="switchTab('archives')">Архіви</button>
 </div>
@@ -781,6 +782,14 @@
         <details class="sockets-dropdown">
             <summary>Сокети системи</summary>
             <div class="sockets-dropdown-panel" id="socketsTree"><span style="color:#484f58;font-size:12px">Завантаження...</span></div>
+        </details>
+        <details class="sockets-dropdown" id="orphansPanel">
+            <summary>Сироти Redis <span id="orphansCount" style="color:#f0883e"></span></summary>
+            <div class="sockets-dropdown-panel" id="orphansBody"><span style="color:#484f58;font-size:12px">Завантаження...</span></div>
+        </details>
+        <details class="sockets-dropdown" id="integrityPanel">
+            <summary>Цілісність конфігурації <span id="integrityCount" style="color:#f85149"></span></summary>
+            <div class="sockets-dropdown-panel" id="integrityBody"><span style="color:#484f58;font-size:12px">Завантаження...</span></div>
         </details>
         <div class="points-toolbar">
             <input type="number" id="ptSearchId" placeholder="ID" oninput="filterPoints()">
@@ -956,6 +965,139 @@
         <div id="metaTree"><p style="color:#8b949e">Завантаження...</p></div>
     </div>
 
+    <!-- ══════════════════════ DATABASE (sys_params) TAB ══════════════════════════ -->
+    <div class="tab-panel" id="tab-database">
+        <div class="meta-toolbar">
+            <span class="meta-toolbar-title">База даних — системні параметри (sys_params.json)</span>
+            <div class="spacer"></div>
+            <button class="btn btn-green  btn-xs" onclick="saveDatabase(false)">💾 Зберегти</button>
+            <button class="btn btn-orange btn-xs" onclick="saveDatabase(true)">💾 Зберегти і перезапустити core</button>
+        </div>
+        <div id="dbError" class="modal-error" style="display:none;margin-bottom:10px"></div>
+        <div id="dbOk" style="display:none;margin-bottom:10px;color:#3fb950;font-size:13px"></div>
+
+        <div style="max-width:860px">
+            <!-- Джерело даних -->
+            <div style="margin:8px 0 8px;font-size:12px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #21262d;padding-bottom:4px">Джерело даних</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>data_source</label>
+                    <select id="db_data_source">
+                        <option value="real">real — реальний контролер</option>
+                        <option value="sim">sim — симулятор</option>
+                    </select>
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Який MQTT-брокер слухає core. <b>real</b> → <code>infrabox-mosquitto-real</code> (реальне залізо); <b>sim</b> → <code>infrabox-mosquitto-sim</code> (симулятор). Головний перемикач міграції sim→real. Потребує перезапуску core.</div>
+                </div>
+            </div>
+
+            <!-- Redis -->
+            <div style="margin:18px 0 8px;font-size:12px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #21262d;padding-bottom:4px">Redis (bootstrap.redis)</div>
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>host</label>
+                    <input type="text" id="db_redis_host">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Хост Redis. У межах Docker — ім'я контейнера <code>infrabox-redis</code>; на іншому вузлі — LAN-адреса.</div>
+                </div>
+                <div class="field">
+                    <label>port</label>
+                    <input type="number" id="db_redis_port">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Порт Redis. Типово 6379.</div>
+                </div>
+                <div class="field">
+                    <label>db</label>
+                    <input type="number" id="db_redis_db">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Номер логічної БД Redis (0–15). Типово 0.</div>
+                </div>
+            </div>
+
+            <!-- MQTT -->
+            <div style="margin:18px 0 8px;font-size:12px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #21262d;padding-bottom:4px">MQTT (bootstrap.mqtt)</div>
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>host_real</label>
+                    <input type="text" id="db_mqtt_host_real">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Брокер реальних даних (використовується при data_source=real).</div>
+                </div>
+                <div class="field">
+                    <label>host_sim</label>
+                    <input type="text" id="db_mqtt_host_sim">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Брокер симулятора (використовується при data_source=sim).</div>
+                </div>
+                <div class="field">
+                    <label>port</label>
+                    <input type="number" id="db_mqtt_port">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Порт MQTT-брокера. Типово 1883.</div>
+                </div>
+            </div>
+
+            <!-- Система -->
+            <div style="margin:18px 0 8px;font-size:12px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #21262d;padding-bottom:4px">Система (system)</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label>system_tick_ms</label>
+                    <input type="number" id="db_system_tick_ms">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Такт головного циклу core (мс): системний годинник, темп обробки якості та таймерів. Типово 1000.</div>
+                </div>
+                <div class="field">
+                    <label>log_level</label>
+                    <select id="db_log_level">
+                        <option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option>
+                    </select>
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Рівень логування core. DEBUG — детально (діагностика), INFO — типово.</div>
+                </div>
+                <div class="field">
+                    <label>desync_guard</label>
+                    <select id="db_desync_guard"><option value="true">увімкнено</option><option value="false">вимкнено</option></select>
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Сторож «завмерлих» точок: якщо точка перестала оновлюватись понад desync_timeout — якість стає NODATA.</div>
+                </div>
+                <div class="field">
+                    <label>desync_timeout_ms</label>
+                    <input type="number" id="db_desync_timeout_ms">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Скільки тиші (мс) до позначення точки як NODATA. Типово 5000.</div>
+                </div>
+                <div class="field">
+                    <label>mqtt_watchdog</label>
+                    <select id="db_mqtt_watchdog"><option value="true">увімкнено</option><option value="false">вимкнено</option></select>
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Вотчдог з'єднання з MQTT: контролює живість підключення до брокера.</div>
+                </div>
+                <div class="field">
+                    <label>mqtt_timeout_ms</label>
+                    <input type="number" id="db_mqtt_timeout_ms">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Таймаут (мс) без MQTT-трафіку до реакції вотчдога. Типово 10000.</div>
+                </div>
+                <div class="field">
+                    <label>arch_ram_budget_mb</label>
+                    <input type="number" id="db_arch_ram_budget_mb">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Бюджет RAM (МБ) для архіватора — орієнтир обсягу буфера в пам'яті. Типово 200.</div>
+                </div>
+            </div>
+
+            <!-- Лог + Якість -->
+            <div style="margin:18px 0 8px;font-size:12px;color:#58a6ff;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #21262d;padding-bottom:4px">Лог і якість</div>
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>log.max_bytes</label>
+                    <input type="number" id="db_log_max_bytes">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Макс. розмір лог-файла (байти) до ротації. 1048576 = 1 МБ.</div>
+                </div>
+                <div class="field">
+                    <label>log.backup_count</label>
+                    <input type="number" id="db_log_backup_count">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Скільки старих лог-файлів зберігати при ротації. Типово 3.</div>
+                </div>
+                <div class="field">
+                    <label>quality.recovery_time_ms</label>
+                    <input type="number" id="db_quality_recovery_time_ms">
+                    <div style="color:#6e7681;font-size:11px;margin-top:3px;line-height:1.4">Дебаунс відновлення якості (мс): скільки точка має бути «в нормі», перш ніж якість повернеться з тривоги. Типово 3000.</div>
+                </div>
+            </div>
+
+            <div style="color:#6e7681;font-size:11px;margin-top:16px;line-height:1.5;border-top:1px solid #21262d;padding-top:10px">
+                ⓘ Зміни секції <b>bootstrap</b> (data_source, redis, mqtt) застосовуються лише після <b>перезапуску core</b>. Використай «💾 Зберегти і перезапустити core». Поля <b>system</b> частина сервісів читає наживо, але для гарантії теж краще перезапустити.
+            </div>
+        </div>
+    </div>
+
 </main>
 
 <!-- ══════════════════════════ POINTS MODAL ═══════════════════════════════ -->
@@ -978,7 +1120,7 @@
                     <option value="calculated">Розрахунковий</option>
                     <option value="control">Управляючий</option>
                     <option value="external">Від зовнішніх систем</option>
-                    <option value="diagnostic">Діагностика</option>
+                    <option value="diagnostic">Самодіагностика</option>
                     <option value="operation_mode">Режим роботи системи</option>
                 </select>
             </div>
@@ -1013,7 +1155,7 @@
             </div>
         </div>
 
-        <!-- ── Діагностика ── -->
+        <!-- ── Самодіагностика ── -->
         <div id="pt_section_diag" style="display:none">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
             <div class="field">
@@ -1624,6 +1766,7 @@ function switchTab(name) {
     if (name === "points")   loadPoints();
     if (name === "archives") loadArchives();
     if (name === "meta")     loadMeta();
+    if (name === "database") loadDatabase();
 }
 
 function switchSub(name) {
@@ -1634,6 +1777,77 @@ function switchSub(name) {
     document.getElementById(`sub-${name}-btn`).classList.add("active");
     if (name === "composer") { loadSubs(); loadSystem(); }
     if (name === "nodes")    loadHostsFromConfig();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATABASE tab — sys_params.json
+// ─────────────────────────────────────────────────────────────────────────────
+let _sysParams = null;
+
+async function loadDatabase() {
+    const err = document.getElementById("dbError"); err.style.display = "none";
+    document.getElementById("dbOk").style.display = "none";
+    const res = await admApi("GET", "/sys-params");
+    if (!res || !res.ok) { err.textContent = "Не вдалося завантажити sys_params.json"; err.style.display = "block"; return; }
+    const d = await res.json();
+    _sysParams = d;
+    const b = d.bootstrap || {}, sys = d.system || {};
+    const R = b.redis || {}, M = b.mqtt || {}, L = sys.log || {}, Q = sys.quality || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? "" : v); };
+    set("db_data_source", b.data_source || "real");
+    set("db_redis_host", R.host); set("db_redis_port", R.port); set("db_redis_db", R.db);
+    set("db_mqtt_host_real", M.host_real); set("db_mqtt_host_sim", M.host_sim); set("db_mqtt_port", M.port);
+    set("db_system_tick_ms", sys.system_tick_ms);
+    set("db_log_level", sys.log_level || "INFO");
+    set("db_desync_guard", String(sys.desync_guard ?? true));
+    set("db_desync_timeout_ms", sys.desync_timeout_ms);
+    set("db_mqtt_watchdog", String(sys.mqtt_watchdog ?? true));
+    set("db_mqtt_timeout_ms", sys.mqtt_timeout_ms);
+    set("db_arch_ram_budget_mb", sys.arch_ram_budget_mb);
+    set("db_log_max_bytes", L.max_bytes); set("db_log_backup_count", L.backup_count);
+    set("db_quality_recovery_time_ms", Q.recovery_time_ms);
+}
+
+async function saveDatabase(restart) {
+    const err = document.getElementById("dbError"); err.style.display = "none";
+    const ok  = document.getElementById("dbOk");    ok.style.display = "none";
+    const numOr = (id, dflt) => { const v = parseInt(document.getElementById(id).value); return isNaN(v) ? dflt : v; };
+    const base = _sysParams ? JSON.parse(JSON.stringify(_sysParams)) : { schema_version: 1, bootstrap: {}, system: {} };
+    base.bootstrap = base.bootstrap || {}; base.system = base.system || {};
+    base.bootstrap.redis = {
+        host: document.getElementById("db_redis_host").value.trim(),
+        port: numOr("db_redis_port", 6379),
+        db:   numOr("db_redis_db", 0),
+    };
+    base.bootstrap.mqtt = {
+        host_real: document.getElementById("db_mqtt_host_real").value.trim(),
+        host_sim:  document.getElementById("db_mqtt_host_sim").value.trim(),
+        port:      numOr("db_mqtt_port", 1883),
+    };
+    base.bootstrap.data_source     = document.getElementById("db_data_source").value;
+    base.system.system_tick_ms     = numOr("db_system_tick_ms", 1000);
+    base.system.desync_guard       = document.getElementById("db_desync_guard").value === "true";
+    base.system.desync_timeout_ms  = numOr("db_desync_timeout_ms", 5000);
+    base.system.mqtt_watchdog      = document.getElementById("db_mqtt_watchdog").value === "true";
+    base.system.mqtt_timeout_ms    = numOr("db_mqtt_timeout_ms", 10000);
+    base.system.log_level          = document.getElementById("db_log_level").value;
+    base.system.arch_ram_budget_mb = numOr("db_arch_ram_budget_mb", 200);
+    base.system.log     = { max_bytes: numOr("db_log_max_bytes", 1048576), backup_count: numOr("db_log_backup_count", 3) };
+    base.system.quality = { recovery_time_ms: numOr("db_quality_recovery_time_ms", 3000) };
+
+    const res = await admApi("PUT", "/sys-params", base);
+    if (!res || !res.ok) {
+        const j = res ? await res.json().catch(() => ({})) : {};
+        err.textContent = j.detail || "Помилка збереження"; err.style.display = "block"; return;
+    }
+    _sysParams = base;
+    if (restart) {
+        ok.textContent = "Збережено. Перезапуск core…"; ok.style.display = "block";
+        const r2 = await admApi("POST", "/containers/infrabox-core/restart");
+        ok.textContent = (r2 && r2.ok) ? "✓ Збережено, core перезапущено" : "Збережено, але перезапустити core не вдалось";
+    } else {
+        ok.textContent = "✓ Збережено. Для змін bootstrap потрібен перезапуск core."; ok.style.display = "block";
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2601,6 +2815,129 @@ async function loadPoints() {
     _populateModalSelects();
     await loadSockets();
     _renderPoints(_allPoints);
+    loadOrphans();
+    loadIntegrity();
+}
+
+// ── Config integrity (dangling cross-file references) ──────────────────────
+async function loadIntegrity() {
+    const body = document.getElementById("integrityBody");
+    let data;
+    try {
+        const res = await fetch("/adm/api/config/integrity", { headers: authHeaders() });
+        if (!res.ok) { body.innerHTML = `<span style="color:#f85149;font-size:12px">Помилка ${res.status}</span>`; return; }
+        data = await res.json();
+    } catch (e) {
+        body.innerHTML = `<span style="color:#f85149;font-size:12px">adm недоступний</span>`;
+        return;
+    }
+    const cnt    = document.getElementById("integrityCount");
+    const issues = data.issues || [];
+    cnt.textContent = issues.length ? `(${issues.length})` : "";
+    if (!issues.length) {
+        body.innerHTML = `<span style="color:#3fb950;font-size:12px">✓ Усі посилання узгоджені</span>`;
+        return;
+    }
+    const rows = issues.map(i => `
+        <tr>
+            <td style="color:#8b949e">${_esc(i.kind)}</td>
+            <td>${_esc(String(i.entity))}</td>
+            <td style="color:#8b949e">${_esc(i.field)}</td>
+            <td style="color:#f85149">${_esc(String(i.value))}</td>
+            <td style="color:#6e7681">${_esc(i.detail)}</td>
+        </tr>`).join("");
+    body.innerHTML = `
+        <div style="color:#f85149;font-size:12px;margin-bottom:8px">${issues.length} висячих посилань</div>
+        <table class="pt-table" style="width:100%">
+            <thead><tr style="color:#6e7681;font-size:11px;text-transform:uppercase;text-align:left">
+                <th>де</th><th>сутність</th><th>поле</th><th>значення</th><th>проблема</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+// ── Redis orphans (point:* keys with no entry in points.json) ──────────────
+let _orphans = [];
+
+async function loadOrphans() {
+    const body = document.getElementById("orphansBody");
+    try {
+        const res = await fetch("/adm/api/points/redis-orphans", { headers: authHeaders() });
+        if (!res.ok) { body.innerHTML = `<span style="color:#f85149;font-size:12px">Помилка ${res.status}</span>`; return; }
+        _orphans = await res.json();
+    } catch (e) {
+        body.innerHTML = `<span style="color:#f85149;font-size:12px">Redis недоступний</span>`;
+        return;
+    }
+    _renderOrphans();
+}
+
+function _orphanAge(ts) {
+    let t = Number(ts);
+    if (!ts || !isFinite(t)) return "—";
+    if (t > 1e12) t = Math.floor(t / 1000);          // ms → s
+    const sec = Math.floor(Date.now() / 1000) - t;
+    if (sec < 0)      return "—";
+    if (sec < 60)     return sec + "с";
+    if (sec < 3600)   return Math.floor(sec / 60) + "хв";
+    if (sec < 86400)  return Math.floor(sec / 3600) + "год";
+    return Math.floor(sec / 86400) + "д";
+}
+
+function _renderOrphans() {
+    const cnt  = document.getElementById("orphansCount");
+    const body = document.getElementById("orphansBody");
+    cnt.textContent = _orphans.length ? `(${_orphans.length})` : "";
+    if (!_orphans.length) {
+        body.innerHTML = `<span style="color:#3fb950;font-size:12px">✓ Сиріт немає — Redis чистий</span>`;
+        return;
+    }
+    const rows = _orphans.map(o => `
+        <tr>
+            <td style="color:#8b949e">${o.id}</td>
+            <td>${_esc(o.pointname || "—")}</td>
+            <td style="color:#8b949e">${_esc(o.system || "—")}</td>
+            <td>${_esc(o.value ?? "—")}</td>
+            <td style="color:#8b949e">${_esc(o.quality || "—")}</td>
+            <td style="color:#6e7681">${_orphanAge(o.ts)}</td>
+            <td style="text-align:right"><button class="btn btn-red" style="padding:3px 9px;font-size:12px" onclick="deleteOrphan(${o.id})">🗑</button></td>
+        </tr>`).join("");
+    body.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="color:#f0883e;font-size:12px">${_orphans.length} ключів point:* у Redis без запису в points.json</span>
+            <button class="btn btn-red" style="padding:3px 10px;font-size:12px" onclick="deleteAllOrphans()">Видалити всі</button>
+        </div>
+        <table class="pt-table" style="width:100%">
+            <thead><tr style="color:#6e7681;font-size:11px;text-transform:uppercase;text-align:left">
+                <th>id</th><th>pointname</th><th>система</th><th>значення</th><th>якість</th><th>вік</th><th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+async function deleteOrphan(id) {
+    const res = await fetch(`/adm/api/points/redis/${id}`, { method: "DELETE", headers: authHeaders() });
+    if (!res.ok && res.status !== 404) {
+        const j = await res.json().catch(() => ({}));
+        _openConfirm("Помилка", j.detail || `Помилка ${res.status}`, "btn-gray", () => {});
+        return;
+    }
+    await loadOrphans();
+}
+
+function deleteAllOrphans() {
+    if (!_orphans.length) return;
+    _openConfirm(
+        "Видалення сиріт Redis",
+        `Видалити всі ${_orphans.length} ключів point:* без запису в points.json? Значення перегенеруються симулятором/контролером при потребі.`,
+        "btn-red",
+        async () => {
+            for (const o of [..._orphans]) {
+                await fetch(`/adm/api/points/redis/${o.id}`, { method: "DELETE", headers: authHeaders() }).catch(() => {});
+            }
+            await loadOrphans();
+        }
+    );
 }
 
 async function loadSockets() {
@@ -3461,12 +3798,13 @@ async function deletePoint(id) {
 }
 
 async function reloadPoints() {
+    document.getElementById("hostConfirmMsg").style.whiteSpace = "pre-line";
     _openConfirm(
         "Застосування змін",
-        "Перезапустити core, simulator та selfdiagnostic для застосування змін?",
+        "Знести базу параметрів у Redis і перезапустити core, simulator, selfdiagnostic?\nБаза наповниться свіжими даними з поточного конфігу. Можна тиснути й без змін — для профілактики бази.",
         "btn-blue",
         async () => {
-            _openSubLog("↺ Перезапуск сервісів");
+            _openSubLog("↺ Скидання бази + перезапуск сервісів");
             const res = await fetch("/adm/api/points/reload", {
                 method: "POST",
                 headers: authHeaders()
@@ -3475,6 +3813,7 @@ async function reloadPoints() {
             if (res && res.ok) {
                 const lines = Object.entries(j).map(([k, v]) => `${k}: ${v}`).join("\n");
                 _subLogDone("готово ✓", "#56d364", lines);
+                loadPoints();   // refresh values / orphans / integrity
             } else {
                 _subLogDone("помилка", "#f47067",
                     `ПОМИЛКА: ${j.detail || res.status}`);
@@ -3943,22 +4282,53 @@ async function _metaDelRef(ref) {
     const ctx = ref.ctx  || {};
     const labels = {object:"Об'єкт",system:"Систему",drop:"Вузол",subsystem:"Підсистему",element:"Елемент"};
 
+    let url, impactUrl = null;
+    switch (ref.type) {
+        case "object":  url = `/adm/api/objects/${d.id}`; impactUrl = `/adm/api/objects/${d.id}/impact`; break;
+        case "system":  url = `/adm/api/systems/${d.id}`; impactUrl = `/adm/api/systems/${d.id}/impact`; break;
+        case "drop":    url = `/adm/api/drops/${d.id}`;   impactUrl = `/adm/api/drops/${d.id}/impact`;   break;
+        case "subsystem": url = `/adm/api/config/subsystems/${ctx.drop}/${d.id}`; break;
+        case "element": url = `/adm/api/config/subsystems/${ctx.drop}/${ctx.sub}/elements/${d.id}`; break;
+    }
+
+    // Build an impact preview for cascading metadata deletes (object/system/drop)
+    let msg = `Видалити "${d.name||d.id}"?`;
+    if (impactUrl) {
+        try {
+            const r = await fetch(impactUrl, { headers: authHeaders() });
+            if (r.ok) {
+                const im      = await r.json();
+                const pts     = im.points  || [];
+                const drops   = im.drops   || [];
+                const systems = im.systems || [];
+                const redisN  = (im.redis_ids || []).length;
+                if (pts.length || drops.length || systems.length) {
+                    const parts = [`Видалення "${d.name||d.id}" каскадно прибере:`];
+                    if (drops.length)   parts.push(`• вузлів: ${drops.length} (${drops.join(", ")})`);
+                    if (systems.length) parts.push(`• систем: ${systems.length} (${systems.join(", ")})`);
+                    if (pts.length) {
+                        const list = pts.map(p => `#${p.id} ${p.pointname||""}`.trim()).join(", ");
+                        parts.push(`• параметрів у points.json: ${pts.length} (${list})`);
+                        parts.push(`• ключів point:* у Redis: ${redisN}`);
+                    }
+                    parts.push("Продовжити?");
+                    msg = parts.join("\n");
+                }
+            }
+        } catch (e) { /* preview best-effort; fall back to simple confirm */ }
+    }
+
+    document.getElementById("hostConfirmMsg").style.whiteSpace = "pre-line";
     _openConfirm(
         `Видалити ${labels[ref.type]||ref.type}`,
-        `Видалити "${d.name||d.id}"?`,
+        msg,
         "btn-red",
         async () => {
-            let url;
-            switch (ref.type) {
-                case "object":  url = `/adm/api/objects/${d.id}`; break;
-                case "system":  url = `/adm/api/systems/${d.id}`; break;
-                case "drop":    url = `/adm/api/drops/${d.id}`;   break;
-                case "subsystem": url = `/adm/api/config/subsystems/${ctx.drop}/${d.id}`; break;
-                case "element": url = `/adm/api/config/subsystems/${ctx.drop}/${ctx.sub}/elements/${d.id}`; break;
-            }
             const res = await fetch(url, {method:"DELETE", headers: authHeaders()});
-            if (res.ok) await loadMeta();
-            else {
+            if (res.ok) {
+                await loadMeta();
+                if (typeof loadPoints === "function") loadPoints();   // refresh points + orphans
+            } else {
                 const j = await res.json().catch(()=>({}));
                 _openConfirm("Помилка", j.detail||"Помилка видалення", "btn-gray", ()=>{});
             }

@@ -198,21 +198,42 @@ def main():
 
     log.info(f"Loaded {len(meta_cache)} points")
 
-    # --- INIT operation_mode points in Redis (not MQTT-driven, never written otherwise) ---
+    # --- INIT all config points in Redis at startup, so the base always reflects
+    #     points.json even before data arrives; live values overwrite INIT later.
+    #     Existing keys are left intact (only missing points are seeded). ---
+    seed_pipe = r.pipeline()
+    seeded = 0
     for pid, meta in meta_cache.items():
-        if meta.get("type") != "operation_mode":
-            continue
         key = f"point:{pid}"
-        if not r.exists(key):
-            r.hset(key, mapping={
-                "value": "0",
-                "quality": "INIT",
-                "type": "operation_mode",
-                "object": meta["object"],
-                "system": meta["system"],
-                "pointname": meta["pointname"],
-            })
-            r.publish("bus:data", str(pid))
+        if r.exists(key):
+            continue
+        lim = meta.get("limits", {})
+        mapping = {
+            "value":     "0" if meta.get("type") == "operation_mode" else "",
+            "quality":   "INIT",
+            "type":      meta.get("type", "analog"),
+            "object":    meta["object"],
+            "system":    meta["system"],
+            "pointname": meta["pointname"],
+            "unit":      meta.get("unit", ""),
+            "min":       lim.get("min", 0),
+            "max":       lim.get("max", 100),
+            "warn_min":  lim.get("warn_min", 0),
+            "warn_max":  lim.get("warn_max", 100),
+            "alarm_min": lim.get("alarm_min", 0),
+            "alarm_max": lim.get("alarm_max", 100),
+        }
+        if meta.get("type") == "discrete":
+            mapping["label_0"]      = meta.get("label_0", "")
+            mapping["label_1"]      = meta.get("label_1", "")
+            mapping["normal_value"] = meta.get("normal_value", 0)
+            mapping["severity"]     = meta.get("severity", "none")
+        seed_pipe.hset(key, mapping=mapping)
+        seed_pipe.publish("bus:data", str(pid))
+        seeded += 1
+    if seeded:
+        seed_pipe.execute()
+    log.info(f"Seeded {seeded} points to Redis (INIT)")
 
     # start_mqtt(config, mqtt_callback(buffer, buffer_lock), log)
     mqtt_client = start_mqtt(config, mqtt_callback(buffer, buffer_lock))

@@ -1,10 +1,22 @@
 [
   {
-    "drop": "homeServ-1",
+    "drop": "homeServ2.local",
     "subsystems": [
       {
-        "id": "infrabox-core",
-        "name": "Core"
+        "id": "infrabox-adm",
+        "name": "Adm"
+      },
+      {
+        "id": "infrabox-arch",
+        "name": "Arch"
+      },
+      {
+        "id": "infrabox-arch-backend",
+        "name": "Arch Backend"
+      },
+      {
+        "id": "infrabox-arch-ui",
+        "name": "Arch Ui"
       },
       {
         "id": "infrabox-auth",
@@ -15,40 +27,32 @@
         "name": "Backend"
       },
       {
-        "id": "infrabox-adm",
-        "name": "ADM"
+        "id": "infrabox-core",
+        "name": "Core"
       },
       {
-        "id": "infrabox-simulator",
-        "name": "Simulator"
+        "id": "infrabox-lowlevel",
+        "name": "Lowlevel"
       },
       {
-        "id": "selfDiag",
-        "name": "Selfdiagnostic"
+        "id": "infrabox-mosquitto-real",
+        "name": "Mosquitto Real"
       },
       {
-        "id": "infrabox-arch",
-        "name": "Archivator"
-      },
-      {
-        "id": "infrabox-arch-backend",
-        "name": "Arch Backend"
-      },
-      {
-        "id": "infrabox-arch-ui",
-        "name": "Arch UI"
+        "id": "infrabox-mosquitto-sim",
+        "name": "Mosquitto Sim"
       },
       {
         "id": "infrabox-redis",
         "name": "Redis"
       },
       {
-        "id": "infrabox-mosquitto-real",
-        "name": "MQTT Real"
+        "id": "infrabox-selfdiagnostic",
+        "name": "Selfdiagnostic"
       },
       {
-        "id": "infrabox-mosquitto-sim",
-        "name": "MQTT Sim"
+        "id": "infrabox-simulator",
+        "name": "Simulator"
       },
       {
         "id": "infrabox-web",
@@ -57,6 +61,10 @@
       {
         "id": "portainer",
         "name": "Portainer"
+      },
+      {
+        "id": "selfDiag",
+        "name": "Selfdiagnostic"
       }
     ]
   }

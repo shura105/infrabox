@@ -607,6 +607,24 @@ def patch_sys_params_system(body: dict):
     return _rw_json(SYS_PARAMS_PATH, m)
 
 
+@app.put("/sys-params")
+def put_sys_params(body: dict):
+    """Replace the whole sys_params.json. bootstrap changes (data_source, redis,
+    mqtt) require a core restart to take effect — use «Застосувати зміни» after."""
+    if not isinstance(body, dict) or "bootstrap" not in body or "system" not in body:
+        raise HTTPException(400, "Очікується об'єкт із секціями 'bootstrap' і 'system'")
+    ds = body.get("bootstrap", {}).get("data_source")
+    if ds not in ("real", "sim"):
+        raise HTTPException(400, "bootstrap.data_source має бути 'real' або 'sim'")
+    def m(data):
+        keep = data.get("schema_version", 1)
+        data.clear()
+        data.update(body)
+        data.setdefault("schema_version", keep)
+        return data
+    return _rw_json(SYS_PARAMS_PATH, m)
+
+
 # ── Objects CRUD ───────────────────────────────────────────────────────────────
 class ObjectIn(BaseModel):
     id: str
@@ -641,6 +659,9 @@ def update_object(obj_id: str, body: ObjectIn):
                 return
         raise HTTPException(404, f"Object {obj_id!r} not found")
     _rw_json(OBJECTS_PATH, m)
+    if body.id != obj_id:   # cascade rename to dependents
+        _rw_json(DROPS_PATH,  _rename_field_mut("object", obj_id, body.id))
+        _rw_json(POINTS_PATH, _rename_field_mut("object", obj_id, body.id))
     return {"ok": True}
 
 
@@ -652,8 +673,15 @@ def delete_object(obj_id: str):
             raise HTTPException(404, f"Object {obj_id!r} not found")
         items[:] = new
     _rw_json(OBJECTS_PATH, m)
+    with open(DROPS_PATH) as f:
+        gone_drops = {d["id"] for d in json.load(f) if d.get("object") == obj_id}
+    removed = [p["id"] for p in _read_points() if p.get("object") == obj_id]
     _rw_json(DROPS_PATH,   lambda d: d.__setitem__(slice(None), [x for x in d if x.get("object") != obj_id]))
+    _rw_json(SYSTEMS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("drop") not in gone_drops]))
     _rw_json(POINTS_PATH,  lambda d: d.__setitem__(slice(None), [x for x in d if x.get("object") != obj_id]))
+    _rw_json(SUBSYSTEMS_CFG_PATH, _purge_node_infra_mut(gone_drops))
+    _rw_json(SOCKETS_PATH,        _purge_node_infra_mut(gone_drops))
+    _redis_purge_ids(removed)
     return {"ok": True}
 
 
@@ -684,6 +712,8 @@ def update_system(sys_id: str, body: SystemIn):
                 return
         raise HTTPException(404, f"System {sys_id!r} not found")
     _rw_json(SYSTEMS_PATH, m)
+    if body.id != sys_id:   # cascade rename to dependent points
+        _rw_json(POINTS_PATH, _rename_field_mut("system", sys_id, body.id))
     return {"ok": True}
 
 
@@ -695,7 +725,9 @@ def delete_system(sys_id: str):
             raise HTTPException(404, f"System {sys_id!r} not found")
         items[:] = new
     _rw_json(SYSTEMS_PATH, m)
+    removed = [p["id"] for p in _read_points() if p.get("system") == sys_id]
     _rw_json(POINTS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("system") != sys_id]))
+    _redis_purge_ids(removed)
     return {"ok": True}
 
 
@@ -713,6 +745,7 @@ def create_drop(body: DropIn):
             raise HTTPException(409, f"Drop {body.id!r} already exists")
         items.append(body.model_dump())
     _rw_json(DROPS_PATH, m)
+    _scaffold_node_infra(body.id)   # auto-create serv_subsystems + sockets for the node
     return {"ok": True}
 
 
@@ -725,6 +758,9 @@ def update_drop(drop_id: str, body: DropIn):
                 return
         raise HTTPException(404, f"Drop {drop_id!r} not found")
     _rw_json(DROPS_PATH, m)
+    if body.id != drop_id:   # cascade rename to every file that references the node
+        for path in (SYSTEMS_PATH, POINTS_PATH, SUBSYSTEMS_CFG_PATH, SOCKETS_PATH):
+            _rw_json(path, _rename_field_mut("drop", drop_id, body.id))
     return {"ok": True}
 
 
@@ -736,8 +772,193 @@ def delete_drop(drop_id: str):
             raise HTTPException(404, f"Drop {drop_id!r} not found")
         items[:] = new
     _rw_json(DROPS_PATH, m)
-    _rw_json(POINTS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("drop") != drop_id]))
+    removed = [p["id"] for p in _read_points() if p.get("drop") == drop_id]
+    _rw_json(SYSTEMS_PATH, lambda d: d.__setitem__(slice(None), [x for x in d if x.get("drop") != drop_id]))
+    _rw_json(POINTS_PATH,  lambda d: d.__setitem__(slice(None), [x for x in d if x.get("drop") != drop_id]))
+    _rw_json(SUBSYSTEMS_CFG_PATH, _purge_node_infra_mut(drop_id))
+    _rw_json(SOCKETS_PATH,        _purge_node_infra_mut(drop_id))
+    _redis_purge_ids(removed)
     return {"ok": True}
+
+
+# ── Cascade helpers ──────────────────────────────────────────────────────────
+def _rename_field_mut(field, old_id, new_id):
+    """Mutator for _rw_json: rename <field> value old_id → new_id across a list."""
+    def mut(items):
+        for x in items:
+            if isinstance(x, dict) and x.get(field) == old_id:
+                x[field] = new_id
+    return mut
+
+
+# ── Node infra scaffold (serv_subsystems + sockets tied to node lifecycle) ────
+_SELFDIAG_HW = {"id": "selfDiag", "name": "Selfdiagnostic",
+                "params": ["cpu_load", "mem_used", "disk_space", "net_rx", "net_tx"]}
+
+
+def _svc_label(cname):
+    """infrabox-arch-backend → 'Arch Backend', portainer → 'Portainer'."""
+    base = cname[len("infrabox-"):] if cname.startswith("infrabox-") else cname
+    return base.replace("-", " ").title()
+
+
+def _infra_containers():
+    """Running infrabox-* (+portainer) container names — the software topology."""
+    names = []
+    try:
+        for c in _docker().containers.list():
+            if c.name.startswith("infrabox-") or c.name == "portainer":
+                names.append(c.name)
+    except Exception:
+        pass
+    return sorted(names)
+
+
+def _scaffold_subsystems(drop_id):
+    subs = [{"id": n, "name": _svc_label(n)} for n in _infra_containers()]
+    subs.append({"id": "selfDiag", "name": "Selfdiagnostic"})
+    return {"drop": drop_id, "subsystems": subs}
+
+
+def _scaffold_sockets(drop_id):
+    software = [{"id": _svc_label(n), "name": n, "type": "heartbeat",
+                 "params": ["heartbeat"]} for n in _infra_containers()]
+    return {"drop": drop_id, "hardware": [dict(_SELFDIAG_HW)], "software": software}
+
+
+def _scaffold_node_infra(drop_id):
+    """On node create: add a serv_subsystems + sockets entry (if absent)."""
+    def add_sub(items):
+        if not any(n.get("drop") == drop_id for n in items):
+            items.append(_scaffold_subsystems(drop_id))
+    def add_sock(items):
+        if not any(n.get("drop") == drop_id for n in items):
+            items.append(_scaffold_sockets(drop_id))
+    _rw_json(SUBSYSTEMS_CFG_PATH, add_sub)
+    _rw_json(SOCKETS_PATH, add_sock)
+
+
+def _purge_node_infra_mut(drop_ids):
+    """Mutator: drop serv_subsystems/sockets node entries whose drop ∈ drop_ids."""
+    ids = drop_ids if isinstance(drop_ids, set) else {drop_ids}
+    return lambda d: d.__setitem__(slice(None), [n for n in d if n.get("drop") not in ids])
+
+
+def _redis_purge_ids(ids):
+    """Delete point:{id} Redis keys for the given ids (best-effort)."""
+    keys = [f"point:{i}" for i in ids]
+    if keys:
+        with contextlib.suppress(Exception):
+            _redis.delete(*keys)
+
+
+def _impact(field, value):
+    """Points in points.json whose <field> == value, plus which of them still
+    have a live point:* key in Redis. Returns (affected_points, redis_ids)."""
+    affected = [p for p in _read_points() if p.get(field) == value]
+    ids = [p["id"] for p in affected]
+    redis_ids = []
+    if ids:
+        with contextlib.suppress(Exception):
+            pipe = _redis.pipeline()
+            for i in ids:
+                pipe.exists(f"point:{i}")
+            redis_ids = [i for i, ex in zip(ids, pipe.execute()) if ex]
+    return affected, redis_ids
+
+
+def _impact_payload(affected, redis_ids):
+    return {
+        "points": [{"id": p["id"], "pointname": p.get("pointname", ""),
+                    "type": p.get("type", "")} for p in affected],
+        "redis_ids": redis_ids,
+    }
+
+
+@app.get("/objects/{obj_id}/impact")
+def object_impact(obj_id: str):
+    with open(DROPS_PATH) as f:
+        drops = [d["id"] for d in json.load(f) if d.get("object") == obj_id]
+    drop_set = set(drops)
+    with open(SYSTEMS_PATH) as f:
+        systems = [s["id"] for s in json.load(f) if s.get("drop") in drop_set]
+    affected, redis_ids = _impact("object", obj_id)
+    return {"drops": drops, "systems": systems, **_impact_payload(affected, redis_ids)}
+
+
+@app.get("/systems/{sys_id}/impact")
+def system_impact(sys_id: str):
+    affected, redis_ids = _impact("system", sys_id)
+    return _impact_payload(affected, redis_ids)
+
+
+@app.get("/drops/{drop_id}/impact")
+def drop_impact(drop_id: str):
+    with open(SYSTEMS_PATH) as f:
+        systems = [s["id"] for s in json.load(f) if s.get("drop") == drop_id]
+    affected, redis_ids = _impact("drop", drop_id)
+    return {"systems": systems, **_impact_payload(affected, redis_ids)}
+
+
+@app.get("/config/integrity")
+def config_integrity():
+    """Cross-file referential check — dangling parent references across config."""
+    def _load(p):
+        try:
+            with open(p) as f:
+                return json.load(f)
+        except Exception:
+            return []
+    objects = _load(OBJECTS_PATH)
+    drops   = _load(DROPS_PATH)
+    systems = _load(SYSTEMS_PATH)
+    points  = _read_points()
+    subs    = _load(SUBSYSTEMS_CFG_PATH)
+    socks   = _load(SOCKETS_PATH)
+
+    obj_ids  = {o.get("id") for o in objects}
+    drop_ids = {d.get("id") for d in drops}
+    sys_ids  = {s.get("id") for s in systems}
+    sock_by_drop = {}
+    all_sock_ids = set()
+    for n in socks:
+        ids = set()
+        for grp in ("hardware", "software"):
+            for s in (n.get(grp) or []):
+                if s.get("id"):
+                    ids.add(s["id"])
+        sock_by_drop[n.get("drop")] = ids
+        all_sock_ids |= ids
+
+    issues = []
+    def add(kind, entity, field, value, detail):
+        issues.append({"kind": kind, "entity": entity, "field": field,
+                       "value": value, "detail": detail})
+
+    for d in drops:
+        if d.get("object") and d["object"] not in obj_ids:
+            add("drop", d.get("id"), "object", d["object"], "вузол → неіснуючий об'єкт")
+    for s in systems:
+        if s.get("drop") and s["drop"] not in drop_ids:
+            add("system", s.get("id"), "drop", s["drop"], "система → неіснуючий вузол")
+    for p in points:
+        pid = p.get("id")
+        if p.get("object") and p["object"] not in obj_ids:
+            add("point", pid, "object", p["object"], "параметр → неіснуючий об'єкт")
+        if p.get("drop") and p["drop"] not in drop_ids:
+            add("point", pid, "drop", p["drop"], "параметр → неіснуючий вузол")
+        if p.get("system") and p["system"] not in sys_ids and p["system"] not in all_sock_ids:
+            add("point", pid, "system", p["system"], "параметр → неіснуюча система/сокет")
+        if p.get("socket") and p["socket"] not in sock_by_drop.get(p.get("drop"), set()):
+            add("point", pid, "socket", p["socket"], "параметр → неіснуючий сокет на вузлі")
+    for n in subs:
+        if n.get("drop") and n["drop"] not in drop_ids:
+            add("serv_subsystems", n["drop"], "drop", n["drop"], "підсистеми → неіснуючий вузол")
+    for n in socks:
+        if n.get("drop") and n["drop"] not in drop_ids:
+            add("sockets", n["drop"], "drop", n["drop"], "сокети → неіснуючий вузол")
+
+    return {"ok": len(issues) == 0, "issues": issues}
 
 
 @app.get("/config/subsystems")
@@ -884,6 +1105,9 @@ def update_point(point_id: int, p: PointIn):
         if x["id"] == point_id:
             points[i] = _point_dict(p)
             _write_points(points)
+            if p.id != point_id:   # id changed → drop the stale Redis key
+                with contextlib.suppress(Exception):
+                    _redis.delete(f"point:{point_id}")
             return {"ok": True}
     raise HTTPException(404, f"Point {point_id} not found")
 
@@ -895,13 +1119,64 @@ def delete_point(point_id: int):
     if len(new) == len(points):
         raise HTTPException(404, f"Point {point_id} not found")
     _write_points(new)
+    # purge the Redis runtime key too — otherwise it lingers as an orphan
+    with contextlib.suppress(Exception):
+        _redis.delete(f"point:{point_id}")
     return {"ok": True}
+
+
+@app.get("/points/redis-orphans")
+def get_redis_orphans():
+    """Redis point:* keys that have no backing entry in points.json — leftover
+    'ghost' params (e.g. from removed sim/test points). Read-only inventory."""
+    try:
+        cfg_ids = {int(p["id"]) for p in _read_points()}
+    except Exception as e:
+        raise HTTPException(500, f"points.json read error: {e}")
+    orphans = []
+    for key in _redis.scan_iter(match="point:*", count=500):
+        try:
+            pid = int(key.split(":", 1)[1])
+        except (ValueError, IndexError):
+            continue
+        if pid in cfg_ids:
+            continue
+        d = _redis.hgetall(key) or {}
+        orphans.append({
+            "id":        pid,
+            "value":     d.get("value"),
+            "quality":   d.get("quality"),
+            "ts":        d.get("ts"),
+            "pointname": d.get("pointname"),
+            "system":    d.get("system"),
+        })
+    orphans.sort(key=lambda x: x["id"])
+    return orphans
+
+
+@app.delete("/points/redis/{point_id}")
+def delete_redis_point(point_id: int):
+    """Delete a single Redis point:* key (orphan cleanup)."""
+    n = _redis.delete(f"point:{point_id}")
+    if not n:
+        raise HTTPException(404, f"Redis key point:{point_id} not found")
+    return {"ok": True, "deleted": n}
 
 
 @app.post("/points/reload")
 def reload_points():
-    """Restart core + simulator + selfdiagnostic to pick up points.json changes."""
+    """Apply points.json + reconcile the Redis base: flush every point:* key
+    (drops stale / orphaned / drifted data), then restart the data services so
+    they repopulate from the current config. Pressing this with no config change
+    acts as base maintenance."""
     results = {}
+    # 1. wipe the parameter base in Redis (clean slate)
+    try:
+        keys = list(_redis.scan_iter(match="point:*", count=500))
+        results["redis"] = f"flushed {_redis.delete(*keys) if keys else 0} point keys"
+    except Exception as e:
+        results["redis"] = f"error: {e}"
+    # 2. restart data services → repopulate from current points.json
     for name in ["infrabox-core", "infrabox-simulator", "infrabox-selfdiagnostic"]:
         try:
             c = _docker().containers.get(name)
