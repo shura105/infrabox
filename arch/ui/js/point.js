@@ -203,7 +203,7 @@ function pointApp() {
                 if (isBinary) {
                     const baseColor  = _CHART_COLORS[i % _CHART_COLORS.length];
                     const baseRad    = isActive ? 2 : 0;
-                    const accentRad  = isActive ? 4 : 0;
+                    const accentRad  = isActive ? 4 : 3;
                     const dataPoints = records.map(r => {
                         const v = r.value;
                         return { x: r.ts * 1000, y: (v === 0 || v === 1) ? v : null };
@@ -215,9 +215,9 @@ function pointApp() {
                         const next = k < dataPoints.length - 1 ? dataPoints[k+1].y : undefined;
                         if (cur == null) {
                             bg.push(baseColor); br.push(baseColor); rad.push(0);
-                        } else if (next === null && isActive) {
+                        } else if (next === null) {
                             bg.push("#f47067"); br.push("#f47067"); rad.push(accentRad);
-                        } else if (prev === null && isActive) {
+                        } else if (prev === null) {
                             bg.push("#56d364"); br.push("#56d364"); rad.push(accentRad);
                         } else {
                             bg.push(baseColor); br.push(baseColor); rad.push(baseRad);
@@ -276,7 +276,7 @@ function pointApp() {
                     // Mark gap boundaries: last valid before gap → red,
                     // first valid after gap → green, both ~2× size.
                     const baseRad   = isActive ? 2 : 0;
-                    const accentRad = isActive ? 4 : 0;
+                    const accentRad = isActive ? 4 : 3;
                     const bg = [], br = [], rad = [];
                     for (let k = 0; k < dataPoints.length; k++) {
                         const cur  = dataPoints[k].y;
@@ -284,9 +284,9 @@ function pointApp() {
                         const next = k < dataPoints.length - 1 ? dataPoints[k+1].y : undefined;
                         if (cur == null) {
                             bg.push(baseColor); br.push(baseColor); rad.push(0);
-                        } else if (next === null && isActive) {
+                        } else if (next === null) {
                             bg.push("#f47067"); br.push("#f47067"); rad.push(accentRad);
-                        } else if (prev === null && isActive) {
+                        } else if (prev === null) {
                             bg.push("#56d364"); br.push("#56d364"); rad.push(accentRad);
                         } else {
                             bg.push(baseColor); br.push(baseColor); rad.push(baseRad);
