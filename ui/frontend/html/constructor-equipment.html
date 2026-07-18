@@ -1027,7 +1027,7 @@
         const mqtt = prog.mqtt || {};
         const platform = (ctx && ctx.platform) || "";
         const ctype = (ctx && ctx.controllerType) || "";
-        const modeLbl = { input: "вхід", output: "вихід", hiz: "високий опір" };
+        const modeLbl = { input: "вхід", output: "вихід", hiz: "високий опір", onewire: "1-Wire" };
         const typeLbl = { analog_in: "аналоговий вхід", discrete_in: "дискретний вхід", control_out: "керуючий вихід", onewire_ds18b20: "DS18B20 (1-Wire, °C)" };
         const sep = "=".repeat(58), dash = "-".repeat(58);
 
@@ -1836,7 +1836,7 @@
         renderHwPreview(d.hardware, kbList, d);
 
         // ── таблиця задіяних портів ──────────────────────────────
-        const MODES = [["", "—"], ["input", "Вхід"], ["output", "Вихід"], ["hiz", "Високий опір"]];
+        const MODES = [["", "—"], ["input", "Вхід"], ["output", "Вихід"], ["hiz", "Високий опір"], ["onewire", "1-Wire (DS18B20)"]];
         let pins = (d.pins || []).map(p => ({
             pin: p.pin || "", function: p.function || "", purpose: p.purpose || "", mode: p.mode || ""
         }));
