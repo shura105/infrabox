@@ -1,0 +1,76 @@
+{
+  "id": "esp32-c3-super-mini",
+  "type": "ESP32 C3 Super Mini",
+  "platform": "esp32",
+  "info": "https://forum.arduino.cc/t/esp32-c3-supermini-pinout/1189850\n\nhttps://docs.cirkitdesigner.com/component/abd43ed0-0108-4d0c-88d2-56496cf3d252/esp32-c3-super-mini",
+  "images": [
+    "img-80edee87.jpeg",
+    "img-679dd831.jpeg",
+    "img-12c5b49e.jpg",
+    "img-6d043a47.pdf"
+  ],
+  "pins": [
+    {
+      "pin": "GPIO0",
+      "function": "GPIO, ADC, UART TX"
+    },
+    {
+      "pin": "GPIO1",
+      "function": "GPIO, ADC, UART RX"
+    },
+    {
+      "pin": "GPIO2",
+      "function": "GPIO, ADC, PWM"
+    },
+    {
+      "pin": "GPIO3",
+      "function": "GPIO, ADC, PWM"
+    },
+    {
+      "pin": "GPIO4",
+      "function": "GPIO, ADC, I2C SDA"
+    },
+    {
+      "pin": "GPIO5",
+      "function": "GPIO, ADC, I2C SCL"
+    },
+    {
+      "pin": "GPIO6",
+      "function": "GPIO, SPI CLK"
+    },
+    {
+      "pin": "GPIO7",
+      "function": "GPIO, SPI MOSI"
+    },
+    {
+      "pin": "GPIO8",
+      "function": "GPIO, SPI MISO"
+    },
+    {
+      "pin": "GPIO9",
+      "function": "GPIO, PWM, UART CTS"
+    },
+    {
+      "pin": "GPIO10",
+      "function": "GPIO, PWM, UART RTS"
+    },
+    {
+      "pin": "GPIO20",
+      "function": "GPIO, RX"
+    },
+    {
+      "pin": "GPIO21",
+      "function": "GPIO, TX"
+    }
+  ],
+  "created_at": 1784309864,
+  "ide": {
+    "board": "ESP32 С3 Dev Module",
+    "cpu_mhz": "160",
+    "flash": "QIO, 80 MHz, 4MB",
+    "partition": "No FS 4MB (2MB APP x2)",
+    "upload_speed": "921600",
+    "usb_cdc": true,
+    "notes": ""
+  }
+}

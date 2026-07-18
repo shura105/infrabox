@@ -1,0 +1,157 @@
+{
+  "id": "esp32-s3-devkitc-1-v11",
+  "type": "ESP32-S3-DevKitC-1 v1.1",
+  "info": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html",
+  "created_at": 1783239788,
+  "images": [
+    "img-050373c3.jpg",
+    "img-9ed53c92.png"
+  ],
+  "pins": [
+    {
+      "pin": "GPIO4",
+      "function": "GPIO, ADC1_3, TOUCH4, RTC"
+    },
+    {
+      "pin": "GPIO5",
+      "function": "GPIO, ADC1_4, TOUCH5, RTC"
+    },
+    {
+      "pin": "GPIO6",
+      "function": "GPIO, ADC1_5, TOUCH6, RTC"
+    },
+    {
+      "pin": "GPIO7",
+      "function": "GPIO, ADC1_6, TOUCH7, RTC"
+    },
+    {
+      "pin": "GPIO15",
+      "function": "GPIO, ADC2_4, XTAL_32K_P, U0RTS, RTC"
+    },
+    {
+      "pin": "GPIO16",
+      "function": "GPIO, ADC2_5, XTAL_32K_N, U0CTS, RTC"
+    },
+    {
+      "pin": "GPIO17",
+      "function": "GPIO, ADC2_6, U1TXD, RTC"
+    },
+    {
+      "pin": "GPIO18",
+      "function": "GPIO, ADC2_7, U1RXD, CLK_OUT3, RTC"
+    },
+    {
+      "pin": "GPIO8",
+      "function": "GPIO, ADC1_7, TOUCH8, RTC"
+    },
+    {
+      "pin": "GPIO3",
+      "function": "GPIO, ADC1_2, TOUCH3, JTAG, RTC, STRAP"
+    },
+    {
+      "pin": "GPIO46",
+      "function": "GPIO, LOG, STRAP"
+    },
+    {
+      "pin": "GPIO9",
+      "function": "GPIO, ADC1_8, TOUCH9, FSPIHD, SUBSPIHD, RTC"
+    },
+    {
+      "pin": "GPIO10",
+      "function": "GPIO, ADC1_9, TOUCH10, FSPICS0, SUBSPICS0, FSPIIO4, RTC"
+    },
+    {
+      "pin": "GPIO11",
+      "function": "GPIO, ADC2_0, TOUCH11, FSPID, SUBSPID, FSPIIO5, RTC"
+    },
+    {
+      "pin": "GPIO12",
+      "function": "GPIO, ADC2_1, TOUCH12, FSPICLK, SUBSPICLK, FSPIIO6, RTC"
+    },
+    {
+      "pin": "GPIO13",
+      "function": "GPIO, ADC2_2, TOUCH13, FSPIQ, SUBSPIQ, FSPIIO7, RTC"
+    },
+    {
+      "pin": "GPIO14",
+      "function": "GPIO, ADC2_3, TOUCH14, FSPIWP, SUBSPIWP, FSPIDQS, RTC"
+    },
+    {
+      "pin": "GPIO43",
+      "function": "GPIO, U0TXD, CLK_OUT1"
+    },
+    {
+      "pin": "GPIO44",
+      "function": "GPIO, U0RXD, CLK_OUT2"
+    },
+    {
+      "pin": "GPIO1",
+      "function": "GPIO, ADC1_0, TOUCH1, RTC"
+    },
+    {
+      "pin": "GPIO2",
+      "function": "GPIO, ADC1_1, TOUCH2, RTC"
+    },
+    {
+      "pin": "GPIO42",
+      "function": "GPIO, MTMS"
+    },
+    {
+      "pin": "GPIO41",
+      "function": "GPIO, MTDI, CLK_OUT1"
+    },
+    {
+      "pin": "GPIO40",
+      "function": "GPIO, MTDO, CLK_OUT2"
+    },
+    {
+      "pin": "GPIO39",
+      "function": "GPIO, MTCK, CLK_OUT3, SUBSPICS1"
+    },
+    {
+      "pin": "GPIO38",
+      "function": "GPIO, FSPIWP, SUBSPIWP, RGB_LED"
+    },
+    {
+      "pin": "GPIO37",
+      "function": "GPIO, SPIDQS, FSPIQ, SUBSPIQ"
+    },
+    {
+      "pin": "GPIO36",
+      "function": "GPIO, SPIIO7, FSPICLK, SUBSPICLK"
+    },
+    {
+      "pin": "GPIO35",
+      "function": "GPIO, SPIIO6, FSPID, SUBSPID"
+    },
+    {
+      "pin": "GPIO0",
+      "function": "GPIO, BOOT, STRAP"
+    },
+    {
+      "pin": "GPIO45",
+      "function": "GPIO, VSPI, STRAP"
+    },
+    {
+      "pin": "GPIO48",
+      "function": "GPIO, SPICLK_N"
+    },
+    {
+      "pin": "GPIO47",
+      "function": "GPIO, SPICLK_P"
+    },
+    {
+      "pin": "GPIO21",
+      "function": "GPIO, RTC"
+    },
+    {
+      "pin": "GPIO20",
+      "function": "GPIO, USB_D+, ADC2_9, U1CTS, CLK_OUT1, RTC"
+    },
+    {
+      "pin": "GPIO19",
+      "function": "GPIO, USB_D-, ADC2_8, U1RTS, CLK_OUT2, RTC"
+    }
+  ],
+  "platform": "esp32"
+}
