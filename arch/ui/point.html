@@ -14,8 +14,8 @@
 
     <header>
         <a class="back" @click.prevent="goBack()" href="index.html">← Back</a>
-        <h1 x-text="title"></h1>
-        <div class="status" :class="{'status-loading': status.startsWith('Loading')}" x-text="status"></div>
+        <div class="app-title" x-text="points.length ? `${points[0].object || points[0].drop || '—'} archiver` : title"></div>
+        <div class="status" :class="{'status-loading': loading}" x-text="status"></div>
     </header>
 
     <!-- POINT INFO -->

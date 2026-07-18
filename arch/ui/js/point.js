@@ -1,6 +1,7 @@
 let _chartInstance = null;
 let _rangeTimer = null;
 let _currentMode = false;
+const TS_MIN = 946684800;   // 2000-01-01 — ігнорувати неправдоподібні ts (1970/uptime пристрою)
 let _abortController = null;
 let _renderGeneration = 0;
 
@@ -37,6 +38,7 @@ function pointApp() {
         toDt: "",
         title: "Loading...",
         status: "",
+        loading: false,
 
         goBack() {
             _abortAll();
@@ -84,19 +86,23 @@ function pointApp() {
         async loadCurrent() {
             _currentMode = true;
             const signal = _newRequest();
-            this.status = "Loading...";
+            this.loading = true;
+            const toTs   = Math.floor(Date.now() / 1000);
+            const fromTs = toTs - 1800;   // останні 30 хв
 
             try {
                 const results = await Promise.all(
-                    this.points.map(p => fetchCurrent(p.id, signal))
+                    this.points.map(p => fetchRange(p.id, fromTs, toTs, signal))
                 );
                 this.points.forEach((p, i) => {
-                    this.records[p.id] = results[i];
+                    this.records[p.id] = (results[i] || []).filter(r => r && r.ts >= TS_MIN);
                 });
-                this.status = "Current volume";
-                this.renderChart();
+                this.status = "Останні 30 хв";
+                this.loading = false;
+                this.renderChart(fromTs * 1000, toTs * 1000);   // фіксуємо вісь на 30-хв вікні
             } catch (e) {
                 if (e.name === "AbortError") return;
+                this.loading = false;
                 this.status = "Error loading data";
                 console.error("loadCurrent error:", e);
             }
@@ -113,19 +119,21 @@ function pointApp() {
             const fromTs = Math.floor(new Date(this.fromDt).getTime() / 1000);
             const toTs = Math.floor(new Date(this.toDt).getTime() / 1000);
 
-            this.status = "Loading archive...";
+            this.loading = true;
 
             try {
                 const results = await Promise.all(
                     this.points.map(p => fetchRange(p.id, fromTs, toTs, signal))
                 );
                 this.points.forEach((p, i) => {
-                    this.records[p.id] = results[i];
+                    this.records[p.id] = (results[i] || []).filter(r => r && r.ts >= TS_MIN);
                 });
                 this.status = `${this.fromDt} → ${this.toDt}`;
+                this.loading = false;
                 this.renderChart();
             } catch (e) {
                 if (e.name === "AbortError") return;
+                this.loading = false;
                 this.status = "Error loading archive";
                 console.error("loadArchive error:", e);
             }
@@ -164,18 +172,20 @@ function pointApp() {
                 const fromTs = Math.floor(min / 1000);
                 const toTs = Math.floor(max / 1000);
 
-                this.status = "Loading...";
+                this.loading = true;
                 try {
                     const results = await Promise.all(
                         this.points.map(p => fetchRange(p.id, fromTs, toTs, signal))
                     );
                     this.points.forEach((p, i) => {
-                        this.records[p.id] = results[i];
+                        this.records[p.id] = (results[i] || []).filter(r => r && r.ts >= TS_MIN);
                     });
                     this.status = `${formatTs(fromTs)} → ${formatTs(toTs)}`;
+                    this.loading = false;
                     this._updateChartData();
                 } catch (e) {
                     if (e.name === "AbortError") return;
+                    this.loading = false;
                     this.status = "Error loading data";
                     console.error("_onRangeChange error:", e);
                 }
@@ -242,6 +252,9 @@ function pointApp() {
         renderChart(xMin = null, xMax = null) {
             const generation = ++_renderGeneration;
             const isSingle = this.points.length === 1;
+            // одна ВИДИМА точка (галочками) → показуємо її фонові зони станів
+            const _visible = this.points.filter(p => this.pointVisible[p.id]);
+            const soloPoint = _visible.length === 1 ? _visible[0] : null;
 
             const datasets = this.points.map((p, i) => {
                 const records   = this.records[p.id] || [];
@@ -308,14 +321,19 @@ function pointApp() {
 
             const annotations = {};
 
-            // Analog single-point: classic warn/alarm horizontal bands
-            if (isSingle && this.points[0] && !_BINARY_TYPES.has(this.points[0].type)) {
-                const p = this.points[0];
-                annotations.alarmHigh = { type: "box", yMin: p.alarm_max, yMax: p.max, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
-                annotations.warnHigh  = { type: "box", yMin: p.warn_max, yMax: p.alarm_max, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
-                annotations.good      = { type: "box", yMin: p.warn_min, yMax: p.warn_max, backgroundColor: "rgba(60,200,60,0.08)", borderWidth: 0 };
-                annotations.warnLow   = { type: "box", yMin: p.alarm_min, yMax: p.warn_min, backgroundColor: "rgba(255,200,0,0.10)", borderWidth: 0 };
-                annotations.alarmLow  = { type: "box", yMin: p.min, yMax: p.alarm_min, backgroundColor: "rgba(255,60,60,0.12)", borderWidth: 0 };
+            // Analog: фонові зони станів, коли ВИДИМА рівно одна точка (вибрана чи лишена галочками)
+            if (soloPoint && !_BINARY_TYPES.has(soloPoint.type)) {
+                const p = soloPoint;
+                const ax = `y_${p.id}`;   // прив'язка до осі саме цієї точки
+                annotations.alarmHigh = { type: "box", yScaleID: ax, yMin: p.alarm_max, yMax: p.max, backgroundColor: "rgba(255,60,60,0.18)", borderWidth: 0 };
+                annotations.warnHigh  = { type: "box", yScaleID: ax, yMin: p.warn_max, yMax: p.alarm_max, backgroundColor: "rgba(255,200,0,0.16)", borderWidth: 0 };
+                annotations.good      = { type: "box", yScaleID: ax, yMin: p.warn_min, yMax: p.warn_max, backgroundColor: "rgba(60,200,60,0.14)", borderWidth: 0 };
+                annotations.warnLow   = { type: "box", yScaleID: ax, yMin: p.alarm_min, yMax: p.warn_min, backgroundColor: "rgba(255,200,0,0.16)", borderWidth: 0 };
+                annotations.alarmLow  = { type: "box", yScaleID: ax, yMin: p.min, yMax: p.alarm_min, backgroundColor: "rgba(255,60,60,0.18)", borderWidth: 0 };
+                // зони недостовірності — за шкалою (над max / під min), у полі ±3; лавандовий
+                const UNCERT = "rgba(179,157,219,0.22)";
+                annotations.uncertHigh = { type: "box", yScaleID: ax, yMin: p.max, yMax: p.max + 3, backgroundColor: UNCERT, borderWidth: 0 };
+                annotations.uncertLow  = { type: "box", yScaleID: ax, yMin: p.min - 3, yMax: p.min, backgroundColor: UNCERT, borderWidth: 0 };
             }
 
             if (generation !== _renderGeneration) return;
@@ -344,7 +362,7 @@ function pointApp() {
                     maxRotation: 35,
                     minRotation: 35
                 },
-                grid: { color: "#1e2130" }
+                grid: { color: "#3a4256" }
             };
             if (xMin != null) xAxisConfig.min = xMin;
             if (xMax != null) xAxisConfig.max = xMax;
@@ -383,16 +401,29 @@ function pointApp() {
                             axis.ticks = axis.ticks.filter(t => t.value === 0 || t.value === 1);
                         },
                         border: { color: isActive ? "#4caf50" : "#4b5563" },
-                        grid:   { color: "#1e2130", drawOnChartArea: isActive },
+                        grid:   { color: "#3a4256", drawOnChartArea: isActive },
                     };
                 } else {
+                    const PAD = 3;   // розтиснути поле: по 3 одиниці згори й знизу
+                    let yMin, yMax;
+                    if (p.min != null && p.max != null) {
+                        yMin = p.min; yMax = p.max;
+                    } else {
+                        let dMin = Infinity, dMax = -Infinity;
+                        (this.records[p.id] || []).forEach(r => {
+                            const v = r.value;
+                            if (v != null && isFinite(v)) { if (v < dMin) dMin = v; if (v > dMax) dMax = v; }
+                        });
+                        if (!isFinite(dMin)) { dMin = 0; dMax = 100; }
+                        yMin = dMin; yMax = dMax;
+                    }
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
                         position: "left",
                         ticks:   { color: tickColor },
                         border:  { color: isActive ? "#4caf50" : "#4b5563" },
-                        grid:    { color: "#1e2130", drawOnChartArea: isActive },
-                        ...(p.min != null && p.max != null ? { min: p.min, max: p.max } : {})
+                        grid:    { color: "#3a4256", drawOnChartArea: isActive },
+                        min: yMin - PAD, max: yMax + PAD,
                     };
                 }
             });
