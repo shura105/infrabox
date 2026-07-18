@@ -48,3 +48,5 @@ lowlevel/knowledge/*
 # Sensitive host manifest (contains SSH private key) — never version
 core/service/config/infrabox.json
 core/service/config/infrabox.db
+/infrabox.json
+/infrabox.db
