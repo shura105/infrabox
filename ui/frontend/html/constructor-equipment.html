@@ -1268,7 +1268,9 @@
             if (s.type === "analog_in") return;   // analogRead — pinMode не потрібен
             const tag = sigTag(s);
             if (s.type === "onewire_ds18b20") {
+                const res = parseInt(s.resolution) || 9;
                 pinLines.push(`  ds_${tag}.begin();`);
+                pinLines.push(`  ds_${tag}.setResolution(${res});   // ${(0.5 / (1 << (res - 9))).toString()} °C`);
                 pinLines.push(`  ds_${tag}.setWaitForConversion(false);   // async — не блокуємо loop`);
                 return;
             }
@@ -1314,6 +1316,8 @@
 
             if (s.type === "onewire_ds18b20") {
                 const iv = parseInt(s.interval_ms) || 1000;
+                const res = parseInt(s.resolution) || 9;
+                const waitMs = Math.ceil(750 / (1 << (12 - res)));   // 9б≈94 10б≈188 11б≈375 12б=750
                 // старт конверсії по інтервалу (не блокуємо loop)
                 L.push(`  if (!converting_${tag} && now - lastPoll_${tag} >= ${iv}) {`);
                 L.push(`    lastPoll_${tag} = now;`);
@@ -1321,8 +1325,8 @@
                 L.push(`    convStart_${tag} = now;`);
                 L.push(`    converting_${tag} = true;`);
                 L.push("  }");
-                // читання після завершення конверсії (~750мс для 12 біт)
-                L.push(`  if (converting_${tag} && now - convStart_${tag} >= 750) {`);
+                // читання після завершення конверсії
+                L.push(`  if (converting_${tag} && now - convStart_${tag} >= ${waitMs}) {`);
                 L.push(`    converting_${tag} = false;`);
                 L.push(`    float t = ds_${tag}.getTempCByIndex(0);`);
                 L.push(`    if (t > -100) publishFloat(TOPIC_${tag}, ${pid}, t);   // -127 = датчик відпав → не шлемо → NODATA`);
@@ -1489,6 +1493,7 @@
         let signals = (prog.signals || []).map(s => ({
             type: s.type || "discrete_in", pin: s.pin || "", point_id: (s.point_id ?? ""),
             poll: s.poll || "timer", interval_ms: (s.interval_ms ?? 1000),
+            resolution: (s.resolution ?? 9),
             in_min: (s.in_min ?? 0), in_max: (s.in_max ?? 4095),
             out_min: (s.out_min ?? 0), out_max: (s.out_max ?? 100),
         }));
@@ -1588,9 +1593,17 @@
 
                 let specific;
                 if (isDs) {
+                    const res = s.resolution || 9;
                     specific = `
                         <div class="field"><label>Інтервал опитування, мс</label>
                             <input class="inp" data-f="interval" type="number" min="1000" value="${s.interval_ms}"></div>
+                        <div class="field"><label>Роздільність</label>
+                            <select class="inp" data-f="resolution">
+                                <option value="9"${res == 9 ? " selected" : ""}>9 біт — 0.5 °C</option>
+                                <option value="10"${res == 10 ? " selected" : ""}>10 біт — 0.25 °C</option>
+                                <option value="11"${res == 11 ? " selected" : ""}>11 біт — 0.125 °C</option>
+                                <option value="12"${res == 12 ? " selected" : ""}>12 біт — 0.0625 °C</option>
+                            </select></div>
                         <div class="ov-muted" style="grid-column:1/-1;font-size:11px">DS18B20 віддає °C напряму (точка аналогова, пороги — на точці). Потрібна підтяжка 4.7k data→VCC; бібліотеки OneWire + DallasTemperature.</div>`;
                 } else if (isA) {
                     specific = `
@@ -1640,6 +1653,8 @@
                 card.querySelector('[data-f="point"]').addEventListener("change", e => signals[i].point_id = e.target.value);
                 const pollEl = card.querySelector('[data-f="poll"]');
                 if (pollEl) pollEl.addEventListener("change", e => { signals[i].poll = e.target.value; renderSignals(); });
+                const resEl = card.querySelector('[data-f="resolution"]');
+                if (resEl) resEl.addEventListener("change", e => signals[i].resolution = parseInt(e.target.value));
                 card.querySelectorAll('[data-f="interval"],[data-f="in_min"],[data-f="in_max"],[data-f="out_min"],[data-f="out_max"]').forEach(el => {
                     el.addEventListener("input", e => {
                         const key = el.dataset.f === "interval" ? "interval_ms" : el.dataset.f;
@@ -1653,7 +1668,7 @@
 
         document.getElementById("btnAddSig").addEventListener("click", () => {
             signals.push({ type: "discrete_in", pin: "", point_id: "", poll: "timer", interval_ms: 1000,
-                           in_min: 0, in_max: 4095, out_min: 0, out_max: 100 });
+                           resolution: 9, in_min: 0, in_max: 4095, out_min: 0, out_max: 100 });
             renderSignals();
         });
         renderSignals();
