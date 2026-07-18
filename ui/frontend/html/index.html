@@ -1411,9 +1411,15 @@ function app() {
                       INIT: '#58a6ff', NODATA: '#333a42' })[q] || '#333a42';
         },
         _ptLim(pt, el, key) {
-            // prefer Redis limits (written by core), fall back to element config
-            const v = parseFloat(pt?.[key]);
-            return isNaN(v) ? el[key] : v;
+            // Default: INHERIT the point's limits (parameter is the source of truth).
+            // Only when «Ручне налаштування границь» (el.manualLimits) is on does the
+            // element's own scale/zones win. Either way fall back to the other if unset.
+            if (el?.manualLimits) {
+                const v = parseFloat(el[key]);
+                if (!isNaN(v)) return v;
+            }
+            const p = parseFloat(pt?.[key]);
+            return isNaN(p) ? parseFloat(el?.[key]) : p;
         },
         levelFillStyle(el) {
             const pt = this.points[String(el.point_id)];
@@ -1451,10 +1457,13 @@ function app() {
 
             const mn = this._ptLim(pt, el, 'min'),  mx = this._ptLim(pt, el, 'max');
             const cG = el.colorGood||'#56d364', cW = el.colorWarn||'#f0ad4e', cA = el.colorAlarm||'#f47067';
-            const aMin = Math.max(mn,   this._ptLim(pt, el, 'alarm_min'));
-            const wMin = Math.max(aMin, this._ptLim(pt, el, 'warn_min'));
-            const wMax = Math.min(mx,   this._ptLim(pt, el, 'warn_max'));
-            const aMax = Math.min(mx,   this._ptLim(pt, el, 'alarm_max'));
+            // chain-clamp so mn ≤ aMin ≤ wMin ≤ wMax ≤ aMax ≤ mx regardless of
+            // threshold ordering — zones stay well-formed (never inverted)
+            const _cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+            const aMin = _cl(this._ptLim(pt, el, 'alarm_min'), mn,   mx);
+            const wMin = _cl(this._ptLim(pt, el, 'warn_min'),  aMin, mx);
+            const wMax = _cl(this._ptLim(pt, el, 'warn_max'),  wMin, mx);
+            const aMax = _cl(this._ptLim(pt, el, 'alarm_max'), wMax, mx);
             const raw = [];
             if (aMin > mn)   raw.push([mn, aMin, cA]);
             if (wMin > aMin) raw.push([aMin, wMin, cW]);

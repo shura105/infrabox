@@ -1343,13 +1343,46 @@
                         <template x-if="selEl.type==='gauge'">
                             <div>
                                 <div class="pr"><label>Point ID</label><input type="number" x-model.number="selEl.point_id" min="1"></div>
-                                <div class="pr"><label>Мін</label><input type="number" x-model.number="selEl.min"></div>
-                                <div class="pr"><label>Макс</label><input type="number" x-model.number="selEl.max"></div>
                                 <div class="pr-sep"></div>
-                                <div class="pr"><label>warn_min</label><input type="number" x-model.number="selEl.warn_min" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>warn_max</label><input type="number" x-model.number="selEl.warn_max" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>alarm_min</label><input type="number" x-model.number="selEl.alarm_min" :min="selEl.min" :max="selEl.max"></div>
-                                <div class="pr"><label>alarm_max</label><input type="number" x-model.number="selEl.alarm_max" :min="selEl.min" :max="selEl.max"></div>
+                                <div class="pr-inline"><input type="checkbox" x-model="selEl.manualLimits" id="gaManual"><label for="gaManual">Ручне налаштування границь</label></div>
+                                <div x-show="!selEl.manualLimits" style="font-size:11px;color:#6e7681;margin:2px 0 4px;line-height:1.4">Шкала й зони наслідуються від точки #<span x-text="selEl.point_id||'—'"></span>. Увімкни галочку, щоб задати вручну.</div>
+                                <div x-show="selEl.manualLimits">
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin:2px 0 4px;font-weight:600">Шкала приладу</div>
+                                <div class="pr"><label>Шкала: від</label><input type="number" x-model.number="selEl.min"></div>
+                                <div class="pr"><label>Шкала: до</label><input type="number" x-model.number="selEl.max"></div>
+                                <div class="pr-sep"></div>
+                                <div style="font-size:11px;color:#8b949e;margin:2px 0 2px;font-weight:600">Зони спрацювання</div>
+                                <div style="font-size:11px;color:#6e7681;margin:0 0 5px;line-height:1.4">Кожна зона — діапазон «з … по». Сірі поля — краї шкали (незмінні). GOOD (зелена) — між «Варн нижній» і «Варн верхній».</div>
+                                <div class="pr"><label>🔴 Аларм нижній</label>
+                                    <div style="display:flex;gap:4px;align-items:center">
+                                        <input type="number" :value="selEl.min" disabled title="край шкали" style="flex:1;min-width:0;opacity:.45">
+                                        <span style="color:#6e7681;font-size:11px">…</span>
+                                        <input type="number" x-model.number="selEl.alarm_min" title="по" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                    </div>
+                                </div>
+                                <div class="pr"><label>🟠 Варн нижній</label>
+                                    <div style="display:flex;gap:4px;align-items:center">
+                                        <input type="number" x-model.number="selEl.alarm_min" title="з" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                        <span style="color:#6e7681;font-size:11px">…</span>
+                                        <input type="number" x-model.number="selEl.warn_min" title="по" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                    </div>
+                                </div>
+                                <div class="pr"><label>🟠 Варн верхній</label>
+                                    <div style="display:flex;gap:4px;align-items:center">
+                                        <input type="number" x-model.number="selEl.warn_max" title="з" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                        <span style="color:#6e7681;font-size:11px">…</span>
+                                        <input type="number" x-model.number="selEl.alarm_max" title="по" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                    </div>
+                                </div>
+                                <div class="pr"><label>🔴 Аларм верхній</label>
+                                    <div style="display:flex;gap:4px;align-items:center">
+                                        <input type="number" x-model.number="selEl.alarm_max" title="з" :min="selEl.min" :max="selEl.max" style="flex:1;min-width:0">
+                                        <span style="color:#6e7681;font-size:11px">…</span>
+                                        <input type="number" :value="selEl.max" disabled title="край шкали" style="flex:1;min-width:0;opacity:.45">
+                                    </div>
+                                </div>
+                                </div>
                                 <div class="pr-sep"></div>
                                 <div class="pr"><label>Товщина дуги</label><input type="number" x-model.number="selEl.arcWidth" min="2" max="30"></div>
                                 <div class="pr-sep"></div>
@@ -2749,8 +2782,13 @@ function app() {
             const cx=50, cy=56, r=36, aw=el.arcWidth||10, SA=135, EA=405;
             const mn=el.min, mx=el.max;
             const cG=el.colorGood||'#56d364', cW=el.colorWarn||'#f0ad4e', cA=el.colorAlarm||'#f47067';
-            const aMin=Math.max(mn,el.alarm_min??mn), wMin=Math.max(aMin,el.warn_min??aMin);
-            const wMax=Math.min(mx,el.warn_max??mx), aMax=Math.min(mx,el.alarm_max??mx);
+            // chain-clamp so mn ≤ aMin ≤ wMin ≤ wMax ≤ aMax ≤ mx regardless of
+            // how the thresholds are entered — zones stay well-formed (never inverted)
+            const _cl=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+            const aMin=_cl(el.alarm_min??mn, mn,   mx);
+            const wMin=_cl(el.warn_min ??aMin, aMin, mx);
+            const wMax=_cl(el.warn_max ??mx,  wMin, mx);
+            const aMax=_cl(el.alarm_max??wMax, wMax, mx);
             const zones=[];
             if(aMin>mn)   zones.push([mn,aMin,cA]);
             if(wMin>aMin) zones.push([aMin,wMin,cW]);
@@ -2778,7 +2816,22 @@ function app() {
               ${vTxt}${lTxt}</svg>`;
         },
         cGaugeSVGHtml(el) {
-            return this._gaugeSVGHtml(el, el.min + (el.max - el.min) * 0.6);
+            const e = this._gaugeEffEl(el);
+            return this._gaugeSVGHtml(e, e.min + (e.max - e.min) * 0.6);
+        },
+        // Effective limits for a gauge: element's own when «Ручне налаштування границь»
+        // is on, otherwise inherited from the bound point (allPoints) — mirrors the
+        // live screen (_ptLim), so the preview shows what will actually render.
+        _gaugeEffEl(el) {
+            if (el.manualLimits) return el;
+            const pt = this.allPoints.find(p => String(p.id) === String(el.point_id));
+            if (!pt) return el;
+            const n = (a, b) => { const v = parseFloat(a); return isNaN(v) ? b : v; };
+            return { ...el,
+                min:      n(pt.min, el.min),           max:      n(pt.max, el.max),
+                warn_min: n(pt.warn_min, el.warn_min), warn_max: n(pt.warn_max, el.warn_max),
+                alarm_min:n(pt.alarm_min, el.alarm_min), alarm_max:n(pt.alarm_max, el.alarm_max),
+            };
         },
 
         // ── shape SVG helpers ──────────────────────────────────────────────────

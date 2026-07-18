@@ -1233,17 +1233,42 @@
                     <input type="text" id="pt_unit" placeholder="°C">
                 </div>
             </div>
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Діапазони</div>
-            <div class="form-grid-3">
-                <div class="field"><label>min</label><input type="number" id="pt_min" step="any"></div>
-                <div class="field"><label>max</label><input type="number" id="pt_max" step="any"></div>
-                <div class="field"></div>
-                <div class="field"><label>warn_min</label><input type="number" id="pt_warn_min" step="any"></div>
-                <div class="field"><label>warn_max</label><input type="number" id="pt_warn_max" step="any"></div>
-                <div class="field"></div>
-                <div class="field"><label>alarm_min</label><input type="number" id="pt_alarm_min" step="any"></div>
-                <div class="field"><label>alarm_max</label><input type="number" id="pt_alarm_max" step="any"></div>
-                <div class="field"></div>
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Зони стану</div>
+            <div style="font-size:11px;color:#6e7681;margin:0 0 8px;line-height:1.4">Кожна зона — діапазон «з … по». Крайні «з» (Аларм нижній) і «по» (Аларм верхній) — це межі шкали: поза ними значення <b>недостовірне</b> (UNCERT). Спільні границі синхронізуються між сусідніми зонами.</div>
+            <div class="field"><label>🔴 Аларм нижній</label>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <input type="number" step="any" id="pt_min" oninput="_ptZoneSyncFrom('pt_min')" placeholder="з (шкала)" title="Нижня межа шкали — нижче → недостовірно" style="flex:1;min-width:0">
+                    <span style="color:#6e7681;font-size:11px">…</span>
+                    <input type="number" step="any" id="pt_alarm_min" oninput="_ptZoneSyncFrom('pt_alarm_min')" placeholder="по" style="flex:1;min-width:0">
+                </div>
+            </div>
+            <div class="field"><label>🟠 Варн нижній</label>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <input type="number" step="any" id="pt_alarm_min_b" oninput="_ptZoneSyncFrom('pt_alarm_min_b')" placeholder="з" style="flex:1;min-width:0">
+                    <span style="color:#6e7681;font-size:11px">…</span>
+                    <input type="number" step="any" id="pt_warn_min" oninput="_ptZoneSyncFrom('pt_warn_min')" placeholder="по" style="flex:1;min-width:0">
+                </div>
+            </div>
+            <div class="field"><label>🟢 Норма</label>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <input type="number" step="any" id="pt_warn_min_b" oninput="_ptZoneSyncFrom('pt_warn_min_b')" placeholder="з" style="flex:1;min-width:0">
+                    <span style="color:#6e7681;font-size:11px">…</span>
+                    <input type="number" step="any" id="pt_warn_max" oninput="_ptZoneSyncFrom('pt_warn_max')" placeholder="по" style="flex:1;min-width:0">
+                </div>
+            </div>
+            <div class="field"><label>🟠 Варн верхній</label>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <input type="number" step="any" id="pt_warn_max_b" oninput="_ptZoneSyncFrom('pt_warn_max_b')" placeholder="з" style="flex:1;min-width:0">
+                    <span style="color:#6e7681;font-size:11px">…</span>
+                    <input type="number" step="any" id="pt_alarm_max" oninput="_ptZoneSyncFrom('pt_alarm_max')" placeholder="по" style="flex:1;min-width:0">
+                </div>
+            </div>
+            <div class="field"><label>🔴 Аларм верхній</label>
+                <div style="display:flex;gap:4px;align-items:center">
+                    <input type="number" step="any" id="pt_alarm_max_b" oninput="_ptZoneSyncFrom('pt_alarm_max_b')" placeholder="з" style="flex:1;min-width:0">
+                    <span style="color:#6e7681;font-size:11px">…</span>
+                    <input type="number" step="any" id="pt_max" oninput="_ptZoneSyncFrom('pt_max')" placeholder="по (шкала)" title="Верхня межа шкали — вище → недостовірно" style="flex:1;min-width:0">
+                </div>
             </div>
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Архів</div>
             <div class="form-grid">
@@ -3288,6 +3313,28 @@ function onPointTypeChange() {
         document.getElementById("pt_system").value = document.getElementById("pt_system_sel").value;
     }
     if (isDiscrete) onSeverityChange();
+    _ptZoneSyncAll();
+}
+
+// ── Зони стану: синхронізація спільних границь між сусідніми зонами ──────────
+const _PT_TWINS = [
+    ["pt_alarm_min", "pt_alarm_min_b"],
+    ["pt_warn_min",  "pt_warn_min_b"],
+    ["pt_warn_max",  "pt_warn_max_b"],
+    ["pt_alarm_max", "pt_alarm_max_b"],
+];
+function _ptZoneCopy(a, b) {
+    const ea = document.getElementById(a), eb = document.getElementById(b);
+    if (ea && eb) eb.value = ea.value;
+}
+function _ptZoneSyncFrom(id) {
+    for (const [x, y] of _PT_TWINS) {
+        if (id === x) _ptZoneCopy(x, y);
+        else if (id === y) _ptZoneCopy(y, x);
+    }
+}
+function _ptZoneSyncAll() {   // canonical → дзеркала (при відкритті/заповненні)
+    for (const [x, y] of _PT_TWINS) _ptZoneCopy(x, y);
 }
 
 // ── Tech section: Object → Drop → System cascade ──────────────────────────
