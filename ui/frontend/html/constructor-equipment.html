@@ -1028,7 +1028,7 @@
         const platform = (ctx && ctx.platform) || "";
         const ctype = (ctx && ctx.controllerType) || "";
         const modeLbl = { input: "вхід", output: "вихід", hiz: "високий опір" };
-        const typeLbl = { analog_in: "аналоговий вхід", discrete_in: "дискретний вхід", control_out: "керуючий вихід" };
+        const typeLbl = { analog_in: "аналоговий вхід", discrete_in: "дискретний вхід", control_out: "керуючий вихід", onewire_ds18b20: "DS18B20 (1-Wire, °C)" };
         const sep = "=".repeat(58), dash = "-".repeat(58);
 
         const L = ["/* " + sep];
@@ -1090,9 +1090,14 @@
             L.push(" * " + dash, " *  Сигнали:");
             sigs.forEach(s => {
                 const t = typeLbl[s.type] || s.type;
-                const poll = s.poll === "interrupt" ? "переривання" : `таймер ${s.interval_ms || 1000}мс`;
+                const poll = s.type === "onewire_ds18b20"
+                    ? `1-Wire, таймер ${s.interval_ms || 1000}мс`
+                    : s.poll === "interrupt" ? "переривання" : `таймер ${s.interval_ms || 1000}мс`;
                 L.push(" *    [" + t + "] " + oneLine(s.pin || "?") + " -> точка " + (s.point_id ?? "?") + " (" + poll + ")");
             });
+            if (sigs.some(s => s.type === "onewire_ds18b20")) {
+                L.push(" *    ⚠ DS18B20: підтяжка 4.7k data→VCC; бібліотеки OneWire + DallasTemperature");
+            }
         }
 
         const custom = prog.custom || [];
@@ -1140,6 +1145,10 @@
             }
             L.push("#include <ArduinoOTA.h>");
         }
+        if ((prog.signals || []).some(s => s.type === "onewire_ds18b20")) {
+            L.push("#include <OneWire.h>");          // бібліотека: OneWire
+            L.push("#include <DallasTemperature.h>"); // бібліотека: DallasTemperature
+        }
         return L.join("\n") + "\n\n";
     }
 
@@ -1182,6 +1191,13 @@
             L.push(`const char* TOPIC_${tag} = "${cstr(topic)}";`);
             if (s.type === "analog_in") {
                 L.push(`unsigned long lastPoll_${tag} = 0;`);
+            } else if (s.type === "onewire_ds18b20") {
+                // 1-Wire DS18B20: окрема шина на пін; async-конверсія (~750мс)
+                L.push(`OneWire ow_${tag}(PIN_${tag});`);
+                L.push(`DallasTemperature ds_${tag}(&ow_${tag});`);
+                L.push(`unsigned long lastPoll_${tag} = 0;`);
+                L.push(`unsigned long convStart_${tag} = 0;`);
+                L.push(`bool converting_${tag} = false;`);
             } else if (s.type === "discrete_in") {
                 // гібрид: переривання (миттєвий перехід) + таймер-heartbeat (живучість → NODATA)
                 L.push(`int last_${tag} = -1;`);
@@ -1251,6 +1267,11 @@
         sigs.forEach(s => {
             if (s.type === "analog_in") return;   // analogRead — pinMode не потрібен
             const tag = sigTag(s);
+            if (s.type === "onewire_ds18b20") {
+                pinLines.push(`  ds_${tag}.begin();`);
+                pinLines.push(`  ds_${tag}.setWaitForConversion(false);   // async — не блокуємо loop`);
+                return;
+            }
             pinLines.push(`  pinMode(PIN_${tag}, INPUT);`);
             if (s.type === "discrete_in" || s.poll === "interrupt")
                 pinLines.push(`  attachInterrupt(digitalPinToInterrupt(PIN_${tag}), isr_${tag}, CHANGE);`);
@@ -1287,6 +1308,24 @@
                     L.push(`    float v = ${outMin} + (float)(raw - ${inMin}) * (${outMax} - ${outMin}) / (${inMax} - ${inMin});`);
                 }
                 L.push(`    publishFloat(TOPIC_${tag}, ${pid}, v);`);   // щоразу — Infrabox сам робить deadband/NODATA
+                L.push("  }");
+                return;
+            }
+
+            if (s.type === "onewire_ds18b20") {
+                const iv = parseInt(s.interval_ms) || 1000;
+                // старт конверсії по інтервалу (не блокуємо loop)
+                L.push(`  if (!converting_${tag} && now - lastPoll_${tag} >= ${iv}) {`);
+                L.push(`    lastPoll_${tag} = now;`);
+                L.push(`    ds_${tag}.requestTemperatures();`);
+                L.push(`    convStart_${tag} = now;`);
+                L.push(`    converting_${tag} = true;`);
+                L.push("  }");
+                // читання після завершення конверсії (~750мс для 12 біт)
+                L.push(`  if (converting_${tag} && now - convStart_${tag} >= 750) {`);
+                L.push(`    converting_${tag} = false;`);
+                L.push(`    float t = ds_${tag}.getTempCByIndex(0);`);
+                L.push(`    if (t > -100) publishFloat(TOPIC_${tag}, ${pid}, t);   // -127 = датчик відпав → не шлемо → NODATA`);
                 L.push("  }");
                 return;
             }
@@ -1446,7 +1485,7 @@
         const devPins = (d.pins || []).map(p => p.pin).filter(Boolean);
         const pointById = {};
         points.forEach(p => { pointById[p.id] = p; });
-        const pointsForType = t => points.filter(p => t === "analog_in" ? p.type === "analog" : p.type === "discrete");
+        const pointsForType = t => points.filter(p => (t === "analog_in" || t === "onewire_ds18b20") ? p.type === "analog" : p.type === "discrete");
         let signals = (prog.signals || []).map(s => ({
             type: s.type || "discrete_in", pin: s.pin || "", point_id: (s.point_id ?? ""),
             poll: s.poll || "timer", interval_ms: (s.interval_ms ?? 1000),
@@ -1515,7 +1554,7 @@
             const list = pointsForType(sigType);
             const opts = [`<option value="">—</option>`].concat(
                 list.map(p => {
-                    const rng = (sigType === "analog_in" && p.min != null)
+                    const rng = ((sigType === "analog_in" || sigType === "onewire_ds18b20") && p.min != null)
                         ? ` (${p.min}..${p.max}${p.unit ? " " + p.unit : ""})` : "";
                     return `<option value="${p.id}"${String(p.id) === String(val) ? " selected" : ""}>${p.id} · ${escapeHtml((p.pointname || "") + rng)}</option>`;
                 })
@@ -1533,18 +1572,27 @@
             signals.forEach((s, i) => {
                 const card = document.createElement("div");
                 card.className = "sig-card";
-                const isA = s.type === "analog_in";
+                const isA  = s.type === "analog_in";
+                const isDs = s.type === "onewire_ds18b20";
+                const isD  = !isA && !isDs;   // дискретний
+                const selT = v => s.type === v ? " selected" : "";
 
                 const typeSel = `
                     <div class="field"><label>Тип сигналу</label>
                         <select class="inp" data-f="type">
-                            <option value="discrete_in"${!isA ? " selected" : ""}>Дискретний вхід</option>
-                            <option value="analog_in"${isA ? " selected" : ""}>Аналоговий вхід</option>
+                            <option value="discrete_in"${isD ? " selected" : ""}>Дискретний вхід</option>
+                            <option value="analog_in"${selT("analog_in")}>Аналоговий вхід</option>
+                            <option value="onewire_ds18b20"${selT("onewire_ds18b20")}>DS18B20 (1-Wire, °C)</option>
                         </select>
                     </div>`;
 
                 let specific;
-                if (isA) {
+                if (isDs) {
+                    specific = `
+                        <div class="field"><label>Інтервал опитування, мс</label>
+                            <input class="inp" data-f="interval" type="number" min="1000" value="${s.interval_ms}"></div>
+                        <div class="ov-muted" style="grid-column:1/-1;font-size:11px">DS18B20 віддає °C напряму (точка аналогова, пороги — на точці). Потрібна підтяжка 4.7k data→VCC; бібліотеки OneWire + DallasTemperature.</div>`;
+                } else if (isA) {
                     specific = `
                         <div class="field"><label>Інтервал опитування, мс</label>
                             <input class="inp" data-f="interval" type="number" min="10" value="${s.interval_ms}"></div>
@@ -1572,7 +1620,7 @@
 
                 card.innerHTML = `
                     <div class="sig-head">
-                        <div class="sig-title">${isA ? "Аналоговий" : "Дискретний"} сигнал #${i + 1}</div>
+                        <div class="sig-title">${isA ? "Аналоговий" : isDs ? "DS18B20" : "Дискретний"} сигнал #${i + 1}</div>
                         <button class="btn danger sig-del" data-act="del">🗑 Видалити</button>
                     </div>
                     <div class="cfg-grid">
