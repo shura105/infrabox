@@ -837,9 +837,12 @@
             kbImageURL(d.hardware, d.scheme_image).then(url => {
                 const c = document.getElementById("ovSchemeImg");
                 if (!c) return;
-                c.innerHTML = url
-                    ? `<img class="ov-scheme-img" src="${url}" alt="Схема">`
-                    : `<div class="ov-scheme-empty">Зображення не знайдено</div>`;
+                const isPdf = /\.pdf$/i.test(d.scheme_image || "");
+                c.innerHTML = !url
+                    ? `<div class="ov-scheme-empty">Зображення не знайдено</div>`
+                    : isPdf
+                        ? `<embed class="ov-scheme-img" src="${url}" type="application/pdf" style="width:100%;height:70vh"><div style="margin-top:6px"><a href="${url}" target="_blank" style="color:#58a6ff">📄 Відкрити схему (PDF)</a></div>`
+                        : `<img class="ov-scheme-img" src="${url}" alt="Схема">`;
             });
         }
     }
@@ -1032,7 +1035,18 @@
         // ── налаштування Arduino IDE (меню «Інструменти») ──
         L.push(" *  Налаштування Arduino IDE (меню «Інструменти»):");
         if (ctype) L.push(" *    Контролер: " + oneLine(ctype));
-        if (platform === "esp8266") {
+        const ide = (ctx && ctx.ide) || null;
+        const ideHas = ide && (ide.board || ide.cpu_mhz || ide.flash || ide.partition || ide.upload_speed || ide.usb_cdc || ide.notes);
+        if (ideHas) {
+            // board-specific settings from the knowledge base (source of truth)
+            if (ide.board)        L.push(" *    Плата: " + oneLine(ide.board));
+            if (ide.cpu_mhz)      L.push(" *    Частота CPU: " + oneLine(ide.cpu_mhz) + (/hz/i.test(String(ide.cpu_mhz)) ? "" : " MHz"));
+            if (ide.flash)        L.push(" *    Flash: " + oneLine(ide.flash));
+            if (ide.partition)    L.push(" *    Схема пам'яті (Partition): " + oneLine(ide.partition) + (prog.ota ? " (з розділом OTA)" : ""));
+            if (ide.usb_cdc)      L.push(" *    USB CDC On Boot: Enabled");
+            if (ide.upload_speed) L.push(" *    Upload Speed: " + oneLine(ide.upload_speed));
+            if (ide.notes) String(ide.notes).split(/\r?\n/).forEach(n => { const t = n.trim(); if (t) L.push(" *    " + t); });
+        } else if (platform === "esp8266") {
             L.push(" *    Плата: NodeMCU 1.0 (ESP-12E) / Generic ESP8266");
             L.push(" *    Частота CPU: 80 MHz");
             L.push(" *    Flash Size: 4MB" + (prog.ota ? " (FS:2MB — з розділом OTA)" : " (FS:2MB)"));
@@ -1043,7 +1057,16 @@
             L.push(" *    Flash: QIO, 80 MHz, 4MB");
             L.push(" *    Схема пам'яті (Partition): Default 4MB with spiffs" + (prog.ota ? " (з розділом OTA)" : ""));
             L.push(" *    Upload Speed: 921600");
-            if (!platform) L.push(" *    (платформа не вказана — показано типові для ESP32)");
+            L.push(" *    (IDE-налаштування не задані в базі знань — показано типові для ESP32)");
+        }
+        // OTA-залежна рекомендація по Partition: без ОТА і з ОТА схема відрізняється
+        if (prog.ota) {
+            L.push(" *    ⚠ OTA УВІМКНЕНО → оберіть Partition-схему з OTA-розділами");
+            L.push(" *      (два APP-розділи, напр. «Default 4MB with spiffs» / «Minimal SPIFFS (OTA)»).");
+            L.push(" *      Схема без OTA заблокує оновлення по повітрю.");
+        } else {
+            L.push(" *    ℹ OTA вимкнено → можна взяти схему з більшим APP без OTA-розділів");
+            L.push(" *      (напр. «Huge APP (3MB No OTA)»).");
         }
         L.push(" * " + dash);
         L.push(" *  Пристрій: " + oneLine(d.name || d.id));
@@ -1286,13 +1309,14 @@
     async function renderCodeEditor(d, body) {
         body.innerHTML = `<div class="ws-placeholder">Завантаження…</div>`;
 
-        // платформа + тип контролера (для Includes / хелпера) — з бази знань
-        let platform = "", controllerType = "";
+        // платформа + тип контролера + IDE-налаштування (для Includes / хелпера) — з бази знань
+        let platform = "", controllerType = "", ide = null;
         if (d.hardware) {
             try {
                 const eq = await apiJson("GET", `/knowledge/${encodeURIComponent(d.hardware)}`);
                 platform = eq.platform || "";
                 controllerType = eq.type || "";
+                ide = eq.ide || null;
             } catch (e) {}
         }
 
@@ -1303,7 +1327,7 @@
             (data.points || []).forEach(p => { pointsById[p.id] = p; });
         } catch (e) {}
 
-        const ctx = { platform, controllerType, pointsById };
+        const ctx = { platform, controllerType, ide, pointsById };
 
         const BLOCKS = [
             { name: "Includes",  gen: buildIncludesBlock },
@@ -1342,9 +1366,18 @@
             })
         );
 
-        document.getElementById("btnHelper").addEventListener("click", () => {
+        document.getElementById("btnHelper").addEventListener("click", async () => {
             const dev = devices.find(x => x.id === selectedId) || d;
-            insertIntoCode(buildHelperComment(dev, ctx));
+            // перечитати IDE-налаштування плати свіжими — могли змінитись у базі знань
+            // після відкриття цього пристрою
+            let hctx = ctx;
+            if (dev.hardware) {
+                try {
+                    const eq = await apiJson("GET", `/knowledge/${encodeURIComponent(dev.hardware)}`);
+                    hctx = { ...ctx, platform: eq.platform || "", controllerType: eq.type || "", ide: eq.ide || null };
+                } catch (e) {}
+            }
+            insertIntoCode(buildHelperComment(dev, hctx));
         });
 
         document.getElementById("btnSaveCode").addEventListener("click", async () => {
@@ -1852,12 +1885,15 @@
         const grid = document.getElementById("hwImgs");
         for (const name of imgs) {
             const url = await kbImageURL(eq.id, name);
+            const isPdf = /\.pdf$/i.test(name);
             const wrap = document.createElement("div");
             wrap.className = "img-pick";
             wrap.innerHTML = `
-                <div class="img-cell"><img src="${url || ""}" alt=""></div>
+                <div class="img-cell">${isPdf
+                    ? `<div class="pdf-thumb" title="${escapeHtml(name)}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%;font-size:22px;color:#8b949e;cursor:pointer">📄<span style="font-size:10px">PDF</span></div>`
+                    : `<img src="${url || ""}" alt="">`}</div>
                 <label class="pick-lbl"><input type="checkbox" ${name === d.scheme_image ? "checked" : ""}> Схема пристрою</label>`;
-            if (url) wrap.querySelector("img").addEventListener("click", () => openLightbox(url));
+            if (url) wrap.querySelector(isPdf ? ".pdf-thumb" : "img").addEventListener("click", () => isPdf ? window.open(url, "_blank") : openLightbox(url));
             wrap.querySelector("input").addEventListener("change", async (e) => {
                 const chosen = e.target.checked ? name : "";
                 // один вибір: зняти інші галочки

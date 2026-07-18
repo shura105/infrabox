@@ -229,6 +229,7 @@ class EquipmentUpdate(BaseModel):
     info: str | None = None
     pins: list[dict] | None = None
     platform: str | None = None
+    ide: dict | None = None
 
 
 @app.get("/knowledge")
@@ -255,7 +256,7 @@ def get_equipment(eid: str, _: dict = Depends(require_admin)):
 @app.put("/knowledge/{eid}")
 def update_equipment(eid: str, body: EquipmentUpdate, _: dict = Depends(require_admin)):
     try:
-        rec = kb.update_equipment(eid, body.type, body.info, body.pins, body.platform)
+        rec = kb.update_equipment(eid, body.type, body.info, body.pins, body.platform, body.ide)
     except store.ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if rec is None:

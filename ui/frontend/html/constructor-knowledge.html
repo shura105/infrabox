@@ -299,7 +299,7 @@
                     <div class="img-drop">
                         <div>
                             <button class="btn" id="btnPick" type="button">＋ Додати зображення</button>
-                            <input type="file" id="eqImages" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" multiple hidden>
+                            <input type="file" id="eqImages" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp,application/pdf" multiple hidden>
                         </div>
                         <div class="img-grid" id="pendGrid"></div>
                     </div>
@@ -324,10 +324,13 @@
             grid.innerHTML = "";
             pendingFiles.forEach((f, i) => {
                 const src = URL.createObjectURL(f);
+                const isPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
                 const cell = document.createElement("div");
                 cell.className = "img-cell";
-                cell.innerHTML = `<img src="${src}" alt=""><button class="img-del" title="Прибрати">✕</button>`;
-                cell.querySelector("img").addEventListener("click", () => openLightbox(src));
+                cell.innerHTML = (isPdf
+                    ? `<div class="pdf-thumb" title="${escapeHtml(f.name)}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%;font-size:22px;color:#8b949e;cursor:pointer">📄<span style="font-size:10px">PDF</span></div>`
+                    : `<img src="${src}" alt="">`) + `<button class="img-del" title="Прибрати">✕</button>`;
+                cell.querySelector(isPdf ? ".pdf-thumb" : "img").addEventListener("click", () => isPdf ? window.open(src, "_blank") : openLightbox(src));
                 cell.querySelector(".img-del").addEventListener("click", () => { pendingFiles.splice(i, 1); renderPend(); });
                 grid.appendChild(cell);
             });
@@ -362,12 +365,28 @@
         });
     }
 
+    // Типові IDE-налаштування за платформою — щоб поля були передзаповнені, а
+    // оператор лише коригував їх під конкретний чип (C3/S3/…).
+    function _ideDefaults(platform) {
+        if (platform === "esp8266") return {
+            board: "NodeMCU 1.0 (ESP-12E)", cpu_mhz: "80", flash: "4MB (FS:2MB)",
+            partition: "", upload_speed: "115200", usb_cdc: false, notes: "",
+        };
+        return {  // esp32 (типово)
+            board: "ESP32 Dev Module", cpu_mhz: "240", flash: "QIO, 80 MHz, 4MB",
+            partition: "Default 4MB with spiffs", upload_speed: "921600",
+            usb_cdc: false, notes: "",
+        };
+    }
+
     // ── перегляд запису ─────────────────────────────────────────
     async function renderView() {
         const eq = equipment.find(x => x.id === selectedId);
         if (!eq) { mode = "empty"; return renderContent(); }
 
         let pins = (eq.pins || []).map(p => ({ pin: p.pin || "", function: p.function || "" }));
+        // порожній ide → дефолти платформи; збережені значення перекривають їх
+        const ide = { ..._ideDefaults(eq.platform), ...(eq.ide || {}) };
 
         contentEl.innerHTML = `
             <div class="panel">
@@ -390,11 +409,31 @@
                 </div>
 
                 <div class="field">
+                    <label>Налаштування Arduino IDE (для хелпера скетча)</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+                        <div><label style="display:block;font-size:11px;color:#8b949e;margin:0 0 2px">Плата</label>
+                            <input class="inp" id="ideBoard"     placeholder="напр. ESP32C3 Dev Module"    value="${escapeHtml(ide.board || "")}"></div>
+                        <div><label style="display:block;font-size:11px;color:#8b949e;margin:0 0 2px">Частота CPU, MHz</label>
+                            <input class="inp" id="ideCpu"       placeholder="напр. 160"                  value="${escapeHtml(ide.cpu_mhz || "")}"></div>
+                        <div><label style="display:block;font-size:11px;color:#8b949e;margin:0 0 2px">Flash</label>
+                            <input class="inp" id="ideFlash"     placeholder="напр. QIO, 80 MHz, 4MB"     value="${escapeHtml(ide.flash || "")}"></div>
+                        <div><label style="display:block;font-size:11px;color:#8b949e;margin:0 0 2px">Схема пам'яті (Partition)</label>
+                            <input class="inp" id="idePartition" placeholder="напр. Default 4MB with spiffs" value="${escapeHtml(ide.partition || "")}"></div>
+                        <div><label style="display:block;font-size:11px;color:#8b949e;margin:0 0 2px">Upload Speed</label>
+                            <input class="inp" id="ideUpload"    placeholder="напр. 921600"               value="${escapeHtml(ide.upload_speed || "")}"></div>
+                        <div style="display:flex;align-items:flex-end;padding-bottom:6px">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="ideUsbCdc"${ide.usb_cdc ? " checked" : ""}> USB CDC On Boot: Enabled</label></div>
+                    </div>
+                    <label style="display:block;font-size:11px;color:#8b949e;margin:10px 0 2px">Додаткові рядки хелпера (по одному на рядок)</label>
+                    <textarea class="txt" id="ideNotes" placeholder="напр. PSRAM: Disabled">${escapeHtml(ide.notes || "")}</textarea>
+                </div>
+
+                <div class="field">
                     <label>Зображення</label>
                     <div class="img-grid" id="viewImages"></div>
                     <div class="form-actions">
                         <button class="btn" id="btnMore">＋ Додати зображення</button>
-                        <input type="file" id="moreImages" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" multiple hidden>
+                        <input type="file" id="moreImages" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp,application/pdf" multiple hidden>
                         <span class="form-status" id="imgStatus"></span>
                     </div>
                 </div>
@@ -434,9 +473,18 @@
             const type = document.getElementById("editType").value.trim();
             const platform = document.getElementById("editPlatform").value;
             const info = document.getElementById("editInfo").value;
+            const ide = {
+                board:        document.getElementById("ideBoard").value.trim(),
+                cpu_mhz:      document.getElementById("ideCpu").value.trim(),
+                flash:        document.getElementById("ideFlash").value.trim(),
+                partition:    document.getElementById("idePartition").value.trim(),
+                upload_speed: document.getElementById("ideUpload").value.trim(),
+                usb_cdc:      document.getElementById("ideUsbCdc").checked,
+                notes:        document.getElementById("ideNotes").value,
+            };
             st.className = "form-status"; st.textContent = "Збереження…";
             try {
-                const rec = await apiJson("PUT", `/knowledge/${encodeURIComponent(eq.id)}`, { type, platform, info, pins });
+                const rec = await apiJson("PUT", `/knowledge/${encodeURIComponent(eq.id)}`, { type, platform, info, pins, ide });
                 const i = equipment.findIndex(x => x.id === rec.id);
                 if (i >= 0) equipment[i] = rec;
                 document.getElementById("viewTitle").textContent = rec.type;
@@ -452,10 +500,13 @@
         } else {
             for (const name of imgs) {
                 const url = await imageURL(eq.id, name);
+                const isPdf = /\.pdf$/i.test(name);
                 const cell = document.createElement("div");
                 cell.className = "img-cell";
-                cell.innerHTML = `<img src="${url || ""}" alt=""><button class="img-del" title="Видалити">✕</button>`;
-                if (url) cell.querySelector("img").addEventListener("click", () => openLightbox(url));
+                cell.innerHTML = (isPdf
+                    ? `<div class="pdf-thumb" title="${escapeHtml(name)}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%;font-size:22px;color:#8b949e;cursor:pointer">📄<span style="font-size:10px">PDF</span></div>`
+                    : `<img src="${url || ""}" alt="">`) + `<button class="img-del" title="Видалити">✕</button>`;
+                if (url) cell.querySelector(isPdf ? ".pdf-thumb" : "img").addEventListener("click", () => isPdf ? window.open(url, "_blank") : openLightbox(url));
                 cell.querySelector(".img-del").addEventListener("click", () => deleteImage(eq.id, name));
                 grid.appendChild(cell);
             }

@@ -17,7 +17,7 @@ from app.store import ValidationError
 
 KNOWLEDGE_DIR = os.environ.get("KNOWLEDGE_DIR", "/app/knowledge")
 
-IMAGE_EXT = {".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"}
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp", ".pdf"}
 
 
 def ensure_dirs():
@@ -115,6 +115,7 @@ def create_equipment(type_: str, info: str = "") -> dict:
         "info": info or "",
         "images": [],
         "pins": [],
+        "ide": {},
         "created_at": int(time.time()),
     }
     _save(rec)
@@ -133,7 +134,7 @@ def _clean_pins(pins) -> list[dict]:
     return out
 
 
-def update_equipment(eid: str, type_=None, info=None, pins=None, platform=None) -> dict | None:
+def update_equipment(eid: str, type_=None, info=None, pins=None, platform=None, ide=None) -> dict | None:
     rec = get_equipment(eid)
     if rec is None:
         return None
@@ -148,6 +149,8 @@ def update_equipment(eid: str, type_=None, info=None, pins=None, platform=None) 
         rec["info"] = info
     if pins is not None:
         rec["pins"] = _clean_pins(pins)
+    if ide is not None:
+        rec["ide"] = ide if isinstance(ide, dict) else {}
     _save(rec)
     return rec
 
@@ -177,7 +180,7 @@ def add_image(eid: str, filename: str, data: bytes) -> dict | None:
         return None
     ext = os.path.splitext(filename or "")[1].lower()
     if ext not in IMAGE_EXT:
-        raise ValidationError("Непідтримуваний формат (png, jpg, svg, gif, webp)")
+        raise ValidationError("Непідтримуваний формат (png, jpg, svg, gif, webp, pdf)")
     idir = _images_dir(eid)
     os.makedirs(idir, exist_ok=True)
     name = f"img-{uuid.uuid4().hex[:8]}{ext}"
