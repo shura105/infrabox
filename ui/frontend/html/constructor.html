@@ -630,7 +630,7 @@
                                 <!-- bistable: pump / motor / valve / relay / reed / optical / image -->
                                 <template x-if="el.type && el.type.startsWith('bi_')">
                                     <div class="r-bistable" style="position:absolute;inset:0">
-                                        <div :style="`position:absolute;inset:0;border:${el.borderWidth||0}px solid ${el.colorBorder||'#8b949e'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${el.type==='bi_image' ? biImageBgStyle(biImagePreview(el)) : ''}`"
+                                        <div :style="`position:absolute;inset:0;background-color:${el.bgColor||'transparent'};border:${el.borderWidth||0}px solid ${el.colorBorder||'#8b949e'};border-radius:${el.borderRadius||0}px;box-sizing:border-box;overflow:hidden;${el.type==='bi_image' ? biImageBgStyle(biImagePreview(el)) : ''}`"
                                              x-html="el.type==='bi_image' ? '' : bistableSvgPreview(el)"></div>
                                         <div x-show="el.showLabel && bistableLabel(el)"
                                              :style="`position:absolute;left:50%;top:100%;transform:translateX(-50%);padding-top:4px;text-align:center;font-size:${(el.fontSize||11)*fScale()}px;color:${el.color||'#e6edf3'};white-space:nowrap;line-height:1.1;pointer-events:none`"
@@ -2241,6 +2241,7 @@ function app() {
             // frame border and label colour are configurable
             if (this.selEl?.type === 'bi_image') {
                 return [
+                    { value: 'bgColor',     label: '▪ Фон' },
                     { value: 'colorBorder', label: '□ Рамка' },
                     { value: 'color',       label: 'T Текст підпису' },
                 ];
@@ -2259,6 +2260,7 @@ function app() {
                 if (sev === 'alarm') opts.push({ value: 'colorAlarm', label: '● ALARM' });
             }
             opts.push({ value: 'colorUncert', label: '● UNCERT / NODATA' });
+            opts.push({ value: 'bgColor',     label: '▪ Фон' });
             opts.push({ value: 'colorBorder', label: '□ Рамка' });
             opts.push({ value: 'color',       label: 'T Текст підпису' });
             return opts;
