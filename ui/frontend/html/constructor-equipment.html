@@ -1182,6 +1182,11 @@
             L.push(`const char* TOPIC_${tag} = "${cstr(topic)}";`);
             if (s.type === "analog_in") {
                 L.push(`unsigned long lastPoll_${tag} = 0;`);
+            } else if (s.type === "discrete_in") {
+                // гібрид: переривання (миттєвий перехід) + таймер-heartbeat (живучість → NODATA)
+                L.push(`int last_${tag} = -1;`);
+                L.push(`volatile bool flag_${tag} = false;`);
+                L.push(`unsigned long lastPoll_${tag} = 0;`);
             } else {
                 L.push(`int last_${tag} = -1;`);
                 if (s.poll === "timer") L.push(`unsigned long lastPoll_${tag} = 0;`);
@@ -1193,7 +1198,7 @@
 
     // блок «Функції» — стандартні хелпери Infrabox + ISR для переривань
     function buildFunctionsBlock(d, ctx) {
-        const irq = (d.program && d.program.signals || []).filter(s => s.poll === "interrupt");
+        const irq = (d.program && d.program.signals || []).filter(s => s.type === "discrete_in" || s.poll === "interrupt");
         const L = ["// --- Функції ---"];
         L.push("void ensureMqtt() {");
         L.push("  if (!mqtt.connected()) mqtt.connect(MQTT_CLIENT_ID);");
@@ -1247,7 +1252,7 @@
             if (s.type === "analog_in") return;   // analogRead — pinMode не потрібен
             const tag = sigTag(s);
             pinLines.push(`  pinMode(PIN_${tag}, INPUT);`);
-            if (s.poll === "interrupt")
+            if (s.type === "discrete_in" || s.poll === "interrupt")
                 pinLines.push(`  attachInterrupt(digitalPinToInterrupt(PIN_${tag}), isr_${tag}, CHANGE);`);
         });
         if (pinLines.length) { L.push(""); L.push(...pinLines); }
@@ -1282,6 +1287,27 @@
                     L.push(`    float v = ${outMin} + (float)(raw - ${inMin}) * (${outMax} - ${outMin}) / (${inMax} - ${inMin});`);
                 }
                 L.push(`    publishFloat(TOPIC_${tag}, ${pid}, v);`);   // щоразу — Infrabox сам робить deadband/NODATA
+                L.push("  }");
+                return;
+            }
+
+            if (s.type === "discrete_in") {
+                const iv = parseInt(s.interval_ms) || 1000;
+                // переривання — миттєва публікація при зміні стану
+                L.push(`  if (flag_${tag}) {`);
+                L.push(`    flag_${tag} = false;`);
+                L.push(`    int v = digitalRead(PIN_${tag});`);
+                L.push(`    if (v != last_${tag}) {`);
+                L.push(`      last_${tag} = v;`);
+                L.push(`      lastPoll_${tag} = now;`);
+                L.push(`      publishPoint(TOPIC_${tag}, ${pid}, v);`);
+                L.push("    }");
+                L.push("  }");
+                // heartbeat — шлемо навіть без зміни, щоб Infrabox бачив тишу → NODATA
+                L.push(`  if (now - lastPoll_${tag} >= ${iv}) {`);
+                L.push(`    lastPoll_${tag} = now;`);
+                L.push(`    last_${tag} = digitalRead(PIN_${tag});`);
+                L.push(`    publishPoint(TOPIC_${tag}, ${pid}, last_${tag});`);
                 L.push("  }");
                 return;
             }

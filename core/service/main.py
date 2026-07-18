@@ -897,10 +897,10 @@ def main():
                     if meta["state"] == "NODATA":
                         continue
 
-                    # binary/discrete types send only on state change —
-                    # stable silence is normal; skip desync for them
-                    if meta.get("type") in ("calculated", "discrete",
-                                            "operation_mode", "control"):
+                    # discrete now streams a timer-heartbeat (hybrid), so silence
+                    # IS abnormal → let desync flag NODATA. Others below stay
+                    # skipped: no MQTT-device source (stable silence is normal).
+                    if meta.get("type") in ("calculated", "operation_mode", "control"):
                         continue
 
                     if now_ms - meta["last_update_ts"] > timeout:
