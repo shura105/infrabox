@@ -118,7 +118,10 @@ def mqtt_callback(buffer, lock):
 
         point_id = payload.get("id")
         value = payload.get("value")
-        ts = payload.get("ts", int(time.time()))
+        # Stamp with server-receipt time. Devices (ESP32 w/o RTC/NTP) send an
+        # unreliable ts (e.g. millis()/1000 = uptime), which archived as year 1970.
+        # The device ts is ignored; the payload may still carry it harmlessly.
+        ts = int(time.time())
 
         if point_id is None:
             log.warning(f"Missing point_id on topic {topic}")
