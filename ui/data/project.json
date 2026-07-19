@@ -1,71 +1,66 @@
 {
   "screens": [
     {
-      "id": "root",
-      "title": "Головний екран",
-      "parent": null,
+      "id": "P1",
+      "title": "Infrabox_root",
       "x": 40,
-      "y": 100,
+      "y": 80,
+      "screenType": "pc",
       "screenNum": 1,
       "deviceType": 1
     },
     {
-      "id": "R1",
-      "title": "Головний екран",
-      "parent": null,
-      "x": 260,
-      "y": 100,
-      "screenType": "render",
-      "screenNum": 1,
-      "deviceType": 1
-    },
-    {
-      "id": "R2",
-      "title": "Квартира",
-      "parent": "R1",
-      "x": 260,
-      "y": 200,
-      "screenType": "render",
+      "id": "P2",
+      "title": "Home",
+      "x": 40,
+      "y": 160,
+      "screenType": "pc",
       "screenNum": 2,
       "deviceType": 1
     },
     {
-      "id": "M1",
-      "title": "Головний екран",
-      "parent": null,
-      "x": 480,
-      "y": 100,
-      "screenType": "mobile",
-      "screenNum": 1,
-      "deviceType": 1
-    },
-    {
-      "id": "M2",
-      "title": "Квартира",
-      "parent": "M1",
-      "x": 480,
-      "y": 200,
-      "screenType": "mobile",
-      "screenNum": 2,
-      "deviceType": 1
-    },
-    {
-      "id": "R3",
-      "title": "Квартира",
-      "parent": null,
-      "x": 260,
-      "y": 300,
-      "screenType": "render",
-      "screenNum": 2,
-      "deviceType": 2
-    },
-    {
-      "id": "M3",
-      "title": "Тест SVG",
-      "x": 480,
-      "y": 300,
-      "screenType": "mobile",
+      "id": "P3",
+      "title": "Dacha",
+      "x": 40,
+      "y": 480,
+      "screenType": "pc",
       "screenNum": 3,
+      "deviceType": 1
+    },
+    {
+      "id": "P4",
+      "title": "Garage",
+      "x": 40,
+      "y": 560,
+      "screenType": "pc",
+      "screenNum": 4,
+      "deviceType": 1
+    },
+    {
+      "id": "P5",
+      "title": "homeReservePower",
+      "x": 40,
+      "y": 400,
+      "screenType": "pc",
+      "screenNum": 5,
+      "deviceType": 1
+    },
+    {
+      "id": "P6",
+      "title": "ПТК",
+      "x": 40,
+      "y": 240,
+      "screenType": "pc",
+      "screenNum": 6,
+      "deviceType": 1
+    },
+    {
+      "id": "P7",
+      "title": "homeServ2",
+      "x": 40,
+      "y": 320,
+      "screenType": "pc",
+      "screenNum": 7,
       "deviceType": 1
     }
   ],
@@ -76,7 +71,7 @@
       "x": 20,
       "y": 40,
       "w": 200,
-      "h": 340,
+      "h": 740,
       "fill": "rgba(30,40,60,0.5)",
       "borderColor": "#334",
       "borderWidth": 2,
@@ -99,7 +94,7 @@
       "x": 240,
       "y": 40,
       "w": 200,
-      "h": 340,
+      "h": 740,
       "fill": "rgba(30,40,60,0.5)",
       "borderColor": "#334",
       "borderWidth": 2,
@@ -122,7 +117,7 @@
       "x": 460,
       "y": 40,
       "w": 200,
-      "h": 340,
+      "h": 740,
       "fill": "rgba(30,40,60,0.5)",
       "borderColor": "#334",
       "borderWidth": 2,
