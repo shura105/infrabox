@@ -132,6 +132,8 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
       - ./service/config/points.json:/app/config/points.json:ro
+      - ./service/config/sys_params.json:/app/config/sys_params.json:ro
+      - ./tools/selfDiagnostic/selfdiag.py:/app/selfdiag.py:ro
       - ../log:/app/log
 
 

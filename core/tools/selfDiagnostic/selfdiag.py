@@ -103,16 +103,31 @@ def publish(client, log, p, value, ts):
     log.debug(f"{topic} → {value}")
 
 
+def _resolve_mqtt():
+    # Follow data_source (like core) so selfdiag publishes to the broker core reads.
+    try:
+        with open("/app/config/sys_params.json") as f:
+            b = json.load(f).get("bootstrap", {})
+        m = b.get("mqtt", {})
+        host = m.get("host_real") if b.get("data_source") == "real" else m.get("host_sim")
+        if host:
+            return host, int(m.get("port", MQTT_PORT))
+    except Exception:
+        pass
+    return MQTT_HOST, MQTT_PORT
+
+
 def main():
     log = setup_logger()
-    log.info(f"SelfDiagnostic started → {MQTT_HOST}:{MQTT_PORT}")
+    mqtt_host, mqtt_port = _resolve_mqtt()
+    log.info(f"SelfDiagnostic started → {mqtt_host}:{mqtt_port}")
     threading.Thread(target=_heartbeat_thread, daemon=True).start()
 
     points = load_points()
     log.info(f"Loaded {len(points)} selfDiag points")
 
     client = mqtt.Client()
-    client.connect(MQTT_HOST, MQTT_PORT, 60)
+    client.connect(mqtt_host, mqtt_port, 60)
     client.loop_start()
 
     prev_net = psutil.net_io_counters()
