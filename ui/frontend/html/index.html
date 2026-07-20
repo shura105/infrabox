@@ -588,14 +588,15 @@
                                 </div>
                             </template>
 
-                            <!-- ibox_link: посилання на веб-сторінку -->
+                            <!-- ibox_link: посилання на веб-сторінку (+стан параметра, якщо привʼязано) -->
                             <template x-if="el.type==='ibox_link'">
                                 <div class="r-ibox"
-                                     :style="`border-color:rgba(255,255,255,.2);border-width:${el.borderWidth??2}px`"
+                                     :style="`border-color:${el.point_id ? iboxBorderColor(el) : 'rgba(255,255,255,.2)'};border-width:${el.borderWidth??2}px`"
                                      @click="openHref(el.href)">
                                     <div class="r-ibox-bg"
                                          :style="el.svgImage ? `background-image:url(${el.svgImage})` : 'background:rgba(80,255,160,.05)'"></div>
                                     <div class="r-ibox-foot">
+                                        <div class="r-ibox-dot" x-show="el.point_id" :style="`background:${iboxDotColor(el)}`"></div>
                                         <span style="font-size:10px;color:#8b949e;flex-shrink:0">⇗</span>
                                         <span class="r-ibox-title"
                                               :style="`font-size:${el.fontSize}px;color:${el.color}`"

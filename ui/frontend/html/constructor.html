@@ -602,9 +602,10 @@
                                     </div>
                                 </template>
                                 <template x-if="el.type==='ibox_link'">
-                                    <div class="r-ibox" :style="`border-color:rgba(255,255,255,.18);border-width:${el.borderWidth??2}px`">
+                                    <div class="r-ibox" :style="`border-color:${el.point_id?'rgba(86,211,100,.6)':'rgba(255,255,255,.18)'};border-width:${el.borderWidth??2}px`">
                                         <div class="r-ibox-bg" :style="el.svgImage?`background-image:url(${el.svgImage})`:'background:rgba(80,255,160,.05)'"></div>
                                         <div class="r-ibox-foot">
+                                            <div class="r-ibox-dot" x-show="el.point_id"></div>
                                             <span style="font-size:10px;color:#8b949e;flex-shrink:0">⇗</span>
                                             <span class="r-ibox-title" :style="`font-size:${el.fontSize*fScale()}px;color:${el.color}`" x-text="el.title||'Веб-лінк'"></span>
                                         </div>
@@ -1286,6 +1287,7 @@
                         <template x-if="selEl.type==='ibox_link'">
                             <div>
                                 <div class="pr"><label>Назва</label><input type="text" x-model="selEl.title"></div>
+                                <div class="pr"><label>Point ID (стан)</label><input type="number" x-model.number="selEl.point_id" min="0" placeholder="0 — без прив'язки"></div>
                                 <div class="pr"><label>URL</label><input type="text" x-model="selEl.href" placeholder="https://..."></div>
                                 <div class="pr"><label>SVG / зображення</label>
                                     <div style="display:flex;gap:6px;align-items:center">
@@ -2377,7 +2379,7 @@ function app() {
             triangle:    { w:100, h:100, fill:"#1e2130", strokeColor:"#58a6ff", strokeWidth:2, direction:"up", opacity:1 },
             arc:         { w:120, h:120, startAngle:0, endAngle:270, strokeColor:"#58a6ff", strokeWidth:4, opacity:1 },
             ibox_screen: { w:200, h:160, title:"Підсистема", fontSize:13, color:"#e6edf3", svgImage:"", target:"", point_id:0, borderWidth:2 },
-            ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", borderWidth:2 },
+            ibox_link:   { w:200, h:160, title:"Архіватор",  fontSize:13, color:"#e6edf3", svgImage:"", href:"", point_id:0, borderWidth:2 },
             level_v:     { w:50, h:180, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             level_h:     { w:180, h:50, point_id:101, min:0, max:100, warn_min:0, warn_max:70, alarm_min:0, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:1, borderRadius:4, showValue:true, fontSize:12, color:"#ffffff" },
             gauge:       { w:150, h:150, point_id:101, min:0, max:100, warn_min:20, warn_max:80, alarm_min:10, alarm_max:90, colorGood:"#56d364", colorWarn:"#f0ad4e", colorAlarm:"#f47067", needleColor:"#e6edf3", bgColor:"#0d1117", borderColor:"#30363d", borderWidth:0, borderRadius:8, arcWidth:10, label:"", labelColor:"#8b949e", labelFontSize:11, showValue:true, fontSize:13, color:"#e6edf3" },
