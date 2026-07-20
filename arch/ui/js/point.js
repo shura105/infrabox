@@ -389,7 +389,9 @@ function pointApp() {
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
                         position: "left",
-                        min: 0, max: 4,
+                        // small margin so the line at INIT/ALARM isn't glued to the
+                        // edges; ticks stay only on 0..4 so the margin reads as space
+                        min: -0.4, max: 4.4,
                         ticks: {
                             color: tickColor,
                             stepSize: 1,
