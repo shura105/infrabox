@@ -341,11 +341,9 @@
                             </tr>
                             <!-- row 2: device sub-headers -->
                             <tr>
-                                <template x-for="st in screenTypeList" :key="'h2-'+st.key">
-                                    <template x-for="dt in allDeviceTypes" :key="'h2-'+st.key+'-'+dt">
-                                        <th style="color:#484f58;font-weight:500"
-                                            x-text="'D'+dt"></th>
-                                    </template>
+                                <template x-for="col in tableColumns" :key="'h2-'+col.key">
+                                    <th style="color:#484f58;font-weight:500"
+                                        x-text="'D'+col.dt"></th>
                                 </template>
                             </tr>
                         </thead>
@@ -353,20 +351,18 @@
                             <template x-for="num in allScreenNums" :key="'row-'+num">
                                 <tr>
                                     <td class="num-col" x-text="num"></td>
-                                    <template x-for="st in screenTypeList" :key="'td-'+num+'-'+st.key">
-                                        <template x-for="dt in allDeviceTypes" :key="'td-'+num+'-'+st.key+'-'+dt">
-                                            <td>
-                                                <div x-show="!!tableCell(num,st.key,dt)"
-                                                     class="sc-cell"
-                                                     :class="{'sc-cell-sel': selNodeId===tableCell(num,st.key,dt)?.id}"
-                                                     :style="selNodeId===tableCell(num,st.key,dt)?.id ? `border-color:${st.color}` : ''"
-                                                     @click.stop="selNodeId=tableCell(num,st.key,dt)?.id"
-                                                     @dblclick.stop="openElements(tableCell(num,st.key,dt)?.id)">
-                                                    <div class="sc-cell-title" x-text="tableCell(num,st.key,dt)?.title||''"></div>
-                                                    <div class="sc-cell-id" x-text="tableCell(num,st.key,dt)?.id||''"></div>
-                                                </div>
-                                            </td>
-                                        </template>
+                                    <template x-for="col in tableColumns" :key="'td-'+num+'-'+col.key">
+                                        <td>
+                                            <div x-show="!!tableCell(num,col.stKey,col.dt)"
+                                                 class="sc-cell"
+                                                 :class="{'sc-cell-sel': selNodeId===tableCell(num,col.stKey,col.dt)?.id}"
+                                                 :style="selNodeId===tableCell(num,col.stKey,col.dt)?.id ? `border-color:${col.color}` : ''"
+                                                 @click.stop="selNodeId=tableCell(num,col.stKey,col.dt)?.id"
+                                                 @dblclick.stop="openElements(tableCell(num,col.stKey,col.dt)?.id)">
+                                                <div class="sc-cell-title" x-text="tableCell(num,col.stKey,col.dt)?.title||''"></div>
+                                                <div class="sc-cell-id" x-text="tableCell(num,col.stKey,col.dt)?.id||''"></div>
+                                            </div>
+                                        </td>
                                     </template>
                                 </tr>
                             </template>
@@ -2482,6 +2478,15 @@ function app() {
         get allDeviceTypes() {
             const s = new Set(this.project.screens.map(s => s.deviceType || 1));
             return [...s].sort((a, b) => a - b);
+        },
+        // Flat column list (screenType × deviceType). Header and body iterate this
+        // same array, so columns can't drift out of alignment.
+        get tableColumns() {
+            const cols = [];
+            for (const st of this.screenTypeList)
+                for (const dt of this.allDeviceTypes)
+                    cols.push({ key: st.key + '-' + dt, stKey: st.key, color: st.color, dt });
+            return cols;
         },
         tableCell(screenNum, sType, deviceType) {
             return this.project.screens.find(s =>
