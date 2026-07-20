@@ -149,7 +149,9 @@ class Writer:
                     prev    = prev_values.get(point_id)
 
                     if ptype in _BINARY_TYPES:
-                        if quality in ("NODATA", "UNCERT"):
+                        # state_calc: UNCERT is a real level (rank 2), not a gap —
+                        # its value already encodes the state, so always archive it.
+                        if quality in ("NODATA", "UNCERT") and ptype != "state_calc":
                             # gap marker: write null once on entering bad quality
                             # use current wall-clock time, not Redis ts (which is
                             # the last-data timestamp — same as the value → breaks chart)

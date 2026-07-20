@@ -6,6 +6,8 @@ let _abortController = null;
 let _renderGeneration = 0;
 
 const _BINARY_TYPES  = new Set(["discrete", "operation_mode", "control"]);
+// state_calc: value is a severity rank 0..4 → these labels on the Y axis
+const _STATE_LABELS  = ["GOOD", "INIT", "UNCERT", "WARN", "ALARM"];
 const _CHART_COLORS  = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
 
 
@@ -260,6 +262,7 @@ function pointApp() {
                 const records   = this.records[p.id] || [];
                 const isActive  = p.id === this.activePointId;
                 const isBinary  = _BINARY_TYPES.has(p.type);
+                const isState   = p.type === "state_calc";
                 const baseColor = _CHART_COLORS[i % _CHART_COLORS.length];
 
                 // Binary (discrete/operation_mode/control): out-of-range or null
@@ -311,8 +314,8 @@ function pointApp() {
                     pointBorderColor: pointBorder,
                     pointRadius: pointRad,
                     pointHoverRadius: isActive ? 4 : 0,
-                    stepped: isBinary ? "before" : false,
-                    tension:  isBinary ? 0       : 0.2,
+                    stepped: (isBinary || isState) ? "before" : false,
+                    tension:  (isBinary || isState) ? 0       : 0.2,
                     order: isActive ? 0 : 1,
                     yAxisID: `y_${p.id}`,
                     hidden: !this.pointVisible[p.id]
@@ -322,7 +325,7 @@ function pointApp() {
             const annotations = {};
 
             // Analog: фонові зони станів, коли ВИДИМА рівно одна точка (вибрана чи лишена галочками)
-            if (soloPoint && !_BINARY_TYPES.has(soloPoint.type)) {
+            if (soloPoint && !_BINARY_TYPES.has(soloPoint.type) && soloPoint.type !== "state_calc") {
                 const p = soloPoint;
                 const ax = `y_${p.id}`;   // прив'язка до осі саме цієї точки
                 annotations.alarmHigh = { type: "box", yScaleID: ax, yMin: p.alarm_max, yMax: p.max, backgroundColor: "rgba(255,60,60,0.18)", borderWidth: 0 };
@@ -378,9 +381,28 @@ function pointApp() {
             orderedPoints.forEach(p => {
                 const isActive  = p.id === this.activePointId;
                 const isBinary  = _BINARY_TYPES.has(p.type);
+                const isState   = p.type === "state_calc";
                 const tickColor = isActive ? "#4caf50" : "#6b7280";
 
-                if (isBinary) {
+                if (isState) {
+                    // severity rank 0..4 with state names as tick labels
+                    scales[`y_${p.id}`] = {
+                        display: this.pointVisible[p.id],
+                        position: "left",
+                        min: -0.15, max: 4.15,
+                        ticks: {
+                            color: tickColor,
+                            stepSize: 1,
+                            autoSkip: false,
+                            callback: function(value) { return _STATE_LABELS[value] || ""; }
+                        },
+                        afterBuildTicks: function(axis) {
+                            axis.ticks = axis.ticks.filter(t => Number.isInteger(t.value) && t.value >= 0 && t.value <= 4);
+                        },
+                        border: { color: isActive ? "#4caf50" : "#4b5563" },
+                        grid:   { color: "#3a4256", drawOnChartArea: isActive },
+                    };
+                } else if (isBinary) {
                     // Narrow 0/1 range; label_0/label_1 as tick labels
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
@@ -446,6 +468,9 @@ function pointApp() {
                                 label: function(ctx) {
                                     const p = self.points[ctx.datasetIndex];
                                     const v = ctx.parsed.y;
+                                    if (p && p.type === "state_calc") {
+                                        return `${p.pointname}: ${_STATE_LABELS[v] || "—"}`;
+                                    }
                                     if (p && _BINARY_TYPES.has(p.type)) {
                                         if (v === 0) return `${p.pointname}: ${p.label_0 || "0"}`;
                                         if (v === 1) return `${p.pointname}: ${p.label_1 || "1"}`;
