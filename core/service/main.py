@@ -10,7 +10,7 @@ from threading import Lock
 import redis
 
 from modules.mqtt import start_mqtt
-from modules.quality import process_quality
+from modules.quality import process_quality, classify
 from modules.init import load_points, load_systems
 from modules.watchdog import RedisWatchdog
 from modules.logger import setup_logger
@@ -449,7 +449,12 @@ def main():
                     if last_value is not None and value == last_value:
                         continue
                 elif last_value is not None and deadband > 0:
-                    if abs(value - last_value) < deadband:
+                    # deadband suppresses churn for steady values — but must NOT
+                    # hide a state change (esp. clearing NODATA/UNCERT after a
+                    # gap): a stable value never moves ≥deadband, so without this
+                    # the point would stay stuck in its bad state forever.
+                    if (abs(value - last_value) < deadband
+                            and classify(value, meta["limits"]) == meta["state"]):
                         continue
 
                 meta["last_value"] = value
