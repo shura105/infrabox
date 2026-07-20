@@ -1,10 +1,14 @@
 import hashlib
+import io
 import json
 import os
 import re
+import time
+import zipfile
 
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import StreamingResponse
 from .auth_guard import require_admin
 from .redis_client import redis_client
 
@@ -179,6 +183,41 @@ async def put_project(data: dict, request: Request, _: dict = Depends(require_ad
         f.write(raw)
     await _rev_set("project", _md5_bytes(raw))
     return {"ok": True}
+
+
+# ── backup ────────────────────────────────────────────────────────────────────
+@router.get("/api/backup")
+async def download_backup(request: Request, _: dict = Depends(require_admin)):
+    """Zip project.json + усі екрани і віддати на завантаження.
+
+    Копія осідає поза сервером — екрани не версіонуються в git (ui/data ігнорується),
+    тож це єдиний спосіб винести їх назовні."""
+    if not IS_MASTER:
+        # репліка: у неї файли можуть бути застарілі — беремо архів з центру
+        auth = request.headers.get("authorization", "")
+        async with httpx.AsyncClient(verify=False, timeout=60) as c:
+            resp = await c.get(f"{CORE_URL}/api/backup", headers={"Authorization": auth})
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "core не віддав резервну копію")
+        return StreamingResponse(
+            io.BytesIO(resp.content), media_type="application/zip",
+            headers={"Content-Disposition": resp.headers.get(
+                "content-disposition", 'attachment; filename="infrabox-screens.zip"')})
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        if os.path.exists(PROJECT_FILE):
+            z.write(PROJECT_FILE, "project.json")
+        if os.path.isdir(DATA_DIR):
+            base = os.path.dirname(DATA_DIR)          # /app/data → screens/... у архіві
+            for root, _dirs, files in os.walk(DATA_DIR):
+                for fn in files:
+                    full = os.path.join(root, fn)
+                    z.write(full, os.path.relpath(full, base))
+    buf.seek(0)
+    name = f"infrabox-screens-{time.strftime('%Y%m%d-%H%M%S')}.zip"
+    return StreamingResponse(buf, media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 # ── screens ───────────────────────────────────────────────────────────────────

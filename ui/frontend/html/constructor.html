@@ -177,6 +177,8 @@
             </button>
             <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
+            <button class="btn" @click="downloadBackup"
+                    title="Завантажити архів усіх екранів на свій ПК">⬇ Резервна копія</button>
         </div>
     </template>
 
@@ -3046,6 +3048,28 @@ function app() {
 
         async saveProject() {
             await this.apiPut("/api/project", { ...this.project, decos: this.decos });
+        },
+
+        // Архів екранів → на диск користувача. Пакується стан НА СЕРВЕРІ,
+        // тож незбережені правки сюди не потраплять — спершу «Зберегти».
+        async downloadBackup() {
+            try {
+                this.setStatus("Готую резервну копію…");
+                const r = await fetch("/api/backup", { headers: authHeaders() });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const blob = await r.blob();
+                const cd   = r.headers.get("Content-Disposition") || "";
+                const m    = cd.match(/filename="([^"]+)"/);
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement("a");
+                a.href = url;
+                a.download = m ? m[1] : "infrabox-screens.zip";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                this.setStatus(`Резервну копію завантажено (${(blob.size/1024).toFixed(0)} КБ)`);
+            } catch (e) { this.setStatus("Помилка: " + e.message, false); }
         },
 
         getScreenPath(id) {
