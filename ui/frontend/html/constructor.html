@@ -177,8 +177,6 @@
             </button>
             <div class="tb-sep"></div>
             <button class="btn" @click="saveAll">💾 Зберегти</button>
-            <button class="btn" @click="downloadBackup"
-                    title="Завантажити архів усіх екранів на свій ПК">⬇ Резервна копія</button>
         </div>
     </template>
 
@@ -195,7 +193,8 @@
     </template>
 
     <div style="flex:1"></div>
-    <button class="btn" @click="authLogout()">Вийти</button>
+    <button class="btn" @click="downloadBackup"
+            title="Завантажити архів усіх екранів на свій ПК">⬇ Резервна копія</button>
 </div>
 
 <div class="main">
