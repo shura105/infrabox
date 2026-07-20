@@ -1126,6 +1126,19 @@
             </div>
         </div>
 
+        <!-- ── Розрахунковий: режим операцій (перший вибір) ── -->
+        <div id="pt_section_calcmode" style="display:none">
+            <div class="form-grid" style="margin-bottom:4px">
+                <div class="field">
+                    <label>Операції з</label>
+                    <select id="pt_calc_mode" onchange="onCalcModeChange()">
+                        <option value="value">значеннями — результат число</option>
+                        <option value="state">станами — агрегатний стан</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Системний: об'єкт / вузол / система / назва ── -->
         <div id="pt_section_system">
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Ідентифікація</div>
@@ -1294,15 +1307,6 @@
 
         <!-- ── Розрахунковий: formula ── -->
         <div id="pt_section_calculated" style="display:none">
-            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Операції з</div>
-            <div class="form-grid">
-                <div class="field" style="grid-column:1/-1">
-                    <select id="pt_calc_mode" onchange="onCalcModeChange()">
-                        <option value="value">значеннями — результат число</option>
-                        <option value="state">станами — результат агрегатний стан</option>
-                    </select>
-                </div>
-            </div>
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Формула</div>
             <div class="form-grid">
                 <div class="field" style="grid-column:1/-1">
@@ -3219,6 +3223,7 @@ function onArchiveModeChange() {
 function _pointFormDefaults() {
     document.getElementById("pt_id").value                 = "";
     document.getElementById("pt_type").value               = "analog";
+    document.getElementById("pt_calc_mode").value          = "value";
     document.getElementById("pt_sys2_object_sel").value    = "";
     document.getElementById("pt_sys2_drop_sel").value      = "";
     document.getElementById("pt_sys2_system_sel").value    = "";
@@ -3335,8 +3340,10 @@ function onPointTypeChange() {
     document.getElementById("pt_section_common").style.display     = (isDiscrete || isCalculated || isOpMode || isControl) ? "none" : "";
     document.getElementById("pt_section_discrete").style.display   = isDiscrete   ? "" : "none";
     document.getElementById("pt_section_calculated").style.display = isCalculated ? "" : "none";
+    document.getElementById("pt_section_calcmode").style.display   = isCalculated ? "" : "none";
     document.getElementById("pt_section_opmode").style.display     = isOpMode     ? "" : "none";
     document.getElementById("pt_section_control").style.display    = isControl    ? "" : "none";
+    document.getElementById("pt_system_field").style.display       = "";   // default; state mode hides it
     if (isCalculated) onCalcModeChange();
     if (isControl) onCtrlTransportChange();
     if (isDiag) _diagResetFrom(1);
@@ -3607,6 +3614,12 @@ function onCalcModeChange() {
     document.getElementById("calc_help_state").style.display = "none";
     document.getElementById("calc_validate_result").style.display = "none";
     _calcHelpTarget = isState ? "calc_help_state" : "calc_help";
+    // state aggregate is object-level → no system binding
+    document.getElementById("pt_system_field").style.display = isState ? "none" : "";
+    if (isState) {
+        document.getElementById("pt_system_sel").value = "";
+        document.getElementById("pt_system").value = "";
+    }
 }
 function toggleCalcHelp() {
     const el = document.getElementById(_calcHelpTarget);
@@ -3862,12 +3875,14 @@ function _readPointForm() {
                      && document.getElementById("pt_calc_mode").value === "state")
                     ? "state_calc" : type;
 
-    return {
+    const result = {
         id: parseInt(document.getElementById("pt_id").value),
         type: outType,
         ...ident,
         ...props,
     };
+    if (outType === "state_calc") delete result.system;   // object-level aggregate
+    return result;
 }
 
 async function savePoint() {
