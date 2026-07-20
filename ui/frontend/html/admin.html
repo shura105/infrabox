@@ -1294,13 +1294,22 @@
 
         <!-- ── Розрахунковий: formula ── -->
         <div id="pt_section_calculated" style="display:none">
+            <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Операції з</div>
+            <div class="form-grid">
+                <div class="field" style="grid-column:1/-1">
+                    <select id="pt_calc_mode" onchange="onCalcModeChange()">
+                        <option value="value">значеннями — результат число</option>
+                        <option value="state">станами — результат агрегатний стан</option>
+                    </select>
+                </div>
+            </div>
             <div style="margin:14px 0 6px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Формула</div>
             <div class="form-grid">
                 <div class="field" style="grid-column:1/-1">
                     <label style="display:flex;align-items:center;gap:6px">
                         Вираз
                         <span id="calc_help_toggle"
-                              onclick="document.getElementById('calc_help').style.display=document.getElementById('calc_help').style.display==='none'?'':'none'"
+                              onclick="toggleCalcHelp()"
                               style="cursor:pointer;font-size:11px;color:#58a6ff;font-weight:400;user-select:none">? довідка</span>
                     </label>
                     <div style="display:flex;gap:6px;align-items:center">
@@ -1328,6 +1337,26 @@
                         <div><code style="color:#a5d6ff">&gt; &lt; &gt;= &lt;= == !=</code> &nbsp; <code style="color:#a5d6ff">and or not</code></div>
                         <div style="margin-top:8px;padding:6px 8px;background:#0d1117;border-radius:4px;color:#f0ad4e;font-size:10px">
                             ⚠ Якщо хоча б одне з $id значень відсутнє або UNCERT/NODATA — результат автоматично стає UNCERT
+                        </div>
+                    </div>
+                    <div id="calc_help_state" style="display:none;margin-top:8px;padding:10px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;font-size:11px;line-height:1.7;color:#c9d1d9">
+                        <div style="margin-bottom:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Вираз над станами</div>
+                        <div><span style="color:#79c0ff">$id</span> — <b>стан</b> параметра (не значення)</div>
+                        <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Стани (від тяжкого до легкого)</div>
+                        <div><code style="color:#a5d6ff">ALARM &gt; WARN &gt; UNCERT &gt; INIT &gt; GOOD</code></div>
+                        <div style="color:#8b949e">NODATA (мертвий датчик) рахується як ALARM</div>
+                        <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Функції</div>
+                        <div><code style="color:#a5d6ff">worst($201, $102, $107)</code> — найтяжчий стан ← стан системи</div>
+                        <div><code style="color:#a5d6ff">count(ALARM, $101, $102)</code> — скільки в стані ALARM</div>
+                        <div><code style="color:#a5d6ff">any(ALARM, …)</code>, <code style="color:#a5d6ff">all(GOOD, …)</code> — булеві</div>
+                        <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Оператори</div>
+                        <div><code style="color:#a5d6ff">== !=</code> точний стан &nbsp; <code style="color:#a5d6ff">&gt;= &gt; &lt;= &lt;</code> за тяжкістю &nbsp; <code style="color:#a5d6ff">and or not</code></div>
+                        <div><code style="color:#a5d6ff">умова ? стан : стан</code></div>
+                        <div style="margin-top:6px;color:#8b949e;font-size:10px;text-transform:uppercase;letter-spacing:.5px">Приклади</div>
+                        <div><code style="color:#a5d6ff">worst($201, $102, $107)</code></div>
+                        <div><code style="color:#a5d6ff">$201==ALARM or $202==ALARM ? ALARM : (count(ALARM,$101,$102)&gt;=2 ? WARN : GOOD)</code></div>
+                        <div style="margin-top:8px;padding:6px 8px;background:#0d1117;border-radius:4px;color:#f0ad4e;font-size:10px">
+                            ⚠ Вираз має повертати стан (одну з констант). Порожній / помилковий → UNCERT
                         </div>
                     </div>
                 </div>
@@ -3071,9 +3100,10 @@ function _togglePtGroup(gkey) {
 
 function _renderPoints(points) {
     const tbody = document.getElementById("pointsBody");
-    const GROUP_ORDER  = ["sockets", "analog", "discrete", "calculated", "external", "operation_mode"];
+    const GROUP_ORDER  = ["sockets", "analog", "discrete", "calculated", "state_calc", "external", "operation_mode"];
     const GROUP_LABELS = { sockets: "Підключені до сокетів системи", analog: "Аналогові",
                            discrete: "Дискретні", calculated: "Розрахункові",
+                           state_calc: "Розрахункові стани",
                            control: "Управління",
                            external: "Від зовнішніх систем", operation_mode: "Режим роботи системи" };
 
@@ -3224,7 +3254,9 @@ function _pointFormDefaults() {
 function _fillPointForm(p) {
     const isSystem = (p.type || "analog") === "system";
     document.getElementById("pt_id").value               = p.id;
-    document.getElementById("pt_type").value             = p.type || "analog";
+    // state_calc is edited under "Розрахунковий" with the режим=Стани toggle
+    document.getElementById("pt_type").value             = (p.type === "state_calc") ? "calculated" : (p.type || "analog");
+    document.getElementById("pt_calc_mode").value        = (p.type === "state_calc") ? "state" : "value";
     // system-type section
     document.getElementById("pt_sys2_object_sel").value  = p.object ?? "";
     document.getElementById("pt_sys2_drop_sel").value    = p.drop   ?? "";
@@ -3305,6 +3337,7 @@ function onPointTypeChange() {
     document.getElementById("pt_section_calculated").style.display = isCalculated ? "" : "none";
     document.getElementById("pt_section_opmode").style.display     = isOpMode     ? "" : "none";
     document.getElementById("pt_section_control").style.display    = isControl    ? "" : "none";
+    if (isCalculated) onCalcModeChange();
     if (isControl) onCtrlTransportChange();
     if (isDiag) _diagResetFrom(1);
     else if (!isSystem && !isOpMode) {
@@ -3564,9 +3597,26 @@ function _onOpmodeSystemChange() {
     document.getElementById("pt_opmode_object").value = obj;
 }
 
+// ── Розрахунковий: перемикач режиму значення/стани ──────────────────────────
+let _calcHelpTarget = "calc_help";
+function onCalcModeChange() {
+    const isState = document.getElementById("pt_calc_mode").value === "state";
+    document.getElementById("pt_formula").placeholder =
+        isState ? "worst($201, $102, $107)" : "($101 + $103 + $107) / 3";
+    document.getElementById("calc_help").style.display       = "none";
+    document.getElementById("calc_help_state").style.display = "none";
+    document.getElementById("calc_validate_result").style.display = "none";
+    _calcHelpTarget = isState ? "calc_help_state" : "calc_help";
+}
+function toggleCalcHelp() {
+    const el = document.getElementById(_calcHelpTarget);
+    el.style.display = el.style.display === "none" ? "" : "none";
+}
+
 function validateFormula() {
     const raw = document.getElementById("pt_formula").value.trim();
     const el  = document.getElementById("calc_validate_result");
+    const isState = document.getElementById("pt_calc_mode").value === "state";
     const show = (ok, msg) => {
         el.style.display = "";
         el.style.background = ok ? "#0f2a1a" : "#2a0f0f";
@@ -3576,6 +3626,33 @@ function validateFormula() {
     };
     if (!raw) { show(false, "✗ Формула порожня"); return; }
     if (raw.includes("__")) { show(false, "✗ Недопустимі символи (__)"); return; }
+
+    if (isState) {
+        // mirror of core state algebra; states are plain severity ranks so ==,
+        // >= and worst() behave like the engine. Every $id is treated as GOOD.
+        const SYM = { 0:"GOOD", 1:"INIT", 2:"UNCERT", 3:"WARN", 4:"ALARM" };
+        const ns = {
+            GOOD:0, INIT:1, UNCERT:2, WARN:3, ALARM:4, NODATA:4,
+            worst:(...a)=>a.length?Math.max(...a):2,
+            best:(...a)=>a.length?Math.min(...a):2,
+            count:(s,...a)=>a.filter(x=>x===s).length,
+            any:(s,...a)=>a.some(x=>x===s),
+            all:(s,...a)=>a.length>0&&a.every(x=>x===s),
+            S:()=>0,
+        };
+        const expr = raw.replace(/\$(\d+)/g, "S($1)");   // JS ?: and comparisons are native
+        try {
+            const fn  = new Function(...Object.keys(ns), `"use strict"; return (${expr});`);
+            const res = fn(...Object.values(ns));
+            let sym;
+            if (typeof res === "boolean") sym = res ? "ALARM" : "GOOD";
+            else if (Number.isInteger(res) && res >= 0 && res <= 4) sym = SYM[res];
+            else { show(false, "✗ Вираз має повертати стан (ALARM/WARN/UNCERT/INIT/GOOD)"); return; }
+            show(true, `✓ Коректна (всі $id = GOOD): ${sym}`);
+        } catch (err) { show(false, `✗ ${err.message}`); }
+        return;
+    }
+
     const expr = raw.replace(/\$(\d+)/g, "1.0")
                     .replace(/\band\b/g, "&&")
                     .replace(/\bor\b/g,  "||")
@@ -3780,9 +3857,14 @@ function _readPointForm() {
                                  : 0,
     };
 
+    // "Розрахунковий" + режим=Стани → окремий тип state_calc
+    const outType = (type === "calculated"
+                     && document.getElementById("pt_calc_mode").value === "state")
+                    ? "state_calc" : type;
+
     return {
         id: parseInt(document.getElementById("pt_id").value),
-        type,
+        type: outType,
         ...ident,
         ...props,
     };

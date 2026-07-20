@@ -35,13 +35,132 @@ def _run_shell(cmd: str, point_id, logger):
 
 
 
+def _find_top(expr: str, ch: str, start: int = 0) -> int:
+    """Index of the first `ch` at paren-depth 0, or -1."""
+    depth = 0
+    for i in range(start, len(expr)):
+        c = expr[i]
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif c == ch and depth == 0:
+            return i
+    return -1
+
+
+def _descend_parens(expr: str) -> str:
+    """Recursively preprocess the interior of each top-level () group."""
+    out = []
+    i = 0
+    n = len(expr)
+    while i < n:
+        if expr[i] in "([":
+            depth = 0
+            j = i
+            while j < n:
+                if expr[j] in "([":
+                    depth += 1
+                elif expr[j] in ")]":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            out.append(expr[i])
+            out.append(_preprocess_formula(expr[i + 1:j]))
+            if j < n:
+                out.append(expr[j])
+            i = j + 1
+        else:
+            out.append(expr[i])
+            i += 1
+    return "".join(out)
+
+
 def _preprocess_formula(expr: str) -> str:
-    """Convert C-style ternary  a ? b : c  →  (b) if (a) else (c)."""
-    m = re.match(r'^(.*\S)\s*\?\s*(\S.*?)\s*:\s*(\S.*)$', expr.strip(), re.DOTALL)
-    if m:
-        cond, true_v, false_v = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
-        return f"({true_v}) if ({cond}) else ({false_v})"
-    return expr
+    """Convert C-style ternary  a ? b : c  →  ((b) if (a) else (c)).
+
+    Paren-aware and fully recursive, so ternaries nested inside parentheses
+    (`a ? x : (b ? y : z)`) or right-chained (`a ? x : b ? y : z`) are all
+    converted at every level."""
+    expr = expr.strip()
+    q = _find_top(expr, "?")
+    if q != -1:
+        c = _find_top(expr, ":", q + 1)
+        if c != -1:
+            cond = _preprocess_formula(expr[:q])
+            tval = _preprocess_formula(expr[q + 1:c])
+            fval = _preprocess_formula(expr[c + 1:])
+            return f"(({tval}) if ({cond}) else ({fval}))"
+    return _descend_parens(expr)           # no top-level ternary → go inside ()
+
+
+# ── State algebra for state_calc points ───────────────────────────────────────
+# state_calc computes a STATE from the states of other signals (not a number).
+# Severity order (high→low): ALARM > WARN > UNCERT > INIT > GOOD.
+# NODATA (dead/silent sensor) folds into ALARM.
+_STATE_SEV = {"GOOD": 0, "INIT": 1, "UNCERT": 2, "WARN": 3, "ALARM": 4, "NODATA": 4}
+_SEV_STATE = {0: "GOOD", 1: "INIT", 2: "UNCERT", 3: "WARN", 4: "ALARM"}
+
+
+class _St(int):
+    """A signal state carried as an int equal to its severity, keeping the
+    symbol for read-back. Comparisons run by severity, so `>=`, `worst()` and
+    `==` behave intuitively and NODATA compares equal to ALARM."""
+    def __new__(cls, sym):
+        if sym == "NODATA":
+            sym = "ALARM"
+        sev = _STATE_SEV.get(sym, 2)        # unknown → UNCERT
+        obj = super().__new__(cls, sev)
+        obj.sym = _SEV_STATE.get(sev, "UNCERT")
+        return obj
+
+    def __repr__(self):
+        return self.sym
+
+
+_STATE_CONSTS = {s: _St(s) for s in ("GOOD", "INIT", "UNCERT", "WARN", "ALARM", "NODATA")}
+
+
+def _state_worst(*args):
+    return max(args) if args else _St("UNCERT")
+
+
+def _state_count(state, *args):
+    return sum(1 for a in args if int(a) == int(state))
+
+
+def _state_any(state, *args):
+    return any(int(a) == int(state) for a in args)
+
+
+def _state_all(state, *args):
+    return bool(args) and all(int(a) == int(state) for a in args)
+
+
+_STATE_NS = {
+    "__builtins__": {},
+    "worst": _state_worst, "best": lambda *a: min(a) if a else _St("UNCERT"),
+    "count": _state_count, "any": _state_any, "all": _state_all,
+    **_STATE_CONSTS,
+}
+
+
+def _state_event_label(old, new):
+    """Event label for a state_calc transition — same vocabulary as
+    modules.quality.process_quality, so the event log parses it uniformly."""
+    if old == "INIT":
+        return f"FIRST_VALID_{new}"
+    if new == "ALARM":
+        return "ALARM"
+    if new == "WARN":
+        return "WARN"
+    if new == "UNCERT":
+        return "UNCERT"
+    if new == "GOOD":
+        return "CLEAR_ALARM" if old == "ALARM" else ("CLEAR_WARN" if old == "WARN" else "CLEAR")
+    return f"{old}_TO_{new}"
+
 
 # глобальний логер — ініціалізується в main()
 log = None
@@ -414,16 +533,83 @@ def main():
                     return 0.0
                 return max(0.0, (_now - m["last_change_ts"]) / 1000.0)
             _CALC_NS["age"] = _age_fn
+
+            # namespace for state_calc: S(id) → that signal's current state
+            _state_ns = dict(_STATE_NS)
+            def _S_fn(pid, _cache=meta_cache):
+                m = _cache.get(int(pid))
+                return _St(m.get("state") or "INIT") if m else _St("UNCERT")
+            _state_ns["S"] = _S_fn
+
             calc_pipe = r.pipeline()
             calc_has  = False
 
             for c_id, c_meta in meta_cache.items():
-                if c_meta.get("type") != "calculated":
+                ctype = c_meta.get("type")
+                if ctype not in ("calculated", "state_calc"):
                     continue
                 formula = c_meta.get("formula", "").strip()
                 if not formula:
                     continue
 
+                # ── state_calc: aggregate a STATE from other signals' states ──
+                if ctype == "state_calc":
+                    try:
+                        expr = re.sub(r'\$(\d+)', r'S(\1)', formula)
+                        expr = _preprocess_formula(expr)
+                        if "__" in expr:
+                            continue
+                        result = eval(expr, _state_ns, {})
+                        if isinstance(result, bool):
+                            new_q = "ALARM" if result else "GOOD"
+                        elif isinstance(result, _St):
+                            new_q = result.sym
+                        else:
+                            new_q = "UNCERT"          # formula didn't return a state
+                    except Exception:
+                        new_q = "UNCERT"
+                    new_val = _STATE_SEV.get(new_q, 2)
+
+                    if new_val == c_meta.get("last_value") and new_q == c_meta.get("state"):
+                        continue
+                    prev_state = c_meta.get("state")
+                    c_meta["last_value"]     = new_val
+                    c_meta["state"]          = new_q
+                    c_meta["last_update_ts"] = now_ms_c
+                    if new_q != prev_state:
+                        c_meta["last_change_ts"] = now_ms_c
+
+                    calc_pipe.hset(f"point:{c_id}", mapping={
+                        "value":     str(new_val),
+                        "ts":        str(now_ms_c),
+                        "quality":   new_q,
+                        "type":      "state_calc",
+                        "object":    c_meta["object"],
+                        "system":    c_meta["system"],
+                        "pointname": c_meta["pointname"],
+                        "unit":      c_meta.get("unit", ""),
+                        "min": 0, "max": 4,
+                        "warn_min": 0, "warn_max": 4,
+                        "alarm_min": 0, "alarm_max": 4,
+                        "last_change_ts": c_meta.get("last_change_ts", now_ms_c),
+                    })
+                    calc_pipe.publish("bus:data", c_id)
+                    if prev_state is not None and new_q != prev_state:
+                        calc_pipe.publish("bus:event", json.dumps({
+                            "event":     _state_event_label(prev_state, new_q),
+                            "object":    c_meta["object"],
+                            "drop":      c_meta.get("drop", ""),
+                            "system":    c_meta["system"],
+                            "point_id":  c_id,
+                            "value":     new_val,
+                            "old_state": prev_state,
+                            "new_state": new_q,
+                            "ts":        now_ms_c,
+                        }))
+                    calc_has = True
+                    continue
+
+                # ── calculated: numeric formula ──
                 refs    = [int(m) for m in re.findall(r'\$(\d+)', formula)]
                 worst_q = "GOOD"
                 valid   = True
@@ -900,7 +1086,7 @@ def main():
                     # discrete now streams a timer-heartbeat (hybrid), so silence
                     # IS abnormal → let desync flag NODATA. Others below stay
                     # skipped: no MQTT-device source (stable silence is normal).
-                    if meta.get("type") in ("calculated", "operation_mode", "control"):
+                    if meta.get("type") in ("calculated", "state_calc", "operation_mode", "control"):
                         continue
 
                     if now_ms - meta["last_update_ts"] > timeout:

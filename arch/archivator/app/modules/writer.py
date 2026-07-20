@@ -4,7 +4,7 @@ import time
 import threading
 import redis
 
-_BINARY_TYPES = frozenset({"discrete", "operation_mode", "control"})
+_BINARY_TYPES = frozenset({"discrete", "operation_mode", "control", "state_calc"})
 
 
 class Writer:

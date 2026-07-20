@@ -1076,6 +1076,10 @@ def _point_dict(p: PointIn) -> dict:
     elif t == "calculated":
         for k in _DISCRETE_ONLY | _CONTROL_ONLY:
             d.pop(k, None)
+    elif t == "state_calc":
+        # keeps only `formula` (+ identity, onArchive); state comes from the expr
+        for k in _ANALOG_ONLY | _DISCRETE_ONLY | _CONTROL_ONLY:
+            d.pop(k, None)
     elif t == "control":
         for k in _ANALOG_ONLY | _DISCRETE_ONLY | _CALCULATED_ONLY | {"onArchive"}:
             d.pop(k, None)

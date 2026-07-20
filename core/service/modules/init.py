@@ -76,6 +76,15 @@ def load_points():
                 "alarm_min": p.get("alarm_min", 0),
                 "alarm_max": p.get("alarm_max", 100),
             }
+        elif ptype == "state_calc":
+            # aggregate STATE from other signals' states; value is the severity
+            # rank (0=GOOD … 4=ALARM), limits fixed so the pipeline is uniform
+            meta["formula"] = p.get("formula", "")
+            meta["limits"] = {
+                "min": 0, "max": 4,
+                "warn_min": 0, "warn_max": 4,
+                "alarm_min": 0, "alarm_max": 4,
+            }
         elif ptype == "control":
             meta["formula_on"]             = p.get("formula_on", "")
             meta["formula_off"]            = p.get("formula_off", "")
