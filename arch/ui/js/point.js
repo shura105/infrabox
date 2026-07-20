@@ -389,7 +389,7 @@ function pointApp() {
                     scales[`y_${p.id}`] = {
                         display: this.pointVisible[p.id],
                         position: "left",
-                        min: -0.15, max: 4.15,
+                        min: 0, max: 4,
                         ticks: {
                             color: tickColor,
                             stepSize: 1,
