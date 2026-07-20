@@ -248,6 +248,16 @@ class Writer:
                 if now - last_arch < threshold:
                     continue  # вже писали null нещодавно
 
+                # тиша на bus:data ще не означає, що точка мертва: core шле лише
+                # зміни, тож стабільне значення виглядає як мовчання. Розрив пишемо
+                # тільки коли quality це підтверджує.
+                try:
+                    quality = self.r.hget(f"point:{point_id}", "quality")
+                except Exception:
+                    quality = None
+                if quality not in ("NODATA", "UNCERT"):
+                    continue
+
                 self.volume.write("values", {
                     "ts": int(now),
                     "point_id": point_id,
