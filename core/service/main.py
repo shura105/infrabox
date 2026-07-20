@@ -586,7 +586,7 @@ def main():
 
                     calc_pipe.hset(f"point:{c_id}", mapping={
                         "value":     str(new_val),
-                        "ts":        str(now_ms_c),
+                        "ts":        str(now_ms_c // 1000),
                         "quality":   new_q,
                         "type":      "state_calc",
                         "object":    c_meta["object"],
@@ -657,7 +657,7 @@ def main():
                 lim = c_meta["limits"]
                 calc_pipe.hset(f"point:{c_id}", mapping={
                     "value":     str(new_val) if new_val is not None else "",
-                    "ts":        str(now_ms_c),
+                    "ts":        str(now_ms_c // 1000),
                     "quality":   new_q,
                     "type":      "calculated",
                     "object":    c_meta["object"],
