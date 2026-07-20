@@ -6,8 +6,8 @@ let _abortController = null;
 let _renderGeneration = 0;
 
 const _BINARY_TYPES  = new Set(["discrete", "operation_mode", "control"]);
-// state_calc: value is a severity rank 0..4 → these labels on the Y axis
-const _STATE_LABELS  = ["GOOD", "INIT", "UNCERT", "WARN", "ALARM"];
+// state_calc: archived value is a plot level 0..4 (bottom→top) → these labels
+const _STATE_LABELS  = ["INIT", "UNCERT", "GOOD", "WARN", "ALARM"];
 const _CHART_COLORS  = ["#7eb8f7", "#f7a27e", "#7ef7a2", "#f7e27e"];
 
 

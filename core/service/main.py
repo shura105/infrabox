@@ -101,6 +101,9 @@ def _preprocess_formula(expr: str) -> str:
 # NODATA (dead/silent sensor) folds into ALARM.
 _STATE_SEV = {"GOOD": 0, "INIT": 1, "UNCERT": 2, "WARN": 3, "ALARM": 4, "NODATA": 4}
 _SEV_STATE = {0: "GOOD", 1: "INIT", 2: "UNCERT", 3: "WARN", 4: "ALARM"}
+# Plot level (archived value): vertical order bottom→top on the chart —
+# INIT < UNCERT < GOOD < WARN < ALARM. Independent of severity (worst()).
+_STATE_PLOT = {"INIT": 0, "UNCERT": 1, "GOOD": 2, "WARN": 3, "ALARM": 4, "NODATA": 4}
 
 
 class _St(int):
@@ -573,7 +576,7 @@ def main():
                             new_q = "UNCERT"          # formula didn't return a state
                     except Exception:
                         new_q = "UNCERT"
-                    new_val = _STATE_SEV.get(new_q, 2)
+                    new_val = _STATE_PLOT.get(new_q, 1)   # archived value = plot level
 
                     if new_val == c_meta.get("last_value") and new_q == c_meta.get("state"):
                         continue
